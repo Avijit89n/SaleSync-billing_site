@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from "react-router-dom"
+import { Routes, Route, useLocation, Navigate } from "react-router-dom"
 import SidebarLayout from "./pages/layout/Sidebar.Layout.jsx"
 import Home from "./pages/user/home.jsx"
 import Customer from "./pages/user/customer.jsx"
@@ -44,6 +44,7 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/" element={<Navigate to="/auth/login" replace />} />
       <Route
         path="/auth/"
         element={
