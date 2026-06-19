@@ -463,85 +463,98 @@ function AddInvoice() {
         />
       ).toBlob();
 
+      // ==========================
+      // MOBILE
+      // ==========================
       if (isMobile) {
-        // --- MOBILE: NATIVE WEB SHARE API ---
-        // 1. Convert the raw Blob into a proper File object
-        const file = new File([blob], `Invoice-${invoiceNumberSequence}.pdf`, {
-          type: "application/pdf",
-        });
-
-        // 2. Check if the mobile device supports sharing files
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: `Invoice-${invoiceNumberSequence}`,
-            });
-            document.title = originalTitle;
-            return; // Exit if share was successful!
-          } catch (shareErr) {
-            console.log("User cancelled share or it failed.");
+        const file = new File(
+          [blob],
+          `Invoice-${invoiceNumberSequence}.pdf`,
+          {
+            type: "application/pdf",
           }
+        );
+
+        if (
+          navigator.share &&
+          navigator.canShare &&
+          navigator.canShare({ files: [file] })
+        ) {
+          await navigator.share({
+            files: [file],
+            title: `Invoice-${invoiceNumberSequence}`,
+            text: `Invoice ${invoiceNumberSequence}`,
+          });
+
+          document.title = originalTitle;
+          return;
         }
 
-        // 3. Fallback for older mobile browsers that don't support Web Share
-        const blobUrl = URL.createObjectURL(blob);
-        const printWindow = window.open("", "_blank");
+        // Fallback: Download PDF
+        const url = URL.createObjectURL(blob);
 
-        if (printWindow) {
-          // Open directly to the PDF URL (no HTML wrapper)
-          printWindow.location.href = blobUrl;
-        } else {
-          // Absolute last resort if popup blocked
-          window.location.href = blobUrl;
-        }
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Invoice-${invoiceNumberSequence}.pdf`;
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
         setTimeout(() => {
-          URL.revokeObjectURL(blobUrl);
-          document.title = originalTitle;
-        }, 10000);
+          URL.revokeObjectURL(url);
+        }, 5000);
 
-      } else {
-        // --- DESKTOP: SILENT IFRAME PRINT ---
-        const blobUrl = URL.createObjectURL(blob);
-        const iframe = document.createElement("iframe");
-        iframe.style.position = "fixed";
-        iframe.style.right = "0";
-        iframe.style.bottom = "0";
-        iframe.style.width = "0";
-        iframe.style.height = "0";
-        iframe.style.border = "0";
-        iframe.src = blobUrl;
+        toast.info(
+          "PDF downloaded. Open it and use your PDF viewer's Print option."
+        );
 
-        document.body.appendChild(iframe);
-
-        iframe.onload = () => {
-          const cleanup = () => {
-            try {
-              URL.revokeObjectURL(blobUrl);
-              if (document.body.contains(iframe)) {
-                document.body.removeChild(iframe);
-              }
-            } catch (err) {
-              console.error("Print cleanup failed:", err);
-            } finally {
-              document.title = originalTitle;
-            }
-          };
-
-          if (iframe.contentWindow) {
-            iframe.contentWindow.onafterprint = cleanup;
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-          }
-
-          setTimeout(cleanup, 10000);
-        };
+        document.title = originalTitle;
+        return;
       }
+
+      // ==========================
+      // DESKTOP PRINT
+      // ==========================
+      const blobUrl = URL.createObjectURL(blob);
+
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.src = blobUrl;
+
+      document.body.appendChild(iframe);
+
+      iframe.onload = () => {
+        const cleanup = () => {
+          try {
+            URL.revokeObjectURL(blobUrl);
+
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+          } catch (err) {
+            console.error(err);
+          } finally {
+            document.title = originalTitle;
+          }
+        };
+
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+
+        iframe.contentWindow.onafterprint = cleanup;
+
+        setTimeout(cleanup, 10000);
+      };
     } catch (err) {
       document.title = originalTitle;
       console.error(err);
-      toast.error("Failed to trigger print.");
+      toast.error("Failed to generate invoice PDF.");
       throw err;
     }
   };
