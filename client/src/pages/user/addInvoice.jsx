@@ -41,7 +41,7 @@ import {
 // Redux Actions
 import { getAllCustomerReq, customerSearchReq, clearSearchedCustomers } from '@/redux/features/customerSlice';
 import { getAllItemReq, itemSearchReq, clearSearchedItems } from '@/redux/features/itemSlice';
-import { pdf, PDFViewer } from '@react-pdf/renderer';
+import { pdf, PDFViewer, BlobProvider } from '@react-pdf/renderer';
 import InvoiceDesign1 from '@/components/other-ui/invoice-design-1';
 import { addInvoiceReq } from '@/redux/features/invoiceSlice';
 import api from '@/axios/interceptor';
@@ -153,6 +153,7 @@ function AddInvoice() {
 
   const hasNoCustomerSearchResults = isSearchingCustomers && !customersSearchLoading && customerDropdownItems.length === 0;
   const hasNoItemSearchResults = isSearchingItems && !itemSearchLoading && itemSearchDropdownItems.length === 0;
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   useEffect(() => {
     if (allcustomers.length === 0) fetchCustomers(10);
@@ -464,40 +465,56 @@ function AddInvoice() {
       ).toBlob();
 
       const blobUrl = URL.createObjectURL(blob);
-      const iframe = document.createElement("iframe");
 
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "0";
-      iframe.src = blobUrl;
+      // Detect mobile devices using User Agent
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-      document.body.appendChild(iframe);
+      if (isMobile) {
+        // Mobile fallback: Open PDF in a new tab for native OS handling
+        window.open(blobUrl, "_blank");
 
-      iframe.onload = () => {
-        const cleanup = () => {
-          try {
-            URL.revokeObjectURL(blobUrl);
-            if (document.body.contains(iframe)) {
-              document.body.removeChild(iframe);
+        // Cleanup after a short delay to ensure the browser fetches the blob
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl);
+          document.title = originalTitle;
+        }, 3000);
+
+      } else {
+        // Desktop behavior: Silent print via hidden iframe
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.right = "0";
+        iframe.style.bottom = "0";
+        iframe.style.width = "0";
+        iframe.style.height = "0";
+        iframe.style.border = "0";
+        iframe.src = blobUrl;
+
+        document.body.appendChild(iframe);
+
+        iframe.onload = () => {
+          const cleanup = () => {
+            try {
+              URL.revokeObjectURL(blobUrl);
+              if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+              }
+            } catch (err) {
+              console.error("Print cleanup failed:", err);
+            } finally {
+              document.title = originalTitle;
             }
-          } catch (err) {
-            console.error("Print cleanup failed:", err);
-          } finally {
-            document.title = originalTitle;
+          };
+
+          if (iframe.contentWindow) {
+            iframe.contentWindow.onafterprint = cleanup;
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
           }
+
+          setTimeout(cleanup, 10000);
         };
-
-        if (iframe.contentWindow) {
-          iframe.contentWindow.onafterprint = cleanup;
-          iframe.contentWindow.focus();
-          iframe.contentWindow.print();
-        }
-
-        setTimeout(cleanup, 10000);
-      };
+      }
     } catch (err) {
       document.title = originalTitle;
       console.error(err);
@@ -1585,27 +1602,89 @@ function AddInvoice() {
             </div>
 
             {/* Safe Iframe Sandboxed Render Window */}
-            <div className="flex-1 w-full bg-slate-100 p-3">
-              {previewOpen && <PDFViewer width="100%" height="100%" showToolbar={true} className="border-0 rounded-xl shadow-inner bg-slate-200">
-                <InvoiceDesign1
-                  invoiceNumberSequence={invoiceNumberSequence}
-                  isPaid={isPaid}
-                  selectedCustomer={selectedCustomer}
-                  itemData={itemData}
-                  subtotal={subtotal}
-                  totalDiscount={totalDiscount}
-                  taxRate={taxRate}
-                  taxedAmount={taxedAmount}
-                  grandTotal={grandTotal}
-                  notes={notes}
-                  terms={terms}
-                  issueDate={invoiceIssueDate}
-                  dueDate={invoiceDueDate}
-                  companyInfo={companyInfo}
-                  companyLogo={companyInfo?.logo || ""}
-                  companySignature={companyInfo?.signature || ""}
-                />
-              </PDFViewer>}
+            {/* Safe Iframe Sandboxed Render Window */}
+            <div className="flex-1 w-full bg-slate-100 p-3 overflow-hidden">
+              {previewOpen && (
+                isMobile ? (
+                  // --- MOBILE VIEW ---
+                  <BlobProvider document={
+                    <InvoiceDesign1
+                      invoiceNumberSequence={invoiceNumberSequence}
+                      isPaid={isPaid}
+                      selectedCustomer={selectedCustomer}
+                      itemData={itemData}
+                      subtotal={subtotal}
+                      totalDiscount={totalDiscount}
+                      taxRate={taxRate}
+                      taxedAmount={taxedAmount}
+                      grandTotal={grandTotal}
+                      notes={notes}
+                      terms={terms}
+                      issueDate={invoiceIssueDate}
+                      dueDate={invoiceDueDate}
+                      isPreview={true}
+                      companyInfo={companyInfo}
+                      companyLogo={companyInfo?.logo || ""}
+                      companySignature={companyInfo?.signature || ""}
+                    />
+                  }>
+                    {({ blob, url, loading, error }) => {
+                      if (loading) {
+                        return (
+                          <div className="h-full flex flex-col items-center justify-center space-y-3">
+                            <Loader2 />
+                            <p className="text-sm text-slate-500 font-medium animate-pulse">Generating preview...</p>
+                          </div>
+                        );
+                      }
+                      if (error) {
+                        return <div className="h-full flex items-center justify-center text-rose-500 font-bold">Failed to load preview.</div>;
+                      }
+
+                      return (
+                        <div className="h-full flex flex-col items-center justify-center space-y-4 text-center p-6 bg-white rounded-xl shadow-inner border border-slate-200">
+                          <div className="bg-orange-50 p-4 rounded-full mb-2">
+                            <FilePlusCorner size={36} className="text-orange-500" />
+                          </div>
+                          <h3 className="text-xl font-bold text-slate-800">Preview is Ready</h3>
+                          <p className="text-sm text-slate-500 max-w-sm leading-relaxed">
+                            Mobile browsers restrict embedded document viewers. Tap below to securely open your PDF preview.
+                          </p>
+                          <Button
+                            onClick={() => window.open(url, "_blank")}
+                            className="bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold h-12 px-8 rounded-xl mt-4 shadow-lg transition-all flex items-center gap-2"
+                          >
+                            <Eye size={20} /> Open PDF Preview
+                          </Button>
+                        </div>
+                      );
+                    }}
+                  </BlobProvider>
+                ) : (
+                  // --- DESKTOP VIEW ---
+                  <PDFViewer width="100%" height="100%" showToolbar={true} className="border-0 rounded-xl shadow-inner bg-slate-200">
+                    <InvoiceDesign1
+                      invoiceNumberSequence={invoiceNumberSequence}
+                      isPaid={isPaid}
+                      selectedCustomer={selectedCustomer}
+                      itemData={itemData}
+                      subtotal={subtotal}
+                      totalDiscount={totalDiscount}
+                      taxRate={taxRate}
+                      taxedAmount={taxedAmount}
+                      grandTotal={grandTotal}
+                      notes={notes}
+                      terms={terms}
+                      issueDate={invoiceIssueDate}
+                      dueDate={invoiceDueDate}
+                      isPreview={true}
+                      companyInfo={companyInfo}
+                      companyLogo={companyInfo?.logo || ""}
+                      companySignature={companyInfo?.signature || ""}
+                    />
+                  </PDFViewer>
+                )
+              )}
             </div>
           </DialogContent>
         </Dialog>
