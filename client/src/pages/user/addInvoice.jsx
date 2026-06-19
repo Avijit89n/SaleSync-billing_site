@@ -153,7 +153,7 @@ function AddInvoice() {
 
   const hasNoCustomerSearchResults = isSearchingCustomers && !customersSearchLoading && customerDropdownItems.length === 0;
   const hasNoItemSearchResults = isSearchingItems && !itemSearchLoading && itemSearchDropdownItems.length === 0;
-  
+
   // Mobile device detection
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -463,38 +463,38 @@ function AddInvoice() {
         />
       ).toBlob();
 
-      const blobUrl = URL.createObjectURL(blob);
-
       if (isMobile) {
-        // --- MOBILE HTML WRAPPER HACK ---
-        // Open blank window immediately to bypass pop-up blockers
-        const printWindow = window.open("", "_blank");
-        
-        if (!printWindow) {
-          toast.error("Please allow pop-ups to print.");
-          return;
+        // --- MOBILE: NATIVE WEB SHARE API ---
+        // 1. Convert the raw Blob into a proper File object
+        const file = new File([blob], `Invoice-${invoiceNumberSequence}.pdf`, {
+          type: "application/pdf",
+        });
+
+        // 2. Check if the mobile device supports sharing files
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `Invoice-${invoiceNumberSequence}`,
+            });
+            document.title = originalTitle;
+            return; // Exit if share was successful!
+          } catch (shareErr) {
+            console.log("User cancelled share or it failed.");
+          }
         }
 
-        // We write an HTML page into the new tab.
-        // The iframe will load the PDF, and the onload function will trigger the native print dialog.
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>Print Invoice-${invoiceNumberSequence}</title>
-              <style>
-                body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #f1f5f9; }
-                iframe { width: 100vw; height: 100vh; border: none; }
-              </style>
-            </head>
-            <body>
-              <iframe 
-                src="${blobUrl}" 
-                onload="window.focus(); setTimeout(function() { window.print(); }, 500);"
-              ></iframe>
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
+        // 3. Fallback for older mobile browsers that don't support Web Share
+        const blobUrl = URL.createObjectURL(blob);
+        const printWindow = window.open("", "_blank");
+
+        if (printWindow) {
+          // Open directly to the PDF URL (no HTML wrapper)
+          printWindow.location.href = blobUrl;
+        } else {
+          // Absolute last resort if popup blocked
+          window.location.href = blobUrl;
+        }
 
         setTimeout(() => {
           URL.revokeObjectURL(blobUrl);
@@ -502,7 +502,8 @@ function AddInvoice() {
         }, 10000);
 
       } else {
-        // --- DESKTOP SILENT IFRAME PRINT ---
+        // --- DESKTOP: SILENT IFRAME PRINT ---
+        const blobUrl = URL.createObjectURL(blob);
         const iframe = document.createElement("iframe");
         iframe.style.position = "fixed";
         iframe.style.right = "0";
@@ -549,12 +550,12 @@ function AddInvoice() {
     if (isMobile) {
       // 1. Open a blank window immediately to bypass popup blockers
       const previewWindow = window.open("", "_blank");
-      
+
       if (!previewWindow) {
         toast.error("Please allow pop-ups to view the PDF preview.");
         return;
       }
-      
+
       previewWindow.document.write(
         "<div style='font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; color: #64748b; background-color: #f8fafc;'>Generating Preview...</div>"
       );
@@ -1678,27 +1679,27 @@ function AddInvoice() {
             {/* Safe Iframe Sandboxed Render Window */}
             <div className="flex-1 w-full bg-slate-100 p-3 overflow-hidden">
               {previewOpen && !isMobile && (
-                  <PDFViewer width="100%" height="100%" showToolbar={true} className="border-0 rounded-xl shadow-inner bg-slate-200">
-                    <InvoiceDesign1
-                      invoiceNumberSequence={invoiceNumberSequence}
-                      isPaid={isPaid}
-                      selectedCustomer={selectedCustomer}
-                      itemData={itemData}
-                      subtotal={subtotal}
-                      totalDiscount={totalDiscount}
-                      taxRate={taxRate}
-                      taxedAmount={taxedAmount}
-                      grandTotal={grandTotal}
-                      notes={notes}
-                      terms={terms}
-                      issueDate={invoiceIssueDate}
-                      dueDate={invoiceDueDate}
-                      isPreview={true}
-                      companyInfo={companyInfo}
-                      companyLogo={companyInfo?.logo || ""}
-                      companySignature={companyInfo?.signature || ""}
-                    />
-                  </PDFViewer>
+                <PDFViewer width="100%" height="100%" showToolbar={true} className="border-0 rounded-xl shadow-inner bg-slate-200">
+                  <InvoiceDesign1
+                    invoiceNumberSequence={invoiceNumberSequence}
+                    isPaid={isPaid}
+                    selectedCustomer={selectedCustomer}
+                    itemData={itemData}
+                    subtotal={subtotal}
+                    totalDiscount={totalDiscount}
+                    taxRate={taxRate}
+                    taxedAmount={taxedAmount}
+                    grandTotal={grandTotal}
+                    notes={notes}
+                    terms={terms}
+                    issueDate={invoiceIssueDate}
+                    dueDate={invoiceDueDate}
+                    isPreview={true}
+                    companyInfo={companyInfo}
+                    companyLogo={companyInfo?.logo || ""}
+                    companySignature={companyInfo?.signature || ""}
+                  />
+                </PDFViewer>
               )}
             </div>
           </DialogContent>
