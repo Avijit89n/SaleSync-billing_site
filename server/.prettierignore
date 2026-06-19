@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out/
+.next/
+.vite/
+
+# Coverage & logs
+coverage/
+logs/
+*.log
+
+# Lock files (avoid noise)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment
+.env
+.env.*
+
+# Static / Generated files
+public/
+uploads/
+tmp/
+
+# Database
+*.db
+*.sqlite
+
+# Minified files
+*.min.js
+*.min.css

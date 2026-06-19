@@ -1,0 +1,159 @@
+import api from "@/axios/interceptor";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+
+// Initial State Blueprint matching the UI Consumption specifications
+const initialState = {
+    invoices: [],
+    searchedInvoices: [],
+    searchLoading: false,
+    searchIsEnd: false,
+    searchNextCursor: null,
+    invoiceLoading: false,
+    error: null,
+    isEnd: false,
+    nextCursor: null,
+}
+
+// 1. Add Invoice Thunk
+export const addInvoiceReq = createAsyncThunk(
+    "invoice/add",
+    async (data, thunkAPI) => {
+        try {
+            const res = await api.post("/invoice/add-invoice", data);
+            return res.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response?.data || "Failed to add invoice"
+            );
+        }
+    }
+);
+
+// 2. Paginated Base List Fetching Thunk
+export const getAllInvoiceReq = createAsyncThunk(
+    "invoice/get-all",
+    async (data, thunkAPI) => {
+        const { limit, lastCreatedAt } = data;
+        try {
+            const res = await api.get(`/invoice/get-all`, {
+                params: {
+                    limit,
+                    lastCreatedAt
+                }
+            });
+            return res.data?.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response?.data || "Failed to get all invoices"
+            );
+        }
+    }
+);
+
+// 3. Search Invoices with Native Abort Controller Signals Supported
+export const invoiceSearchReq = createAsyncThunk(
+    "invoice/search",
+    async (data, thunkAPI) => {
+        const { limit, cursor, search } = data;
+
+        try {
+            const res = await api.get(`/invoice/invoice-search`, {
+                params: {
+                    limit,
+                    cursor,
+                    search
+                },
+                signal: thunkAPI.signal
+            });
+            return {
+                cursor,
+                results: res.data?.data
+            };
+        } catch (error) {
+            if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+                return thunkAPI.rejectWithValue("Request canceled");
+            }
+
+            return thunkAPI.rejectWithValue(
+                error.response?.data || "Failed to search invoices"
+            );
+        }
+    }
+);
+
+const invoiceSlice = createSlice({
+    name: "invoice",
+    initialState,
+    reducers: {
+        // Essential reducer utilized by the debounce watcher to clean up searching states
+        clearSearchedInvoices: (state) => {
+            state.searchedInvoices = [];
+            state.searchNextCursor = null;
+            state.searchIsEnd = false;
+            state.searchLoading = false;
+        }
+    },
+    extraReducers: (builder) => {
+        builder
+            // Add Invoice Lifecycle Actions
+            .addCase(addInvoiceReq.pending, (state) => {
+                state.invoiceLoading = true;
+                state.error = null;
+            })
+            .addCase(addInvoiceReq.fulfilled, (state, action) => {
+                state.invoiceLoading = false;
+                state.invoices = [action.payload?.data, ...state.invoices];
+                state.error = null;
+            })
+            .addCase(addInvoiceReq.rejected, (state, action) => {
+                state.invoiceLoading = false;
+                state.error = action.payload;
+            })
+
+            // Get All Invoices Pagination Lifecycle Actions
+            .addCase(getAllInvoiceReq.pending, (state) => {
+                state.invoiceLoading = true;
+                state.error = null;
+            })
+            .addCase(getAllInvoiceReq.fulfilled, (state, action) => {
+                state.invoiceLoading = false;
+                state.invoices = [...state.invoices, ...action.payload.invoices];
+                state.isEnd = action.payload.isEnd;
+                state.nextCursor = action.payload.nextCursor;
+                state.error = null;
+            })
+            .addCase(getAllInvoiceReq.rejected, (state, action) => {
+                state.invoiceLoading = false;
+                state.error = action.payload;
+            })
+
+            // Search Invoices Infinite Scrolling Lifecycle Actions
+            .addCase(invoiceSearchReq.pending, (state) => {
+                state.searchLoading = true;
+                state.error = null;
+            })
+            .addCase(invoiceSearchReq.fulfilled, (state, action) => {
+                state.searchLoading = false;
+
+                // If cursor is passed append new results, else overwrite array context
+                state.searchedInvoices = action.payload.cursor
+                    ? [...state.searchedInvoices, ...action.payload.results.invoices]
+                    : action.payload.results.invoices;
+
+                state.searchNextCursor = action.payload.results.nextCursor;
+                state.searchIsEnd = action.payload.results.isEnd;
+                state.error = null;
+            })
+            .addCase(invoiceSearchReq.rejected, (state, action) => {
+                state.searchLoading = false;
+                // Avoid flushing out matching UI state values if request is cancelled via search typing
+                if (action.payload !== "Request canceled") {
+                    state.error = action.payload;
+                    state.searchedInvoices = [];
+                }
+            });
+    }
+});
+
+export default invoiceSlice.reducer;
+export const { clearSearchedInvoices } = invoiceSlice.actions;
