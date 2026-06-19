@@ -61,53 +61,55 @@ const addInvoice = async (req, res) => {
 
         const invoiceItems = [];
         console.log("check1")
-        // Check stock + Reduce stock
+
+        // Loop through items and handle Listed vs. Custom items
         for (const invoiceItem of items) {
-            const item = await Item.findById(
-                invoiceItem.itemId
-            ).session(session);
+            let dbItemId = null;
 
-            if (!item) {
-                throw new ApiError(`${invoiceItem.name} does not exist`, 400);
+            // 1. Check if it is a LISTED item (has an itemId from the database)
+            if (invoiceItem.itemId) {
+                const item = await Item.findById(invoiceItem.itemId).session(session);
+
+                if (!item) {
+                    throw new ApiError(`${invoiceItem.name} does not exist in inventory`, 400);
+                }
+
+                if (item.status !== "Active") {
+                    throw new ApiError(`${item.name} is inactive`, 400);
+                }
+
+                if (item.stock < invoiceItem.quantity) {
+                    throw new ApiError(`${item.name} has only ${item.stock} ${item.unit} left in stock`, 400);
+                }
+
+                // Deduct stock for database items
+                item.stock -= invoiceItem.quantity;
+                await item.save({ session });
+
+                dbItemId = item._id; // Store the DB ID to link to the invoice
             }
+            // If it's a CUSTOM item, it simply skips the DB lookup and stock deduction
 
-            if (item.status !== "Active") {
-                throw new ApiError(`${item.name} is inactive`, 400);
-            }
-
-            if (item.stock < invoiceItem.quantity) {
-                throw new ApiError(`${item.name} has only ${item.stock} ${item.unit} left in stock`, 400);
-            }
-
-            item.stock -= invoiceItem.quantity;
-
-            await item.save({ session });
-
+            // 2. Calculate Discounts (Applies to BOTH Listed and Custom items)
             let discountAmount = 0;
 
             if (invoiceItem.discountType === "%") {
                 discountAmount =
-                    ((invoiceItem.sellingPrice *
-                        invoiceItem.discount) /
-                        100) *
-                    invoiceItem.quantity;
+                    ((invoiceItem.sellingPrice * invoiceItem.discount) / 100) * invoiceItem.quantity;
             } else {
-                discountAmount =
-                    invoiceItem.discount *
-                    invoiceItem.quantity;
+                discountAmount = invoiceItem.discount * invoiceItem.quantity;
             }
 
+            // 3. Push to invoice items array
             invoiceItems.push({
-                itemID: item._id,
+                itemID: dbItemId, // Will be null for custom items, which is perfectly fine
                 quantity: invoiceItem.quantity,
                 itemName: invoiceItem.name,
-                itemMRP: invoiceItem.MRP,
+                itemUnit: invoiceItem.unit || "pcs", // Ensure custom units are saved!
+                itemMRP: invoiceItem.MRP || 0,
                 itemSellingPrice: invoiceItem.sellingPrice,
-                itemDiscount: invoiceItem.discount,
-                itemDiscountType:
-                    invoiceItem.discountType === "%"
-                        ? "percentage"
-                        : "fixed",
+                itemDiscount: invoiceItem.discount || 0,
+                itemDiscountType: invoiceItem.discountType === "%" ? "percentage" : "fixed",
                 itemImage: invoiceItem.image || null,
                 itemDiscountAmount: discountAmount,
             });

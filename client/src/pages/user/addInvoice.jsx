@@ -58,7 +58,7 @@ const initialItemData = {
   discountType: "%",
   MRP: 0.00,
   unit: "",
-  sellingPrice: 0.00
+  sellingPrice: 0.00 
 };
 
 const labelCls = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
@@ -292,7 +292,7 @@ function AddInvoice() {
         discount: Number(item.discount) || 0,
         discountType: item.discountType || "%",
         image: item.image || null,
-        unit: item.unit || "pcs"
+        unit: item.unit || ""
       };
 
       if (item._id && item._id.trim() !== "") {
@@ -1082,17 +1082,11 @@ function AddInvoice() {
                                 <ComboboxInput
                                   id={`desktop-item-${index}`}
                                   className={inputCls}
-                                  placeholder="Type to search stock inventory..."
-                                  value={
-                                    activeRowIndex === index
-                                      ? itemSearchValue || data.name
-                                      : data.name
-                                  }
+                                  placeholder="Search inventory or type custom item..."
+                                  value={data.name}
                                   onFocus={() => {
                                     setActiveRowIndex(index);
-                                    // FIX: Always reset search value on focus so the full list opens,
-                                    // instead of filtering down to just the currently selected item.
-                                    setItemSearchValue("");
+                                    setItemSearchValue(data.name);
                                     dispatch(clearSearchedItems());
                                   }}
                                   onChange={(e) => {
@@ -1101,23 +1095,20 @@ function AddInvoice() {
                                     setActiveRowIndex(index);
                                     setItemSearchValue(value);
 
-                                    if (value === "") {
-                                      setItemData(prev =>
-                                        prev.map((it, i) =>
-                                          i === index
-                                            ? {
-                                              ...it,
-                                              _id: "",
-                                              name: "",
-                                              MRP: 0,
-                                              sellingPrice: 0,
-                                              image: null,
-                                              unit: "",
-                                            }
-                                            : it
-                                        )
-                                      );
+                                    setItemData(prev =>
+                                      prev.map((it, i) =>
+                                        i === index
+                                          ? {
+                                            ...it,
+                                            name: value,
+                                            _id: "",
+                                            ...(value === "" ? { MRP: 0, sellingPrice: 0, image: null, unit: "" } : {})
+                                          }
+                                          : it
+                                      )
+                                    );
 
+                                    if (value === "") {
                                       dispatch(clearSearchedItems());
                                     }
                                   }}
@@ -1126,7 +1117,9 @@ function AddInvoice() {
                                   {(isItemDebouncing && activeRowIndex === index) || (itemSearchLoading && itemSearchDropdownItems.length === 0) ? (
                                     <div className="p-4 flex justify-center w-full"><Loader2 /></div>
                                   ) : hasNoItemSearchResults && activeRowIndex === index ? (
-                                    <ComboboxEmpty className="p-4 text-center text-sm text-slate-400">No matching item records located.</ComboboxEmpty>
+                                    <ComboboxEmpty className="p-4 text-center text-sm text-slate-500 bg-slate-50/50 rounded-b-lg">
+                                      <span className="font-bold text-slate-800">"{itemSearchValue}" {"\u00A0"}</span> will be saved as a custom item.
+                                    </ComboboxEmpty>
                                   ) : (
                                     <ComboboxList className="max-h-[240px] overflow-y-auto" id={`item-scroll-container-${index}`}>
                                       <InfiniteScroll
@@ -1204,9 +1197,20 @@ function AddInvoice() {
                               className="w-16 h-11 px-2 bg-white border border-slate-300 border-r-0 rounded-l-lg text-sm text-center font-semibold"
                             />
 
-                            <span className="h-11 px-3 flex items-center justify-center bg-slate-50 border border-slate-300 rounded-r-lg text-[11px] font-bold text-slate-600 uppercase shrink-0">
-                              {data.unit || "pcs"}
-                            </span>
+                            {!data._id ? (
+                              <input
+                                type="text"
+                                value={data.unit}
+                                onChange={(e) => updateItem(index, "unit", e.target.value)}
+                                placeholder="Unit"
+                                className="w-14 h-11 px-1 bg-white border border-slate-300 rounded-r-lg text-[11px] font-bold text-slate-600 uppercase text-center focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500 focus:z-10 shrink-0"
+                                maxLength={5}
+                              />
+                            ) : (
+                              <span className="w-14 h-11 px-1 flex items-center justify-center bg-slate-50 border border-slate-300 rounded-r-lg text-[11px] font-bold text-slate-600 uppercase shrink-0">
+                                {data.unit || ""}
+                              </span>
+                            )}
                           </div>
                         </TableCell>
 
@@ -1309,16 +1313,11 @@ function AddInvoice() {
                             <ComboboxInput
                               id={`mobile-item-${index}`}
                               className={inputCls}
-                              placeholder="Select descriptor..."
-                              value={
-                                activeRowIndex === index
-                                  ? itemSearchValue || data.name
-                                  : data.name
-                              }
+                              placeholder="Search or type custom item..."
+                              value={data.name}
                               onFocus={() => {
                                 setActiveRowIndex(index);
-                                // FIX: Always reset search value on focus so the full list opens
-                                setItemSearchValue("");
+                                setItemSearchValue(data.name);
                                 dispatch(clearSearchedItems());
                               }}
                               onChange={(e) => {
@@ -1327,71 +1326,76 @@ function AddInvoice() {
                                 setActiveRowIndex(index);
                                 setItemSearchValue(value);
 
-                                if (value === "") {
-                                  setItemData(prev =>
-                                    prev.map((it, i) =>
-                                      i === index
-                                        ? {
-                                          ...it,
-                                          _id: "",
-                                          name: "",
-                                          MRP: 0,
-                                          sellingPrice: 0,
-                                          image: null,
-                                          unit: "",
-                                        }
-                                        : it
-                                    )
-                                  );
+                                setItemData(prev =>
+                                  prev.map((it, i) =>
+                                    i === index
+                                      ? {
+                                        ...it,
+                                        name: value,
+                                        _id: "",
+                                        ...(value === "" ? { MRP: 0, sellingPrice: 0, image: null, unit: "" } : {})
+                                      }
+                                      : it
+                                  )
+                                );
 
+                                if (value === "") {
                                   dispatch(clearSearchedItems());
                                 }
                               }}
                             />
                             <ComboboxContent className="border border-slate-200 bg-white w-full z-50">
-                              <ComboboxList className="max-h-[200px] overflow-y-auto" id={`item-mobile-scroll-${index}`}>
-                                <InfiniteScroll
-                                  dataLength={itemSearchDropdownItems.length}
-                                  next={() => {
-                                    if (!isSearchingItems) {
-                                      fetchItems(10, itemNextCursor);
-                                    } else {
-                                      searchItemPagination(10, itemsearchNextCursor);
-                                    }
-                                  }}
-                                  hasMore={!isSearchingItems ? !itemIsEnd : !itemsearchIsEnd}
-                                  scrollableTarget={`item-mobile-scroll-${index}`}
-                                  loader={<div className="py-1 text-center"><Loader2 /></div>}
-                                >
-                                  {itemSearchDropdownItems.map((prod) => (
-                                    <ComboboxItem key={prod._id} value={prod._id} className="py-2.5 font-medium cursor-pointer"
-                                      onClick={() => {
-                                        setItemData(prev =>
-                                          prev.map((it, i) =>
-                                            i === index
-                                              ? {
-                                                ...it,
-                                                _id: prod._id,
-                                                name: prod.name,
-                                                MRP: prod.MRP || 0,
-                                                sellingPrice: prod.sellingPrice || 0,
-                                                image: prod.image || null,
-                                                unit: prod.unit || "",
-                                              }
-                                              : it
-                                          )
-                                        );
+                              {(isItemDebouncing && activeRowIndex === index) || (itemSearchLoading && itemSearchDropdownItems.length === 0) ? (
+                                <div className="p-4 flex justify-center w-full"><Loader2 /></div>
+                              ) : hasNoItemSearchResults && activeRowIndex === index ? (
+                                <ComboboxEmpty className="p-4 text-center text-sm text-slate-500 bg-slate-50/50 rounded-b-lg">
+                                  <span className="font-bold text-slate-800">"{itemSearchValue}" {"\u00A0"}</span> will be saved as a custom item.
+                                </ComboboxEmpty>
+                              ) : (
+                                <ComboboxList className="max-h-[200px] overflow-y-auto" id={`item-mobile-scroll-${index}`}>
+                                  <InfiniteScroll
+                                    dataLength={itemSearchDropdownItems.length}
+                                    next={() => {
+                                      if (!isSearchingItems) {
+                                        fetchItems(10, itemNextCursor);
+                                      } else {
+                                        searchItemPagination(10, itemsearchNextCursor);
+                                      }
+                                    }}
+                                    hasMore={!isSearchingItems ? !itemIsEnd : !itemsearchIsEnd}
+                                    scrollableTarget={`item-mobile-scroll-${index}`}
+                                    loader={<div className="py-1 text-center"><Loader2 /></div>}
+                                  >
+                                    {itemSearchDropdownItems.map((prod) => (
+                                      <ComboboxItem key={prod._id} value={prod._id} className="py-2.5 font-medium cursor-pointer"
+                                        onClick={() => {
+                                          setItemData(prev =>
+                                            prev.map((it, i) =>
+                                              i === index
+                                                ? {
+                                                  ...it,
+                                                  _id: prod._id,
+                                                  name: prod.name,
+                                                  MRP: prod.MRP || 0,
+                                                  sellingPrice: prod.sellingPrice || 0,
+                                                  image: prod.image || null,
+                                                  unit: prod.unit || "",
+                                                }
+                                                : it
+                                            )
+                                          );
 
-                                        setActiveRowIndex(null);
-                                        setItemSearchValue("");
-                                        dispatch(clearSearchedItems());
-                                      }}
-                                    >
-                                      {prod.name}
-                                    </ComboboxItem>
-                                  ))}
-                                </InfiniteScroll>
-                              </ComboboxList>
+                                          setActiveRowIndex(null);
+                                          setItemSearchValue("");
+                                          dispatch(clearSearchedItems());
+                                        }}
+                                      >
+                                        {prod.name}
+                                      </ComboboxItem>
+                                    ))}
+                                  </InfiniteScroll>
+                                </ComboboxList>
+                              )}
                             </ComboboxContent>
                           </Combobox>
                         </div>
@@ -1425,9 +1429,20 @@ function AddInvoice() {
                             className="w-full h-11 px-2 bg-white border border-slate-300 border-r-0 rounded-l-lg text-sm text-center font-semibold"
                           />
 
-                          <span className="h-11 px-2 flex items-center justify-center bg-slate-50 border border-slate-300 rounded-r-lg text-[11px] font-bold text-slate-600 uppercase shrink-0">
-                            {data.unit || "pcs"}
-                          </span>
+                          {!data._id ? (
+                            <input
+                              type="text"
+                              value={data.unit}
+                              onChange={(e) => updateItem(index, "unit", e.target.value)}
+                              placeholder="Unit"
+                              className="w-14 h-11 px-1 bg-white border border-slate-300 rounded-r-lg text-[11px] font-bold text-slate-600 uppercase text-center focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500 focus:z-10 shrink-0"
+                              maxLength={5}
+                            />
+                          ) : (
+                            <span className="w-14 h-11 px-1 flex items-center justify-center bg-slate-50 border border-slate-300 rounded-r-lg text-[11px] font-bold text-slate-600 uppercase shrink-0">
+                              {data.unit || ""}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div>
@@ -1692,27 +1707,27 @@ function AddInvoice() {
             {/* Safe Iframe Sandboxed Render Window */}
             <div className="flex-1 w-full bg-slate-100 p-3 overflow-hidden">
               {previewOpen && !isMobile && (
-                <PDFViewer width="100%" height="100%" showToolbar={true} className="border-0 rounded-xl shadow-inner bg-slate-200">
-                  <InvoiceDesign1
-                    invoiceNumberSequence={invoiceNumberSequence}
-                    isPaid={isPaid}
-                    selectedCustomer={selectedCustomer}
-                    itemData={itemData}
-                    subtotal={subtotal}
-                    totalDiscount={totalDiscount}
-                    taxRate={taxRate}
-                    taxedAmount={taxedAmount}
-                    grandTotal={grandTotal}
-                    notes={notes}
-                    terms={terms}
-                    issueDate={invoiceIssueDate}
-                    dueDate={invoiceDueDate}
-                    isPreview={true}
-                    companyInfo={companyInfo}
-                    companyLogo={companyInfo?.logo || ""}
-                    companySignature={companyInfo?.signature || ""}
-                  />
-                </PDFViewer>
+                  <PDFViewer width="100%" height="100%" showToolbar={true} className="border-0 rounded-xl shadow-inner bg-slate-200">
+                    <InvoiceDesign1
+                      invoiceNumberSequence={invoiceNumberSequence}
+                      isPaid={isPaid}
+                      selectedCustomer={selectedCustomer}
+                      itemData={itemData}
+                      subtotal={subtotal}
+                      totalDiscount={totalDiscount}
+                      taxRate={taxRate}
+                      taxedAmount={taxedAmount}
+                      grandTotal={grandTotal}
+                      notes={notes}
+                      terms={terms}
+                      issueDate={invoiceIssueDate}
+                      dueDate={invoiceDueDate}
+                      isPreview={true}
+                      companyInfo={companyInfo}
+                      companyLogo={companyInfo?.logo || ""}
+                      companySignature={companyInfo?.signature || ""}
+                    />
+                  </PDFViewer>
               )}
             </div>
           </DialogContent>
