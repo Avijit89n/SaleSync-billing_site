@@ -270,7 +270,6 @@ function AddInvoice() {
     setItemData(prev => prev.map((it, i) => i === index ? { ...it, [field]: value } : it));
 
   const removeItem = (index) => {
-    // FIX: Clear active row and search states to fix dropdown persistence glitches
     setActiveRowIndex(null);
     setItemSearchValue("");
     dispatch(clearSearchedItems());
@@ -369,13 +368,11 @@ function AddInvoice() {
 
       const savePromise = dispatch(addInvoiceReq(invoicePayload)).unwrap();
 
-      // 2. Hand the promise to Sonner so it can show the loading/success/error UI automatically
       toast.promise(savePromise, {
         loading: 'Saving invoice...',
         success: 'Invoice saved successfully!'
       });
 
-      // 3. STRICT AWAIT: Tell THIS function to pause until that exact promise is finished
       await savePromise;
 
       if (action === "download") {
@@ -469,17 +466,43 @@ function AddInvoice() {
       const blobUrl = URL.createObjectURL(blob);
 
       if (isMobile) {
-        // Mobile fallback: Open PDF in a new tab for native OS handling
-        window.open(blobUrl, "_blank");
+        // --- MOBILE HTML WRAPPER HACK ---
+        // Open blank window immediately to bypass pop-up blockers
+        const printWindow = window.open("", "_blank");
+        
+        if (!printWindow) {
+          toast.error("Please allow pop-ups to print.");
+          return;
+        }
 
-        // Cleanup after a short delay to ensure the browser fetches the blob
+        // We write an HTML page into the new tab.
+        // The iframe will load the PDF, and the onload function will trigger the native print dialog.
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Print Invoice-${invoiceNumberSequence}</title>
+              <style>
+                body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #f1f5f9; }
+                iframe { width: 100vw; height: 100vh; border: none; }
+              </style>
+            </head>
+            <body>
+              <iframe 
+                src="${blobUrl}" 
+                onload="window.focus(); setTimeout(function() { window.print(); }, 500);"
+              ></iframe>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+
         setTimeout(() => {
           URL.revokeObjectURL(blobUrl);
           document.title = originalTitle;
-        }, 3000);
+        }, 10000);
 
       } else {
-        // Desktop behavior: Silent print via hidden iframe
+        // --- DESKTOP SILENT IFRAME PRINT ---
         const iframe = document.createElement("iframe");
         iframe.style.position = "fixed";
         iframe.style.right = "0";
@@ -517,7 +540,7 @@ function AddInvoice() {
     } catch (err) {
       document.title = originalTitle;
       console.error(err);
-      toast.error("Failed to print invoice");
+      toast.error("Failed to trigger print.");
       throw err;
     }
   };
@@ -533,7 +556,7 @@ function AddInvoice() {
       }
       
       previewWindow.document.write(
-        "<div style='font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; color: #64748b;'>Generating Preview...</div>"
+        "<div style='font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; color: #64748b; background-color: #f8fafc;'>Generating Preview...</div>"
       );
 
       try {
@@ -564,7 +587,6 @@ function AddInvoice() {
         const url = URL.createObjectURL(blob);
         previewWindow.location.href = url;
 
-        // Cleanup memory after a delay
         setTimeout(() => URL.revokeObjectURL(url), 10000);
       } catch (err) {
         console.error(err);
