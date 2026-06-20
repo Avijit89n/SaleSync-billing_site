@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge"
 import { useNavigate } from "react-router-dom"
 import { useDispatch, useSelector } from "react-redux"
 
-import { clearSearchedInvoices, getAllInvoiceReq, invoiceSearchReq } from "@/redux/features/invoiceSlice.js"
+import { clearSearchedInvoices, clearInvoices, getAllInvoiceReq, invoiceSearchReq } from "@/redux/features/invoiceSlice.js"
 import InfiniteScroll from "react-infinite-scroll-component"
 import Loader2 from '@/components/loaders/loader2'
 import { toast } from "sonner"
@@ -114,7 +114,6 @@ const CustomTableRow = React.memo(({ singleInvoice, navigate }) => {
         {formatDisplayDate(singleInvoice.dueDate)}
       </TableCell>
 
-      {/* Reads array metrics safely returned by backend configuration parameters */}
       <TableCell className="text-center text-gray-600 font-medium px-4 py-3 whitespace-nowrap">
         {singleInvoice.invoiceItems?.length || 0} {singleInvoice.invoiceItems?.length === 1 ? 'Item' : 'Items'}
       </TableCell>
@@ -165,24 +164,34 @@ export default function Invoices() {
   } = useSelector(state => state.invoice)
 
   const fetchInvoices = useCallback(async (limit = 10, cursor = undefined) => {
-    // Prevent duplicate API calls if already loading
     if (invoiceLoading) return;
 
-    await dispatch(getAllInvoiceReq({ limit, lastCreatedAt: cursor }))
+    await dispatch(getAllInvoiceReq({ limit, lastCreatedAt: cursor, filter }))
       .unwrap()
       .catch((error) => {
         toast.error(error.message || "Something went wrong");
       });
-  }, [dispatch, invoiceLoading]);
+  }, [dispatch, invoiceLoading, filter]);
 
-  // Change this specific useEffect block in your Invoices.jsx file
+  // Tab switch reset handler
   useEffect(() => {
-    // Force a fetch if the cursor is totally null AND it's not the end of the list.
-    // This guarantees the first page loads even if you manually pushed 1 item into Redux.
+    dispatch(clearInvoices());
+    dispatch(clearSearchedInvoices());
+    
+    if (activeSearchRequestRef.current) {
+      activeSearchRequestRef.current.abort();
+      activeSearchRequestRef.current = null;
+    }
+  }, [filter, dispatch]);
+
+  // Main loader handler
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) return;
+
     if (invoices.length === 0 || (!isEnd && nextCursor === null)) {
       fetchInvoices(10);
     }
-  }, [invoices.length, isEnd, nextCursor, fetchInvoices]);
+  }, [invoices.length, isEnd, nextCursor, fetchInvoices, searchQuery]);
 
   useEffect(() => {
     return () => {
@@ -206,8 +215,6 @@ export default function Invoices() {
     setSearchIsDebouncing(true)
 
     const timer = setTimeout(() => {
-      setSearchIsDebouncing(false)
-
       if (activeSearchRequestRef.current) {
         activeSearchRequestRef.current.abort();
       }
@@ -215,20 +222,24 @@ export default function Invoices() {
       const requestPromise = dispatch(invoiceSearchReq({
         search: searchQuery.trim(),
         limit: 10,
-        cursor: null
+        cursor: null,
+        filter
       }));
 
-      const currentRequest = requestPromise;
-      activeSearchRequestRef.current = currentRequest;
+      activeSearchRequestRef.current = requestPromise;
 
-      currentRequest
+      // FIX 1: Set debouncing to false AFTER the dispatch to leverage React 18's state batching.
+      // This prevents the 1ms gap where the component thinks it's not searching or loading, stopping the empty state flash.
+      setSearchIsDebouncing(false);
+
+      requestPromise
         .unwrap()
         .catch((err) => {
           if (err.name === 'AbortError' || err === "Request canceled") return;
           toast.error(err.message || "Something went wrong");
         })
         .finally(() => {
-          if (activeSearchRequestRef.current === currentRequest) {
+          if (activeSearchRequestRef.current === requestPromise) {
             activeSearchRequestRef.current = null;
           }
         });
@@ -238,7 +249,7 @@ export default function Invoices() {
     return () => {
       clearTimeout(timer);
     };
-  }, [searchQuery, dispatch]);
+  }, [searchQuery, dispatch, filter]);
 
   const searchPagination = useCallback(async (limit = 10, cursor) => {
     if (searchQuery.trim().length === 0 || searchLoading) return;
@@ -246,19 +257,22 @@ export default function Invoices() {
     await dispatch(invoiceSearchReq({
       search: searchQuery.trim(),
       limit,
-      cursor
+      cursor, 
+      filter
     }))
       .unwrap()
       .catch((error) => {
         if (error.name === 'AbortError' || error === "Request canceled") return;
         toast.error(error.message || "Something went wrong");
       });
-  }, [searchQuery, searchLoading, dispatch]);
+  }, [searchQuery, searchLoading, dispatch, filter]);
 
   const isSearching = searchQuery.trim().length >= 1;
   const isSearchActive = isDebouncing || searchLoading;
-
-  const showInitialLoader = isSearchActive && searchedInvoices.length === 0;
+  
+  // Unified loader logic
+  const showLoader = (isSearching && isSearchActive && searchedInvoices.length === 0) || 
+                     (!isSearching && invoiceLoading && invoices.length === 0);
 
   return (
     <div className="opacity-0 animate-fade-in-scale transition-all duration-500 px-6 py-4 md:px-12 md:py-6">
@@ -303,7 +317,7 @@ export default function Invoices() {
       <InfiniteScroll
         dataLength={isSearching ? searchedInvoices.length : invoices.length}
         next={() => {
-          if (searchLoading) return;
+          if (isSearchActive || invoiceLoading) return;
 
           if (isSearching) {
             searchPagination(10, searchNextCursor);
@@ -311,19 +325,13 @@ export default function Invoices() {
             fetchInvoices(10, nextCursor);
           }
         }}
-        hasMore={isSearching ? (!searchLoading && !searchIsEnd) : !isEnd}
+        // FIX 2: Completely force 'hasMore' to false if ANY load activity is happening.
+        // This permanently stops the bottom loader from doubling up with the table-body loader.
+        hasMore={(isSearchActive || invoiceLoading) ? false : (isSearching ? !searchIsEnd : !isEnd)}
         loader={
-          <Table className="w-full border-t border-transparent">
-            <TableBody>
-              <TableRow>
-                <TableCell colSpan={8} className="py-6 text-center">
-                  <div className="flex items-center justify-center w-full">
-                    <Loader2 />
-                  </div>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+          <div className="py-6 flex items-center justify-center w-full">
+             <Loader2 />
+          </div>
         }
       >
         <div className="rounded-md border border-gray-100 bg-white shadow-sm overflow-x-auto">
@@ -341,7 +349,7 @@ export default function Invoices() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {showInitialLoader ? (
+              {showLoader ? (
                 <TableRow>
                   <TableCell colSpan={8} className="h-48 text-center">
                     <div className="flex items-center justify-center w-full h-full">
@@ -372,13 +380,27 @@ export default function Invoices() {
                   </TableRow>
                 )
               ) : (
-                invoices.map((singleInvoice) => (
-                  <CustomTableRow
-                    key={singleInvoice._id || singleInvoice.id}
-                    singleInvoice={singleInvoice}
-                    navigate={navigate}
-                  />
-                ))
+                invoices.length > 0 ? (
+                  invoices.map((singleInvoice) => (
+                    <CustomTableRow
+                      key={singleInvoice._id || singleInvoice.id}
+                      singleInvoice={singleInvoice}
+                      navigate={navigate}
+                    />
+                  ))
+                ) : (
+                  <TableRow>
+                     <TableCell colSpan={8} className="h-56 text-center">
+                      <div className="flex flex-col items-center justify-center space-y-2 text-gray-400">
+                        <FileText size={40} className="text-gray-300 stroke-[1.5]" />
+                        <p className="text-base font-semibold text-gray-700">No {filter !== "All" ? filter : ""} invoices found</p>
+                        <p className="text-xs text-gray-400 max-w-xs mx-auto">
+                          There are currently no records matching this criteria.
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
               )}
             </TableBody>
           </Table>

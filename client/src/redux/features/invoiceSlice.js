@@ -1,7 +1,6 @@
 import api from "@/axios/interceptor";
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
-// Initial State Blueprint matching the UI Consumption specifications
 const initialState = {
     invoices: [],
     searchedInvoices: [],
@@ -14,7 +13,19 @@ const initialState = {
     nextCursor: null,
 }
 
-// 1. Add Invoice Thunk
+// Helper function to ensure all database records map to the exact same UI format
+const formatInvoiceData = (invoice) => ({
+    _id: invoice._id,
+    id: invoice._id,
+    date: invoice.invoiceDate || invoice.date,
+    invoiceNo: invoice.invoiceNumber || invoice.invoiceNo,
+    customer: invoice.customerName || invoice.customer,
+    status: invoice.status,
+    amount: invoice.grandTotal || invoice.amount,
+    dueDate: invoice.dueDate,
+    invoiceItems: invoice.invoiceItems || [],
+});
+
 export const addInvoiceReq = createAsyncThunk(
     "invoice/add",
     async (data, thunkAPI) => {
@@ -29,16 +40,16 @@ export const addInvoiceReq = createAsyncThunk(
     }
 );
 
-// 2. Paginated Base List Fetching Thunk
 export const getAllInvoiceReq = createAsyncThunk(
     "invoice/get-all",
     async (data, thunkAPI) => {
-        const { limit, lastCreatedAt } = data;
+        const { limit, lastCreatedAt, filter } = data;
         try {
             const res = await api.get(`/invoice/get-all`, {
                 params: {
                     limit,
-                    lastCreatedAt
+                    lastCreatedAt,
+                    ...(filter !== "All" && { status: filter })
                 }
             });
             return res.data?.data;
@@ -50,18 +61,18 @@ export const getAllInvoiceReq = createAsyncThunk(
     }
 );
 
-// 3. Search Invoices with Native Abort Controller Signals Supported
 export const invoiceSearchReq = createAsyncThunk(
     "invoice/search",
     async (data, thunkAPI) => {
-        const { limit, cursor, search } = data;
+        const { limit, cursor, search, filter } = data;
 
         try {
             const res = await api.get(`/invoice/invoice-search`, {
                 params: {
                     limit,
                     cursor,
-                    search
+                    search,
+                    ...(filter !== "All" && { status: filter })
                 },
                 signal: thunkAPI.signal
             });
@@ -81,35 +92,25 @@ export const invoiceSearchReq = createAsyncThunk(
     }
 );
 
-const formatInvoiceData = (invoice) => ({
-    _id: invoice._id,
-    id: invoice._id,
-    date: invoice.invoiceDate || invoice.date,
-    invoiceNo: invoice.invoiceNumber || invoice.invoiceNo,
-    customer: invoice.customerName || invoice.customer,
-    status: invoice.status,
-    amount: invoice.grandTotal || invoice.amount,
-    dueDate: invoice.dueDate,
-    invoiceItems: invoice.invoiceItems || [],
-});
-
 const invoiceSlice = createSlice({
     name: "invoice",
     initialState,
     reducers: {
-        // Essential reducer utilized by the debounce watcher to clean up searching states
         clearSearchedInvoices: (state) => {
             state.searchedInvoices = [];
             state.searchNextCursor = null;
             state.searchIsEnd = false;
             state.searchLoading = false;
+        },
+        clearInvoices: (state) => {
+            state.invoices = [];
+            state.nextCursor = null;
+            state.isEnd = false;
         }
     },
-    // Add this helper function right above your invoiceSlice declaration
-    // Inside your invoiceSlice.js extraReducers block:
     extraReducers: (builder) => {
         builder
-            // --- ADD INVOICE ---
+            // Add Invoice Lifecycle Actions
             .addCase(addInvoiceReq.pending, (state) => {
                 state.invoiceLoading = true;
                 state.error = null;
@@ -125,7 +126,7 @@ const invoiceSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // --- GET ALL INVOICES ---
+            // Get All Invoices Pagination Lifecycle Actions
             .addCase(getAllInvoiceReq.pending, (state) => {
                 state.invoiceLoading = true;
                 state.error = null;
@@ -133,14 +134,12 @@ const invoiceSlice = createSlice({
             .addCase(getAllInvoiceReq.fulfilled, (state, action) => {
                 state.invoiceLoading = false;
 
-                // Bulletproof array extraction in case backend doesn't send pagination keys
-                const rawInvoices = Array.isArray(action.payload)
-                    ? action.payload
+                const rawInvoices = Array.isArray(action.payload) 
+                    ? action.payload 
                     : (action.payload?.invoices || []);
-
+                    
                 const formattedInvoices = rawInvoices.map(formatInvoiceData);
 
-                // Filter duplicates
                 const newInvoices = formattedInvoices.filter(
                     (newInv) => !state.invoices.some((existing) => existing._id === newInv._id)
                 );
@@ -155,7 +154,7 @@ const invoiceSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // --- SEARCH INVOICES ---
+            // Search Invoices Infinite Scrolling Lifecycle Actions
             .addCase(invoiceSearchReq.pending, (state) => {
                 state.searchLoading = true;
                 state.error = null;
@@ -166,7 +165,7 @@ const invoiceSlice = createSlice({
                 const rawSearched = Array.isArray(action.payload?.results)
                     ? action.payload.results
                     : (action.payload?.results?.invoices || []);
-
+                    
                 const formattedSearched = rawSearched.map(formatInvoiceData);
 
                 if (action.payload.cursor) {
@@ -193,4 +192,4 @@ const invoiceSlice = createSlice({
 });
 
 export default invoiceSlice.reducer;
-export const { clearSearchedInvoices } = invoiceSlice.actions;
+export const { clearSearchedInvoices, clearInvoices } = invoiceSlice.actions;

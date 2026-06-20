@@ -175,15 +175,37 @@ const getNextInvoiceNumber = async (req, res) => {
     }
 };
 
-
 const getAllInvoice = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
     const lastCreatedAt = req.query.lastCreatedAt;
+    const filterStatus = req.query.status; // <--- Catch the filter flag
 
     let query = {};
 
     if (lastCreatedAt) {
         query.createdAt = { $lt: new Date(lastCreatedAt) };
+    }
+
+    // --- APPLY STATUS FILTER LOGIC ---
+    if (filterStatus) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (filterStatus === "Paid") {
+            query.status = "Paid";
+        } else if (filterStatus === "Overdue") {
+            // Overdue means it's unpaid AND the due date is in the past
+            query.status = "Unpaid";
+            query.dueDate = { $lt: today };
+        } else if (filterStatus === "Unpaid") {
+            // Strictly Unpaid means it's unpaid AND the due date is today or in the future (or null)
+            query.status = "Unpaid";
+            query.$or = [
+                { dueDate: { $gte: today } },
+                { dueDate: null },
+                { dueDate: { $exists: false } }
+            ];
+        }
     }
 
     try {
@@ -200,7 +222,6 @@ const getAllInvoice = async (req, res) => {
             nextCursor = invoices[invoices.length - 1].createdAt;
         }
 
-        // FIXED: Maps "invoiceItems" array payload cleanly to prevent items counter showing zero
         const formattedInvoices = invoices.map(inv => ({
             _id: inv._id,
             id: inv._id,
@@ -225,6 +246,7 @@ const getAllInvoice = async (req, res) => {
     }
 };
 
+
 const invoiceSearch = async (req, res) => {
     const limit = Math.min(
         Math.max(Number(req.query.limit) || 10, 1),
@@ -233,6 +255,7 @@ const invoiceSearch = async (req, res) => {
 
     const search = req.query.search?.trim();
     const cursor = req.query.cursor;
+    const filterStatus = req.query.status; // <--- Catch the filter flag
 
     if (!search) {
         throw new ApiError("Search query is required", 400);
@@ -286,16 +309,42 @@ const invoiceSearch = async (req, res) => {
                     grandTotal: 1,
                     dueDate: 1,
                     createdAt: 1,
-                    invoiceItems: 1, // Retains array data for front-end total calculations
+                    invoiceItems: 1,
                     paginationToken: {
                         $meta: "searchSequenceToken"
                     }
                 }
-            },
-            {
-                $limit: limit + 1
             }
         ];
+
+        // --- APPLY STATUS FILTER LOGIC TO SEARCH PIPELINE ---
+        if (filterStatus) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let matchStage = {};
+            if (filterStatus === "Paid") {
+                matchStage.status = "Paid";
+            } else if (filterStatus === "Overdue") {
+                matchStage.status = "Unpaid";
+                matchStage.dueDate = { $lt: today };
+            } else if (filterStatus === "Unpaid") {
+                matchStage.status = "Unpaid";
+                matchStage.$or = [
+                    { dueDate: { $gte: today } },
+                    { dueDate: null },
+                    { dueDate: { $exists: false } }
+                ];
+            }
+
+            // Add the $match stage right after $search and $project
+            pipeline.push({ $match: matchStage });
+        }
+
+        // Apply limits after filtering
+        pipeline.push({
+            $limit: limit + 1
+        });
 
         const results = await Invoice.aggregate(pipeline);
 
@@ -308,7 +357,6 @@ const invoiceSearch = async (req, res) => {
             nextCursor = results[results.length - 1]?.paginationToken || null;
         }
 
-        // FIXED: Synchronized payload keys explicitly with the main fetch payload
         const formattedInvoices = results.map((inv) => ({
             _id: inv._id,
             id: inv._id,
@@ -340,6 +388,7 @@ const invoiceSearch = async (req, res) => {
         );
     }
 };
+
 
 
 export { addInvoice, getNextInvoiceNumber, getAllInvoice, invoiceSearch };
