@@ -48,12 +48,12 @@ const data = {
       icon: FileText,
       items: [
         {
-          title: "Add Invoice",
-          url: "add-invoice",
-        },
-        {
           title: "All Invoices",
           url: "all-invoices",
+        },
+        {
+          title: "Add Invoice",
+          url: "add-invoice",
         },
         {
           title: "Customize Invoice",
