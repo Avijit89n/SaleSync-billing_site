@@ -141,7 +141,7 @@ const addInvoice = async (req, res) => {
         await session.commitTransaction();
         console.log("saved");
         return res.status(201).json(
-            new apiResponse("Invoice created successfully", invoice[0], true)
+            new apiResponse("Invoice created successfully", 200, invoice[0])
         )
     } catch (error) {
         await session.abortTransaction();

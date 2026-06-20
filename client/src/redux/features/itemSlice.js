@@ -114,7 +114,14 @@ const itemSlice = createSlice({
 
             .addCase(getAllItemReq.fulfilled, (state, action) => {
                 state.itemLoading = false;
-                state.items = [...state.items, ...action.payload.items];
+
+                // 1. Filter out incoming items that already exist in state
+                const newItems = action.payload.items.filter(
+                    (newItem) => !state.items.some((existingItem) => existingItem._id === newItem._id)
+                );
+
+                // 2. Append only the unique new items
+                state.items = [...state.items, ...newItems];
                 state.isEnd = action.payload.isEnd;
                 state.nextCursor = action.payload.nextCursor;
                 state.error = null;
@@ -132,9 +139,16 @@ const itemSlice = createSlice({
             .addCase(itemSearchReq.fulfilled, (state, action) => {
                 state.searchLoading = false;
 
-                state.searchedItems = action.payload.cursor
-                    ? [...state.searchedItems, ...action.payload.results.items]
-                    : action.payload.results.items;
+                if (action.payload.cursor) {
+                    // If paginating, filter duplicates
+                    const newSearchedItems = action.payload.results.items.filter(
+                        (newItem) => !state.searchedItems.some((existing) => existing._id === newItem._id)
+                    );
+                    state.searchedItems = [...state.searchedItems, ...newSearchedItems];
+                } else {
+                    // If new search, completely replace
+                    state.searchedItems = action.payload.results.items;
+                }
 
                 state.searchNextCursor = action.payload.results.nextCursor;
                 state.searchIsEnd = action.payload.results.isEnd;

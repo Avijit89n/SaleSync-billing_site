@@ -111,7 +111,14 @@ const customerSlice = createSlice({
             })
             .addCase(getAllCustomerReq.fulfilled, (state, action) => {
                 state.customerLoading = false;
-                state.customers = [...state.customers, ...action.payload.customers];
+
+                // 1. Filter out duplicates
+                const newCustomers = action.payload.customers.filter(
+                    (newCust) => !state.customers.some((existing) => existing._id === newCust._id)
+                );
+
+                // 2. Append only unique records
+                state.customers = [...state.customers, ...newCustomers];
                 state.isEnd = action.payload.isEnd;
                 state.nextCursor = action.payload.nextCursor;
                 state.error = null;
@@ -128,9 +135,16 @@ const customerSlice = createSlice({
             .addCase(customerSearchReq.fulfilled, (state, action) => {
                 state.searchLoading = false;
 
-                state.searchedCustomers = action.payload.cursor
-                    ? [...state.searchedCustomers, ...action.payload.results.items]
-                    : action.payload.results.items;
+                if (action.payload.cursor) {
+                    // If paginating search results, filter duplicates
+                    const newSearchedCustomers = action.payload.results.items.filter(
+                        (newCust) => !state.searchedCustomers.some((existing) => existing._id === newCust._id)
+                    );
+                    state.searchedCustomers = [...state.searchedCustomers, ...newSearchedCustomers];
+                } else {
+                    // If brand new search, fully replace the array
+                    state.searchedCustomers = action.payload.results.items;
+                }
 
                 state.searchIsEnd = action.payload.results.isEnd;
                 state.searchNextCursor = action.payload.results.nextCursor;

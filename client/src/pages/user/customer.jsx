@@ -96,12 +96,16 @@ export default function Customer() {
     isEnd,
     nextCursor,
     searchedCustomers,
+    customerLoading,
     searchLoading,
     searchIsEnd,
     searchNextCursor
   } = useSelector(state => state.customer)
 
   const fetchCustomers = async (limit = 10, cursor = undefined) => {
+    // Prevent function from running if an API call is already in progress
+    if (customerLoading) return;
+
     await dispatch(getAllCustomerReq({ limit, lastCreatedAt: cursor }))
       .unwrap()
       .catch((error) => {
@@ -219,64 +223,85 @@ export default function Customer() {
         }
       >
         {/* ADDED table-fixed class to lock structural rendering columns */}
-        <Table className="table-fixed w-full">
-          <TableHeader>
-            <TableRow className={"bg-muted/60"}>
-              {/* Width percentages defined cleanly here lock the proportions forever */}
-              <TableHead className="text-center w-[22%]">Name</TableHead>
-              <TableHead className="text-center w-[16%]">Phone Number</TableHead>
-              <TableHead className="text-center w-[22%]">Email</TableHead>
-              <TableHead className="text-center w-[12%]">Type</TableHead>
-              <TableHead className="text-center w-[13%]">Total Sales</TableHead>
-              <TableHead className="text-center w-[10%]">Pending</TableHead>
-              <TableHead className="text-center w-[5%]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isDebouncing ||
-              (searchLoading && searchedCustomers.length === 0) ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-48 text-center">
-                  <div className="flex items-center justify-center w-full h-full">
-                    <Loader2 />
-                  </div>
-                </TableCell>
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <Table className="min-w-[1000px] table-fixed">
+            <TableHeader>
+              <TableRow className="bg-muted/60">
+
+                <TableHead className="min-w-[220px] text-center">
+                  Name
+                </TableHead>
+
+                <TableHead className="text-center min-w-[150px] w-[150px]">
+                  Phone Number
+                </TableHead>
+
+                <TableHead className="min-w-[250px]">
+                  Email
+                </TableHead>
+
+                <TableHead className="text-center min-w-[120px] w-[120px]">
+                  Type
+                </TableHead>
+
+                <TableHead className="text-center min-w-[140px] w-[140px]">
+                  Total Sales
+                </TableHead>
+
+                <TableHead className="text-center min-w-[140px] w-[140px]">
+                  Pending
+                </TableHead>
+
+                <TableHead className="text-center min-w-[60px] w-[60px]" />
+
               </TableRow>
-            ) : isSearching ? (
-              searchedCustomers.length > 0 ? (
-                searchedCustomers.map((singleItem) => (
+            </TableHeader>
+            <TableBody>
+              {isDebouncing ||
+                (searchLoading && searchedCustomers.length === 0) ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-48 text-center">
+                    <div className="flex items-center justify-center w-full h-full">
+                      <Loader2 />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : isSearching ? (
+                searchedCustomers.length > 0 ? (
+                  searchedCustomers.map((singleItem) => (
+                    <CustomTableRow
+                      key={singleItem._id}
+                      singleItem={singleItem}
+                      navigate={navigate}
+                    />
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-48 text-center">
+                      <div className="flex flex-col items-center justify-center space-y-2 text-gray-400">
+                        <Search size={36} className="text-gray-300 stroke-[1.5]" />
+                        <p className="text-base font-medium text-gray-600">
+                          No customers found
+                        </p>
+                        <p className="text-xs text-gray-400 max-w-xs mx-auto">
+                          We couldn't find anything matching "{searchQuery}".
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              ) : (
+                customers.map((singleItem) => (
                   <CustomTableRow
                     key={singleItem._id}
                     singleItem={singleItem}
                     navigate={navigate}
                   />
                 ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-48 text-center">
-                    <div className="flex flex-col items-center justify-center space-y-2 text-gray-400">
-                      <Search size={36} className="text-gray-300 stroke-[1.5]" />
-                      <p className="text-base font-medium text-gray-600">
-                        No customers found
-                      </p>
-                      <p className="text-xs text-gray-400 max-w-xs mx-auto">
-                        We couldn't find anything matching "{searchQuery}".
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )
-            ) : (
-              customers.map((singleItem) => (
-                <CustomTableRow
-                  key={singleItem._id}
-                  singleItem={singleItem}
-                  navigate={navigate}
-                />
-              ))
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </InfiniteScroll>
     </div>
   )

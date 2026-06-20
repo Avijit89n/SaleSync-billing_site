@@ -9,6 +9,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -38,8 +45,8 @@ const formatCurrency = (value) => {
 const formatDisplayDate = (dateValue) => {
   if (!dateValue) return "N/A";
   const date = new Date(dateValue);
-  if (isNaN(date.getTime())) return dateValue; 
-  
+  if (isNaN(date.getTime())) return dateValue;
+
   return date.toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -55,7 +62,7 @@ const CustomTableRow = React.memo(({ singleInvoice, navigate }) => {
     if (singleInvoice.dueDate) {
       const dueDate = new Date(singleInvoice.dueDate);
       const currentDate = new Date();
-      
+
       currentDate.setHours(0, 0, 0, 0);
       dueDate.setHours(0, 0, 0, 0);
 
@@ -81,8 +88,8 @@ const CustomTableRow = React.memo(({ singleInvoice, navigate }) => {
   };
 
   return (
-    <TableRow 
-      className="cursor-pointer hover:bg-muted/50 transition-colors" 
+    <TableRow
+      className="cursor-pointer hover:bg-muted/50 transition-colors"
       onClick={() => navigate(`/home/${singleInvoice._id || singleInvoice.id}`)}
     >
       <TableCell className="text-center font-medium text-gray-600 px-4 py-3 whitespace-nowrap">
@@ -142,7 +149,8 @@ export default function Invoices() {
   const dispatch = useDispatch();
   const [searchQuery, setSearchQuery] = useState("")
   const [isDebouncing, setSearchIsDebouncing] = useState(false)
-  
+  const [filter, setFilter] = useState("All")
+
   const activeSearchRequestRef = useRef(null);
 
   const {
@@ -152,22 +160,29 @@ export default function Invoices() {
     searchLoading,
     nextCursor,
     searchIsEnd,
-    searchNextCursor
+    searchNextCursor,
+    invoiceLoading
   } = useSelector(state => state.invoice)
 
   const fetchInvoices = useCallback(async (limit = 10, cursor = undefined) => {
+    // Prevent duplicate API calls if already loading
+    if (invoiceLoading) return;
+
     await dispatch(getAllInvoiceReq({ limit, lastCreatedAt: cursor }))
       .unwrap()
       .catch((error) => {
         toast.error(error.message || "Something went wrong");
       });
-  }, [dispatch]);
+  }, [dispatch, invoiceLoading]);
 
+  // Change this specific useEffect block in your Invoices.jsx file
   useEffect(() => {
-    if (invoices.length === 0) {
+    // Force a fetch if the cursor is totally null AND it's not the end of the list.
+    // This guarantees the first page loads even if you manually pushed 1 item into Redux.
+    if (invoices.length === 0 || (!isEnd && nextCursor === null)) {
       fetchInvoices(10);
     }
-  }, [invoices.length, fetchInvoices]);
+  }, [invoices.length, isEnd, nextCursor, fetchInvoices]);
 
   useEffect(() => {
     return () => {
@@ -227,7 +242,7 @@ export default function Invoices() {
 
   const searchPagination = useCallback(async (limit = 10, cursor) => {
     if (searchQuery.trim().length === 0 || searchLoading) return;
-    
+
     await dispatch(invoiceSearchReq({
       search: searchQuery.trim(),
       limit,
@@ -260,16 +275,29 @@ export default function Invoices() {
       <div className="flex items-center py-4 justify-between flex-wrap sm:flex-nowrap gap-2">
         <div className="relative max-w-sm w-full">
           <Input
-            placeholder="Search by customer name or invoice number (e.g. 89)..."
+            placeholder="Search by customer name or invoice number..."
             className="w-full pl-9 pr-4"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
         </div>
-        <Button onClick={() => navigate("/user/add-invoice")} className="bg-orange-500 hover:bg-orange-600 transition-colors shadow-sm font-medium">
-          <Plus size={18} className="mr-1" /> Add Invoice
-        </Button>
+        <div className="flex justify-center items-center gap-2">
+          <Select value={filter || "All"} onValueChange={(value) => setFilter(value)}>
+            <SelectTrigger id="item-unit" className="h-11 w-35 bg-white text-sm font-semibold border border-slate-300 rounded-lg">
+              <SelectValue placeholder="Filter" />
+            </SelectTrigger>
+            <SelectContent className="bg-white border border-slate-200 max-h-64">
+              <SelectItem value="All">All</SelectItem>
+              <SelectItem value="Paid">Paid</SelectItem>
+              <SelectItem value="Unpaid">Unpaid</SelectItem>
+              <SelectItem value="Overdue">Overdue</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => navigate("/user/add-invoice")} className="bg-orange-500 hover:bg-orange-600 transition-colors shadow-sm font-medium">
+            <Plus size={18} className="mr-1" /> Add Invoice
+          </Button>
+        </div>
       </div>
 
       <InfiniteScroll

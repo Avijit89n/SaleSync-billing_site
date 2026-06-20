@@ -81,6 +81,18 @@ export const invoiceSearchReq = createAsyncThunk(
     }
 );
 
+const formatInvoiceData = (invoice) => ({
+    _id: invoice._id,
+    id: invoice._id,
+    date: invoice.invoiceDate || invoice.date,
+    invoiceNo: invoice.invoiceNumber || invoice.invoiceNo,
+    customer: invoice.customerName || invoice.customer,
+    status: invoice.status,
+    amount: invoice.grandTotal || invoice.amount,
+    dueDate: invoice.dueDate,
+    invoiceItems: invoice.invoiceItems || [],
+});
+
 const invoiceSlice = createSlice({
     name: "invoice",
     initialState,
@@ -93,16 +105,19 @@ const invoiceSlice = createSlice({
             state.searchLoading = false;
         }
     },
+    // Add this helper function right above your invoiceSlice declaration
+    // Inside your invoiceSlice.js extraReducers block:
     extraReducers: (builder) => {
         builder
-            // Add Invoice Lifecycle Actions
+            // --- ADD INVOICE ---
             .addCase(addInvoiceReq.pending, (state) => {
                 state.invoiceLoading = true;
                 state.error = null;
             })
             .addCase(addInvoiceReq.fulfilled, (state, action) => {
                 state.invoiceLoading = false;
-                state.invoices = [action.payload?.data, ...state.invoices];
+                const formattedInvoice = formatInvoiceData(action.payload?.data || {});
+                state.invoices = [formattedInvoice, ...state.invoices];
                 state.error = null;
             })
             .addCase(addInvoiceReq.rejected, (state, action) => {
@@ -110,16 +125,29 @@ const invoiceSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // Get All Invoices Pagination Lifecycle Actions
+            // --- GET ALL INVOICES ---
             .addCase(getAllInvoiceReq.pending, (state) => {
                 state.invoiceLoading = true;
                 state.error = null;
             })
             .addCase(getAllInvoiceReq.fulfilled, (state, action) => {
                 state.invoiceLoading = false;
-                state.invoices = [...state.invoices, ...action.payload.invoices];
-                state.isEnd = action.payload.isEnd;
-                state.nextCursor = action.payload.nextCursor;
+
+                // Bulletproof array extraction in case backend doesn't send pagination keys
+                const rawInvoices = Array.isArray(action.payload)
+                    ? action.payload
+                    : (action.payload?.invoices || []);
+
+                const formattedInvoices = rawInvoices.map(formatInvoiceData);
+
+                // Filter duplicates
+                const newInvoices = formattedInvoices.filter(
+                    (newInv) => !state.invoices.some((existing) => existing._id === newInv._id)
+                );
+
+                state.invoices = [...state.invoices, ...newInvoices];
+                state.isEnd = action.payload?.isEnd ?? true;
+                state.nextCursor = action.payload?.nextCursor ?? null;
                 state.error = null;
             })
             .addCase(getAllInvoiceReq.rejected, (state, action) => {
@@ -127,7 +155,7 @@ const invoiceSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // Search Invoices Infinite Scrolling Lifecycle Actions
+            // --- SEARCH INVOICES ---
             .addCase(invoiceSearchReq.pending, (state) => {
                 state.searchLoading = true;
                 state.error = null;
@@ -135,18 +163,27 @@ const invoiceSlice = createSlice({
             .addCase(invoiceSearchReq.fulfilled, (state, action) => {
                 state.searchLoading = false;
 
-                // If cursor is passed append new results, else overwrite array context
-                state.searchedInvoices = action.payload.cursor
-                    ? [...state.searchedInvoices, ...action.payload.results.invoices]
-                    : action.payload.results.invoices;
+                const rawSearched = Array.isArray(action.payload?.results)
+                    ? action.payload.results
+                    : (action.payload?.results?.invoices || []);
 
-                state.searchNextCursor = action.payload.results.nextCursor;
-                state.searchIsEnd = action.payload.results.isEnd;
+                const formattedSearched = rawSearched.map(formatInvoiceData);
+
+                if (action.payload.cursor) {
+                    const uniqueSearched = formattedSearched.filter(
+                        (newInv) => !state.searchedInvoices.some((existing) => existing._id === newInv._id)
+                    );
+                    state.searchedInvoices = [...state.searchedInvoices, ...uniqueSearched];
+                } else {
+                    state.searchedInvoices = formattedSearched;
+                }
+
+                state.searchNextCursor = action.payload?.results?.nextCursor ?? null;
+                state.searchIsEnd = action.payload?.results?.isEnd ?? true;
                 state.error = null;
             })
             .addCase(invoiceSearchReq.rejected, (state, action) => {
                 state.searchLoading = false;
-                // Avoid flushing out matching UI state values if request is cancelled via search typing
                 if (action.payload !== "Request canceled") {
                     state.error = action.payload;
                     state.searchedInvoices = [];

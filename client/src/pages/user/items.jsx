@@ -100,11 +100,15 @@ export default function Items() {
     isEnd,
     searchLoading,
     nextCursor,
+    itemLoading,
     searchIsEnd,
     searchNextCursor
   } = useSelector(state => state.item)
 
   const fetchItems = async (limit = 10, cursor = undefined) => {
+    // Prevent duplicate API calls if already loading
+    if (itemLoading) return;
+
     console.log("Fetching items with cursor:", cursor);
     await dispatch(getAllItemReq({ limit, lastCreatedAt: cursor }))
       .unwrap()
@@ -116,6 +120,7 @@ export default function Items() {
 
   useEffect(() => {
     if (items.length === 0) {
+      dispatch(clearSearchedItems())
       fetchItems(10);
     }
   }, []);
@@ -158,9 +163,11 @@ export default function Items() {
   }, [searchQuery]);
 
   const searchPagination = async (limit = 10, cursor) => {
+    // Check searchLoading to prevent overlapping pagination
     if (searchQuery.length < 2 || searchLoading) {
       return;
     }
+
     await dispatch(itemSearchReq({
       search: searchQuery,
       limit,
@@ -230,63 +237,85 @@ export default function Items() {
           </Table>
         }
       >
-        <Table className="table-fixed w-full">
-          <TableHeader>
-            <TableRow className={"bg-muted/60"}>
-              <TableHead className="text-center w-[12%]">Product</TableHead>
-              <TableHead className="text-center w-[35%]">Name</TableHead>
-              <TableHead className="text-center w-[12%]">Stock</TableHead>
-              <TableHead className="text-center w-[15%]">Price</TableHead>
-              <TableHead className="text-center w-[12%]">Status</TableHead>
-              <TableHead className="text-center w-[10%]">Offer</TableHead>
-              <TableHead className="text-center w-[4%]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isSearchActive ? (
-              /* The single primary loader inside the table grid */
-              <TableRow>
-                <TableCell colSpan={7} className="h-48 text-center">
-                  <div className="flex items-center justify-center w-full h-full">
-                    <Loader2 />
-                  </div>
-                </TableCell>
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <Table className="min-w-[900px] table-fixed">
+            <TableHeader>
+              <TableRow className="bg-muted/60">
+
+                <TableHead className="text-center min-w-[80px] w-[80px]">
+                  Product
+                </TableHead>
+
+                <TableHead className="min-w-[250px] text-center">
+                  Name
+                </TableHead>
+
+                <TableHead className="text-center min-w-[100px] w-[100px]">
+                  Stock
+                </TableHead>
+
+                <TableHead className="text-center min-w-[120px] w-[120px]">
+                  Price
+                </TableHead>
+
+                <TableHead className="text-center min-w-[120px] w-[120px]">
+                  Status
+                </TableHead>
+
+                <TableHead className="text-center min-w-[100px] w-[100px]">
+                  Offer
+                </TableHead>
+
+                <TableHead className="text-center min-w-[60px] w-[60px]" />
+
               </TableRow>
-            ) : isSearching ? (
-              searchedItems.length > 0 ? (
-                searchedItems.map((singleItem) => (
+            </TableHeader>
+            <TableBody>
+              {isSearchActive ? (
+                /* The single primary loader inside the table grid */
+                <TableRow>
+                  <TableCell colSpan={7} className="h-48 text-center">
+                    <div className="flex items-center justify-center w-full h-full">
+                      <Loader2 />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : isSearching ? (
+                searchedItems.length > 0 ? (
+                  searchedItems.map((singleItem) => (
+                    <CustomTableRow
+                      key={singleItem._id}
+                      singleItem={singleItem}
+                      navigate={navigate}
+                    />
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-48 text-center">
+                      <div className="flex flex-col items-center justify-center space-y-2 text-gray-400">
+                        <Search size={36} className="text-gray-300 stroke-[1.5]" />
+                        <p className="text-base font-medium text-gray-600">
+                          No items found
+                        </p>
+                        <p className="text-xs text-gray-400 max-w-xs mx-auto">
+                          We couldn't find anything matching "{searchQuery}".
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              ) : (
+                items.map((singleItem) => (
                   <CustomTableRow
                     key={singleItem._id}
                     singleItem={singleItem}
                     navigate={navigate}
                   />
                 ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-48 text-center">
-                    <div className="flex flex-col items-center justify-center space-y-2 text-gray-400">
-                      <Search size={36} className="text-gray-300 stroke-[1.5]" />
-                      <p className="text-base font-medium text-gray-600">
-                        No items found
-                      </p>
-                      <p className="text-xs text-gray-400 max-w-xs mx-auto">
-                        We couldn't find anything matching "{searchQuery}".
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )
-            ) : (
-              items.map((singleItem) => (
-                <CustomTableRow
-                  key={singleItem._id}
-                  singleItem={singleItem}
-                  navigate={navigate}
-                />
-              ))
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </InfiniteScroll>
     </div>
   )
