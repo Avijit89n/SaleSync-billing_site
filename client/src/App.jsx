@@ -28,6 +28,7 @@ import { toast } from "sonner"
 import AddCustomer from "./pages/user/addCustomer.jsx"
 import InvoiceCustomizer from "./pages/user/invoiceCustomizer.jsx"
 import Loader2 from "@/components/loaders/loader2" // <-- Import your loader
+import Loader1 from "./components/loaders/loader1.jsx"
 
 function App() {
   const dispatch = useDispatch();
@@ -57,7 +58,7 @@ function App() {
   if (isCheckingAuth) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
-        <Loader2 />
+        <Loader1 />
       </div>
     );
   }
