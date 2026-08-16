@@ -44,9 +44,9 @@ const CustomTableRow = ({ singleItem, navigate }) => {
         {singleItem.name}
       </TableCell>
 
-      <TableCell className={`${singleItem.stock > 40 ? "text-green-500" : singleItem.stock > 10 ? "text-amber-500" : "text-red-500"} font-semibold text-center truncate max-w-0`}>
+      {/* <TableCell className={`${singleItem.stock > 40 ? "text-green-500" : singleItem.stock > 10 ? "text-amber-500" : "text-red-500"} font-semibold text-center truncate max-w-0`}>
         {singleItem.stock}
-      </TableCell>
+      </TableCell> */}
 
       <TableCell className="text-center truncate max-w-0">
         {(() => {
@@ -250,9 +250,9 @@ export default function Items() {
                   Name
                 </TableHead>
 
-                <TableHead className="text-center min-w-[100px] w-[100px]">
+                {/* <TableHead className="text-center min-w-[100px] w-[100px]">
                   Stock
-                </TableHead>
+                </TableHead> */}
 
                 <TableHead className="text-center min-w-[120px] w-[120px]">
                   Price

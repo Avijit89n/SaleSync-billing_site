@@ -24,6 +24,7 @@ import itemRouter from "./routes/item.routes.js"
 import customerRouter from "./routes/customer.routes.js"
 import invoiceCustomizerRouter from "./routes/invoiceCustomizer.routes.js"
 import invoiceRouter from "./routes/invoice.routes.js"
+import homeDataRouter from "./routes/homeData.routes.js"
 
 
 
@@ -33,6 +34,7 @@ app.use('/api/v1/item', itemRouter);
 app.use('/api/v1/customer', customerRouter);
 app.use('/api/v1/invoice-customizer', invoiceCustomizerRouter);
 app.use('/api/v1/invoice', invoiceRouter);
+app.use('/api/v1/home', homeDataRouter);
 
 
 

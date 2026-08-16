@@ -78,11 +78,7 @@ const addInvoice = async (req, res) => {
                     throw new ApiError(`${item.name} is inactive`, 400);
                 }
 
-                if (item.stock < invoiceItem.quantity) {
-                    throw new ApiError(`${item.name} has only ${item.stock} ${item.unit} left in stock`, 400);
-                }
-
-                // Deduct stock for database items
+                // Deduct stock for database items (validation removed as requested)
                 item.stock -= invoiceItem.quantity;
                 await item.save({ session });
 
@@ -203,8 +199,10 @@ const getAllInvoice = async (req, res) => {
             query.$or = [
                 { dueDate: { $gte: today } },
                 { dueDate: null },
-                { dueDate: { $exists: false } }
+                { dueDate: { $exists: false } } 
             ];
+        } else {
+            query.status = "Cancel"; // For any other status, just filter by that status
         }
     }
 
@@ -389,6 +387,53 @@ const invoiceSearch = async (req, res) => {
     }
 };
 
+const cancelInvoice = async (req, res) => {
+    const { id } = req.params;
+    console.log(id)
+    const session = await mongoose.startSession();
 
+    try {
+        session.startTransaction();
 
-export { addInvoice, getNextInvoiceNumber, getAllInvoice, invoiceSearch };
+        const invoice = await Invoice.findById(id).session(session);
+
+        if (!invoice) {
+            throw new ApiError("Invoice not found", 404);
+        }
+
+        // Prevent double-restocking
+        if (invoice.status === "Cancel") {
+            throw new ApiError("Invoice is already canceled", 400);
+        }
+
+        // Restore stock for listed items
+        if (invoice.invoiceItems && invoice.invoiceItems.length > 0) {
+            for (const invoiceItem of invoice.invoiceItems) {
+                if (invoiceItem.itemID) {
+                    const dbItem = await Item.findById(invoiceItem.itemID).session(session);
+                    if (dbItem) {
+                        dbItem.stock += invoiceItem.quantity;
+                        await dbItem.save({ session });
+                    }
+                }
+            }
+        }
+
+        // Update to exactly match your schema: "cancel"
+        invoice.status = "Cancel";
+        await invoice.save({ session });
+
+        await session.commitTransaction();
+
+        return res.status(200).json(
+            new apiResponse("Invoice canceled successfully", 200, invoice)
+        );
+    } catch (error) {
+        await session.abortTransaction();
+        throw new ApiError(error.message || "Failed to cancel invoice", error.statusCode || 500);
+    } finally {
+        session.endSession();
+    }
+};
+
+export { addInvoice, getNextInvoiceNumber, getAllInvoice, invoiceSearch, cancelInvoice };

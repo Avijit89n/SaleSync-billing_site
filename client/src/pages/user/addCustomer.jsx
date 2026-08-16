@@ -133,7 +133,7 @@ function AddCustomer() {
                         Primary Profile Details
                     </h2>
                     
-                    <FieldGroup className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* <FieldGroup className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <Field className="space-y-1">
                             <FieldLabel htmlFor="customer-type" className={labelCls}>
                                 Customer Type
@@ -173,12 +173,12 @@ function AddCustomer() {
                                 className={inputCls}
                             />
                         </Field>
-                    </FieldGroup>
+                    </FieldGroup> */}
 
                     <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Field className="space-y-1">
                             <FieldLabel htmlFor="display-name" className={labelCls}>
-                                Customer Display Name <span className='text-orange-500'>*</span>
+                                Customer Name <span className='text-orange-500'>*</span>
                             </FieldLabel>
                             <Input 
                                 value={customerData.displayName} 
@@ -219,7 +219,7 @@ function AddCustomer() {
                             />
                         </Field>
 
-                        <Field className="space-y-1">
+                        {/* <Field className="space-y-1">
                             <FieldLabel htmlFor="Mobile" className={labelCls}>Mobile Number</FieldLabel>
                             <Input 
                                 type="text" 
@@ -229,7 +229,7 @@ function AddCustomer() {
                                 placeholder="Personal communication cell number" 
                                 className={inputCls}
                             />
-                        </Field>
+                        </Field> */}
                     </FieldGroup>
                 </div>
 
@@ -242,11 +242,12 @@ function AddCustomer() {
                             Billing Address
                         </h2>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1">
+                        {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"> */}
+                        <div className="grid gap-4">
+                            {/* <div className="space-y-1">
                                 <label htmlFor="attention" className={labelCls}>Attention Counterpart</label>
                                 <Input value={customerData?.billingAddress?.attention} onChange={(e) => setCustomerData({...customerData, billingAddress: {...customerData.billingAddress, attention: e.target.value}})} id="attention" placeholder="e.g. Accounts Dept." className={inputCls} />
-                            </div>
+                            </div> */}
                             <div className="space-y-1">
                                 <label htmlFor="country" className={labelCls}>Country/Region</label>
                                 <Select
@@ -267,11 +268,11 @@ function AddCustomer() {
 
                         <div className="space-y-4">
                             <div className="space-y-1">
-                                <label htmlFor="street1" className={labelCls}>Street Address 1</label>
+                                <label htmlFor="street1" className={labelCls}>Address 1</label>
                                 <Textarea id="street1" value={customerData?.billingAddress?.street1} onChange={(e) => setCustomerData({...customerData, billingAddress: {...customerData.billingAddress, street1: e.target.value}})} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none" placeholder="Plot line, building details, sector..." />
                             </div>
                             <div className="space-y-1">
-                                <label htmlFor="street2" className={labelCls}>Street Address 2</label>
+                                <label htmlFor="street2" className={labelCls}>Address 2</label>
                                 <Textarea id="street2" value={customerData?.billingAddress?.street2} onChange={(e) => setCustomerData({...customerData, billingAddress: {...customerData.billingAddress, street2: e.target.value}})} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none" placeholder="Appartment unit, landmark, locality..." />
                             </div>
                         </div>
@@ -340,11 +341,12 @@ function AddCustomer() {
 
                         {!customerData.addressSame && (
                             <div className="animate-fade-in-scale opacity-0 transition-all duration-300 space-y-6 bg-white pt-2">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
+                                {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"> */}
+                                <div className="grid gap-4">
+                                    {/* <div className="space-y-1">
                                         <label htmlFor="attentionShippingAddress" className={labelCls}>Attention Target</label>
                                         <Input id="attentionShippingAddress" value={customerData?.shippingAddress?.attention} onChange={(e) => setCustomerData({...customerData, shippingAddress: {...customerData.shippingAddress, attention: e.target.value}})} placeholder="e.g. Receiving Bay 2" className={inputCls} />
-                                    </div>
+                                    </div> */}
                                     <div className="space-y-1">
                                         <label htmlFor="countryShippingAddress" className={labelCls}>Country/Region</label>
                                         <Select
@@ -365,11 +367,11 @@ function AddCustomer() {
 
                                 <div className="space-y-4">
                                     <div className="space-y-1">
-                                        <label htmlFor="street1ShippingAddress" className={labelCls}>Street Address 1</label>
+                                        <label htmlFor="street1ShippingAddress" className={labelCls}>Address 1</label>
                                         <Textarea id="street1ShippingAddress" value={customerData?.shippingAddress?.street1} onChange={(e) => setCustomerData({...customerData, shippingAddress: {...customerData.shippingAddress, street1: e.target.value}})} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none" placeholder="Warehouse plot line..." />
                                     </div>
                                     <div className="space-y-1">
-                                        <label htmlFor="street2ShippingAddress" className={labelCls}>Street Address 2</label>
+                                        <label htmlFor="street2ShippingAddress" className={labelCls}>Address 2</label>
                                         <Textarea id="street2ShippingAddress" value={customerData?.shippingAddress?.street2} onChange={(e) => setCustomerData({...customerData, shippingAddress: {...customerData.shippingAddress, street2: e.target.value}})} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none" placeholder="Crossroad junction index..." />
                                     </div>
                                 </div>

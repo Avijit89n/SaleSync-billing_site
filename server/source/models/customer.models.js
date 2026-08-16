@@ -73,11 +73,13 @@ const customerSchema = new mongoose.Schema(
       type: String,
       trim: true,
       required: true,
+      unique: true,
     },
     email: {
       type: String,
       trim: true,
       lowercase: true,
+      unique: true,
       default: "",
     },
     mobile: {

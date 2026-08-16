@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, FilePlusCorner, UserCheck, AlertCircle, MapPin, Mail, Search, ImageIcon, Eye } from 'lucide-react';
+import { Plus, Trash2, FilePlusCorner, UserCheck, AlertCircle, MapPin, Mail, Search, ImageIcon, Eye, UserPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import InfiniteScroll from "react-infinite-scroll-component";
 
@@ -58,20 +58,11 @@ const initialItemData = {
   discountType: "%",
   MRP: 0.00,
   unit: "",
-  sellingPrice: 0.00 
+  sellingPrice: 0.00
 };
 
 const labelCls = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
 const inputCls = "w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium";
-const countries = ["India", "United States", "United Kingdom", "United Arab Emirates", "Singapore"];
-
-const indianStates = [
-  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
-  "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
-  "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
-  "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
-  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
-];
 
 const initialData = {
   companyName: "",
@@ -94,13 +85,11 @@ function AddInvoice() {
   const [isPaid, setIsPaid] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [itemSearchValue, setItemSearchValue] = useState("");
-  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [invoiceIssueDate, setInvoiceIssueDate] = useState(new Date());
   const [invoiceDueDate, setInvoiceDueDate] = useState(new Date());
   const [saving, setSaving] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [companyInfo, setCompanyInfo] = useState(initialData)
-  const [isAddressSame, setIsAddressSame] = useState(true);
 
   const [invoiceNumberSequence, setInvoiceNumberSequence] = useState("");
 
@@ -156,6 +145,25 @@ function AddInvoice() {
 
   // Mobile device detection
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  // --- SMART INSTANT CREATION LOGIC ---
+  const handleInstantClientCreate = (searchValue) => {
+    const val = searchValue.trim();
+    const isPhoneNumberSearch = /^[\+\d\s\-]+$/.test(val) && val.replace(/\D/g, '').length >= 5;
+
+    const instantClient = {
+      _id: `temp_${Date.now()}`,
+      displayName: isPhoneNumberSearch ? "" : val,
+      workingPhone: isPhoneNumberSearch ? val : "",
+      customerType: "Individual",
+      isInstantNew: true
+    };
+
+    setSelectedCustomer(instantClient);
+    toast.success(isPhoneNumberSearch ? `Record allocated with phone "${val}"` : `Created "${val}"`);
+  };
+
+  const isPhoneNumberSearchCurrent = /^[\+\d\s\-]+$/.test(customerSearchValue.trim()) && customerSearchValue.replace(/\D/g, '').length >= 5;
 
   useEffect(() => {
     if (allcustomers.length === 0) fetchCustomers(10);
@@ -253,8 +261,11 @@ function AddInvoice() {
 
   const totalDiscount = useMemo(() => {
     return itemData.reduce((acc, c) => {
-      const rowTotal = (Number(c.quantity) || 0) * (Number(c.sellingPrice) || 0);
-      return acc + (c.discountType === "%" ? (rowTotal * ((Number(c.discount) || 0) / 100)) : (Number(c.discount) || 0));
+      const qty = Number(c.quantity) || 0;
+      const price = Number(c.sellingPrice) || 0;
+      const disc = Number(c.discount) || 0;
+      const rowTotal = qty * price;
+      return acc + (c.discountType === "%" ? (rowTotal * (disc / 100)) : (disc * qty));
     }, 0);
   }, [itemData]);
 
@@ -282,7 +293,7 @@ function AddInvoice() {
     invoiceNumber: invoiceNumberSequence,
     customerId: selectedCustomer._id,
     customerName: selectedCustomer.displayName,
-
+    customerPhone: selectedCustomer.workingPhone || "", // Added Customer Phone here
     items: itemData.map(item => {
       const cleanedItem = {
         name: item.name,
@@ -304,8 +315,8 @@ function AddInvoice() {
 
     subtotal: Number(subtotal),
 
-    invoiceDate: new Date(invoiceIssueDate).toISOString(),
-    dueDate: new Date(invoiceDueDate).toISOString(),
+    invoiceDate: invoiceIssueDate ? new Date(invoiceIssueDate).toISOString() : new Date().toISOString(),
+    dueDate: invoiceDueDate ? new Date(invoiceDueDate).toISOString() : new Date().toISOString(),
 
     discount: Number(totalDiscount),
     tax: Number(taxedAmount),
@@ -315,7 +326,7 @@ function AddInvoice() {
     status: isPaid ? "Paid" : "Unpaid"
   });
 
-  const resetForm = () => {
+  const resetForm = async() => {
     setSelectedCustomer(null);
     setCustomerSearchValue("");
     dispatch(clearSearchedCustomers());
@@ -332,8 +343,8 @@ function AddInvoice() {
   const saveInvoice = async (action = "save") => {
     if (saving) return;
 
-    if (!selectedCustomer) {
-      toast.error("Please select a verified customer.");
+    if (!selectedCustomer || (selectedCustomer.isInstantNew && (!selectedCustomer.displayName || !selectedCustomer.displayName.trim()))) {
+      toast.error("Please provide a valid client name.");
       return;
     }
 
@@ -341,7 +352,7 @@ function AddInvoice() {
       (item) =>
         !item.name ||
         Number(item.quantity) <= 0 ||
-        Number(item.sellingPrice) <= 0
+        Number(item.sellingPrice) < 0
     );
 
     if (invalidItems) {
@@ -359,13 +370,6 @@ function AddInvoice() {
     try {
       const invoicePayload = buildInvoicePayload();
 
-      const targetInvoiceNum = invoiceNumberSequence;
-      const currentCustomer = selectedCustomer;
-      const currentItems = [...itemData];
-      const currentNotes = notes;
-      const currentTerms = terms;
-      const currentTaxRate = taxRate;
-
       const savePromise = dispatch(addInvoiceReq(invoicePayload)).unwrap();
 
       toast.promise(savePromise, {
@@ -376,9 +380,9 @@ function AddInvoice() {
       await savePromise;
 
       if (action === "download") {
-        await handleDownloadPdf(targetInvoiceNum, currentCustomer, currentItems, currentNotes, currentTerms, currentTaxRate);
+        await handleDownloadPdf();
       } else if (action === "print") {
-        await handlePrintPdf(targetInvoiceNum, currentCustomer, currentItems, currentNotes, currentTerms, currentTaxRate);
+        await handlePrintPdf();
       }
 
       const nextTokenRes = await api.get('/invoice/get-next-token');
@@ -687,7 +691,7 @@ function AddInvoice() {
             </div>
           </div>
 
-          {/* ── Section 1: Customer Allocation ── */}
+          {/* ── Section 1: Customer Allocation (Upgraded Zero-Click UX) ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
             <div className="lg:col-span-2 space-y-4">
               <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
@@ -696,263 +700,60 @@ function AddInvoice() {
               <FieldGroup>
                 <Field className="space-y-1">
                   <FieldLabel htmlFor="customer-name" className={labelCls}>
-                    Customer Name <span className="text-orange-500">*</span>
+                    Customer Name / Phone <span className="text-orange-500">*</span>
                   </FieldLabel>
+
                   <Combobox items={customerDropdownItems}>
                     <ComboboxInput
-                      placeholder="Search customer by name or phone number..."
-                      value={
-                        customerSearchValue ||
-                        selectedCustomer?.displayName ||
-                        ""
-                      }
+                      placeholder="Search customer by name or phone..."
+                      value={customerSearchValue || selectedCustomer?.displayName || ""}
                       onChange={(e) => {
                         const value = e.target.value;
                         setCustomerSearchValue(value);
-                        if (selectedCustomer) {
-                          setSelectedCustomer(null);
-                        }
-                        if (value === "") {
-                          dispatch(clearSearchedCustomers());
+                        if (selectedCustomer) setSelectedCustomer(null);
+                        if (value === "") dispatch(clearSearchedCustomers());
+                      }}
+                      onKeyDown={(e) => {
+                        // The magic trigger: If they hit Enter on an unmatched name/number, create it instantly
+                        if (e.key === 'Enter' && hasNoCustomerSearchResults && customerSearchValue.trim()) {
+                          e.preventDefault();
+                          handleInstantClientCreate(customerSearchValue);
                         }
                       }}
                     />
                     <ComboboxContent className="border border-slate-200 bg-white shadow-xl rounded-lg mt-1 w-full z-50">
                       {isCustomerDebouncing || (customersSearchLoading && customerDropdownItems.length === 0) ? (
-                        <div className="p-4 flex items-center justify-center w-full">
-                          <Loader2 />
-                        </div>
+                        <div className="p-4 flex items-center justify-center w-full"><Loader2 /></div>
                       ) : hasNoCustomerSearchResults ? (
-                        <ComboboxEmpty className="p-6 text-center">
-                          <div className="flex flex-col items-center justify-center space-y-1 text-gray-400">
-                            <Search size={24} className="text-gray-300" />
-                            <p className="text-sm font-medium text-gray-600">No customers found</p>
-                            <Dialog
-                              open={customerDialogOpen}
-                              onOpenChange={setCustomerDialogOpen}
-                            >
-                              <DialogTrigger asChild>
-                                <Button
-                                  type="button"
-                                  className="mt-2 bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold text-xs h-9 px-4 rounded-lg flex items-center gap-1.5 shadow-sm transition-all"
-                                >
-                                  <Plus size={14} className="stroke-[3]" /> Add New Customer
-                                </Button>
-                              </DialogTrigger>
 
-                              <DialogContent className="max-w-[95vw] md:max-w-[850px] h-[92vh] overflow-auto bg-white p-6">
-                                <DialogHeader className="space-y-1 border-b border-slate-100 pb-4">
-                                  <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                    <UserCheck className="text-orange-500" size={24} /> Register New Customer Record
-                                  </DialogTitle>
-                                  <DialogDescription className="text-xs text-slate-500">
-                                    Configure client ledger profiles, communication endpoints, and logistics addresses natively into the database ecosystem.
-                                  </DialogDescription>
-                                </DialogHeader>
-
-                                <div className="space-y-8 pt-4">
-                                  <div className="space-y-4">
-                                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">Primary Profile Details</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                      <div className="space-y-1">
-                                        <label className={labelCls}>Customer Type</label>
-                                        <Select name="customerType" defaultValue="Individual">
-                                          <SelectTrigger className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg">
-                                            <SelectValue placeholder="Select classification" />
-                                          </SelectTrigger>
-                                          <SelectContent className="bg-white border border-slate-200">
-                                            <SelectItem value="Individual">Individual</SelectItem>
-                                            <SelectItem value="Business">Business</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                      <div className="space-y-1">
-                                        <label className={labelCls}>Customer Name</label>
-                                        <Input name="customerName" placeholder="e.g. John Doe" className={inputCls} />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <label className={labelCls}>Company Name</label>
-                                        <Input name="companyName" placeholder="e.g. Corporate Entity Ltd." className={inputCls} />
-                                      </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div className="space-y-1">
-                                        <label className={labelCls}><span className="text-orange-500">Customer Display Name *</span></label>
-                                        <Input name="displayName" required placeholder="Public billing profile alias lookup name" className={inputCls} />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <label className={labelCls}><span className="text-orange-500">Work Phone *</span></label>
-                                        <Input name="workingPhone" required placeholder="Primary communication line number" className={inputCls} />
-                                      </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div className="space-y-1">
-                                        <label className={labelCls}>Email Address</label>
-                                        <Input name="email" type="email" placeholder="client@domain.com" className={inputCls} />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <label className={labelCls}>Mobile Number</label>
-                                        <Input name="mobile" placeholder="Personal verification cell reference" className={inputCls} />
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4 border-t border-slate-100">
-                                    <div className="space-y-4">
-                                      <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">Billing Address</h3>
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                          <label className={labelCls}>Attention Counterpart</label>
-                                          <Input name="billing_attention" placeholder="Accounts Department" className={inputCls} />
-                                        </div>
-                                        <div className="space-y-1">
-                                          <label className={labelCls}>Country/Region</label>
-                                          <Select name="billing_country" defaultValue="India">
-                                            <SelectTrigger className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg">
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="max-h-48 bg-white border border-slate-200">
-                                              {countries.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
-                                      </div>
-                                      <div className="space-y-1">
-                                        <label className={labelCls}>Street Address 1</label>
-                                        <Textarea name="billing_street1" className="w-full min-h-[64px] text-sm border border-slate-300 rounded-lg bg-white p-2.5 font-medium resize-none" placeholder="Plot line, building details, sector..." />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <label className={labelCls}>Street Address 2</label>
-                                        <Textarea name="billing_street2" className="w-full min-h-[64px] text-sm border border-slate-300 rounded-lg bg-white p-2.5 font-medium resize-none" placeholder="Apartment unit, landmark parameters..." />
-                                      </div>
-                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                        <div className="space-y-1">
-                                          <label className={labelCls}>City</label>
-                                          <Input name="billing_city" placeholder="City Name" className={inputCls} />
-                                        </div>
-                                        <div className="space-y-1">
-                                          <label className={labelCls}>State</label>
-                                          <Select name="billing_state" defaultValue="West Bengal">
-                                            <SelectTrigger className="w-full h-11 bg-white text-xs font-semibold border border-slate-300 rounded-lg px-2">
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="max-h-48 bg-white border border-slate-200">
-                                              {indianStates.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
-                                        <div className="space-y-1">
-                                          <label className={labelCls}>Pincode</label>
-                                          <Input name="billing_pincode" placeholder="Pincode" className={`${inputCls} font-mono px-1 text-center`} />
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                      <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">Shipping Logistics Address</h3>
-                                      <div
-                                        className="flex items-start gap-3 rounded-xl border border-orange-500/30 bg-orange-50/20 p-4 cursor-pointer select-none mb-4 border-dashed"
-                                        onClick={() => setIsAddressSame(!isAddressSame)}
-                                      >
-                                        <div
-                                          data-state={isAddressSame ? "checked" : "unchecked"}
-                                          className="h-4 w-4 shrink-0 rounded border border-orange-500 bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center transition-all data-[state=unchecked]:bg-white data-[state=unchecked]:text-transparent data-[state=unchecked]:border-slate-300"
-                                        >
-                                          {isAddressSame ? "✓" : ""}
-                                        </div>
-                                        <div className="grid gap-0.5 font-normal">
-                                          <p className="text-xs font-bold text-slate-900 leading-none">Mirror Billing Address Parameters</p>
-                                          <p className="text-slate-400 text-[11px] mt-0.5 leading-normal">Automatically route product inventory logs directly to billing coordinates.</p>
-                                        </div>
-                                      </div>
-
-                                      {!isAddressSame && (
-                                        <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2">
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                              <label className={labelCls}>Attention Target</label>
-                                              <Input name="shipping_attention" placeholder="Receiving Bay 2" className={inputCls} />
-                                            </div>
-                                            <div className="space-y-1">
-                                              <label className={labelCls}>Country/Region</label>
-                                              <Select name="shipping_country" defaultValue="India">
-                                                <SelectTrigger className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg">
-                                                  <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent className="max-h-48 bg-white border border-slate-200">
-                                                  {countries.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                                                </SelectContent>
-                                              </Select>
-                                            </div>
-                                          </div>
-                                          <div className="space-y-1">
-                                            <label className={labelCls}>Street Address 1</label>
-                                            <Textarea name="shipping_street1" className="w-full min-h-[64px] text-sm border border-slate-300 rounded-lg bg-white p-2.5 font-medium resize-none" placeholder="Warehouse plot destination details..." />
-                                          </div>
-                                          <div className="space-y-1">
-                                            <label className={labelCls}>Street Address 2</label>
-                                            <Textarea name="shipping_street2" className="w-full min-h-[64px] text-sm border border-slate-300 rounded-lg bg-white p-2.5 font-medium resize-none" placeholder="Crossroad coordinate indices..." />
-                                          </div>
-                                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                            <div className="space-y-1">
-                                              <label className={labelCls}>City</label>
-                                              <Input name="shipping_city" placeholder="Logistics City" className={inputCls} />
-                                            </div>
-                                            <div className="space-y-1">
-                                              <label className={labelCls}>State</label>
-                                              <Select name="shipping_state" defaultValue="West Bengal">
-                                                <SelectTrigger className="w-full h-11 bg-white text-xs font-semibold border border-slate-300 rounded-lg px-2">
-                                                  <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent className="max-h-48 bg-white border border-slate-200">
-                                                  {indianStates.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                                                </SelectContent>
-                                              </Select>
-                                            </div>
-                                            <div className="space-y-1">
-                                              <label className={labelCls}>Pincode</label>
-                                              <Input name="shipping_pincode" placeholder="700001" className={`${inputCls} font-mono px-1 text-center`} />
-                                            </div>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  <div className="pt-4 border-t border-slate-200 flex justify-end items-center gap-3">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      onClick={() => setCustomerDialogOpen(false)}
-                                      className="border-slate-200 hover:border-slate-300 text-slate-600 bg-white text-sm h-11 px-5 font-bold rounded-lg shadow-sm"
-                                    >
-                                      Dismiss
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      className="bg-orange-500 hover:bg-orange-700 text-white font-bold text-sm h-11 px-6 rounded-lg shadow-md"
-                                    >
-                                      Save Customer
-                                    </Button>
-                                  </div>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                        /* THE UPGRADED "CREATE ON THE FLY" DROPDOWN OPTION */
+                        <div
+                          onClick={() => {
+                            handleInstantClientCreate(customerSearchValue);
+                          }}
+                          className="p-3 hover:bg-orange-50/80 cursor-pointer flex items-center justify-between group border-l-2 border-transparent hover:border-orange-500 transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center font-bold group-hover:scale-105 transition-transform">
+                              <Plus size={18} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Record not found</p>
+                              <p className="text-sm font-bold text-slate-800">
+                                Add <span className="text-orange-600">"{customerSearchValue}"</span> as new {isPhoneNumberSearchCurrent ? "phone record" : "client"}
+                              </p>
+                            </div>
                           </div>
-                        </ComboboxEmpty>
+                          <div className="flex items-center gap-1 text-xs font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded font-bold">
+                            <span>Press</span> <kbd className="text-slate-700">Enter</kbd>
+                          </div>
+                        </div>
+
                       ) : (
                         <ComboboxList className="max-h-[260px] overflow-y-auto" id="customer-scroll-container">
                           <InfiniteScroll
                             dataLength={customerDropdownItems.length}
-                            next={() => {
-                              if (!isSearchingCustomers) {
-                                fetchCustomers(10, customerNextCursor);
-                              } else {
-                                searchCustomerPagination(10, customersearchNextCursor);
-                              }
-                            }}
+                            next={() => !isSearchingCustomers ? fetchCustomers(10, customerNextCursor) : searchCustomerPagination(10, customersearchNextCursor)}
                             hasMore={!isSearchingCustomers ? !customerisEnd : !customersearchIsEnd}
                             scrollableTarget="customer-scroll-container"
                             loader={<div className="py-2 text-center"><Loader2 /></div>}
@@ -965,10 +766,10 @@ function AddInvoice() {
                                   setSelectedCustomer(customer);
                                   setCustomerSearchValue(customer.displayName);
                                 }}
-                                className="py-3 px-4 text-sm font-medium text-slate-800 data-selected:bg-slate-50 data-selected:text-slate-900 flex justify-between items-center cursor-pointer"
+                                className="py-3 px-4 text-sm font-medium text-slate-800 data-[selected]:bg-slate-50 flex justify-between items-center cursor-pointer"
                               >
                                 <span className="font-semibold">{customer.displayName}</span>
-                                <span className="text-xs text-slate-400 font-mono">{customer.workingPhone || 'No contact attached'}</span>
+                                <span className="text-xs text-slate-400 font-mono">{customer.workingPhone || 'No phone'}</span>
                               </ComboboxItem>
                             ))}
                           </InfiniteScroll>
@@ -982,67 +783,197 @@ function AddInvoice() {
               {/* Smart Client Record Info Box */}
               <div className="mt-4 min-h-[165px]">
                 {selectedCustomer ? (
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 animate-fade-in transition-all space-y-3 h-[190px] overflow-y-auto scrollbar-thin">
-                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                      <div className="flex items-center gap-2">
-                        <UserCheck size={16} className="text-orange-500" />
-                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide truncate max-w-xs">{selectedCustomer.companyName || selectedCustomer.displayName}</h4>
-                      </div>
-                      <Badge className="text-[10px] uppercase font-bold px-2 py-0.5 pointer-events-none bg-orange-100 text-orange-700">
-                        {selectedCustomer.customerType}
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4 text-xs">
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phone</p>
-                          <p className="font-semibold text-slate-700 font-mono mt-0.5 truncate">{selectedCustomer.workingPhone || "N/A"}</p>
+                  <div
+                    className={`relative bg-white rounded-2xl border ${selectedCustomer.isInstantNew ? "border-orange-200/80 shadow-md shadow-orange-100/20" : "border-slate-200 shadow-sm shadow-slate-100/50"
+                      } overflow-hidden transition-all duration-300`}
+                  >
+                    
+
+                    <div className="p-6">
+                      {/* Header Section */}
+                      <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-5">
+                        <div className="flex items-center gap-4">
+                          <div
+                            className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${selectedCustomer.isInstantNew
+                                ? "bg-orange-50 text-orange-500"
+                                : "bg-emerald-50 text-emerald-500"
+                              }`}
+                          >
+                            <UserCheck size={20} strokeWidth={2.5} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2.5">
+                              <h4 className="text-base font-bold text-slate-800 tracking-tight">
+                                {selectedCustomer.displayName || "New Client"}
+                              </h4>
+                              {selectedCustomer.isInstantNew && (
+                                <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wide">
+                                  NEW
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 font-medium mt-0.5">
+                              {selectedCustomer.customerType} Profile
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><Mail size={10} /> Email</p>
-                          <p className="font-semibold text-slate-600 font-sans mt-0.5 truncate">{selectedCustomer.email || "N/A"}</p>
-                        </div>
                       </div>
-                      <div className="col-span-2 pl-3 border-l border-slate-200">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><MapPin size={10} /> Billing Address</p>
-                        <p className="font-medium text-slate-600 mt-0.5 leading-relaxed text-xs whitespace-pre-line">
-                          {[
-                            selectedCustomer.billingAddress?.attention,
-                            selectedCustomer.billingAddress?.street1,
-                            selectedCustomer.billingAddress?.street2,
-                            [
-                              selectedCustomer.billingAddress?.city,
-                              selectedCustomer.billingAddress?.state,
-                              selectedCustomer.billingAddress?.pincode,
-                            ]
-                              .filter(Boolean)
-                              .join(", "),
-                            selectedCustomer.billingAddress?.country,
-                          ]
-                            .filter(Boolean)
-                            .join("\n") || "No billing address available"}
-                        </p>
+
+                      {/* Content Section - 2 Column Split */}
+                      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+
+                        {/* Contact Column */}
+                        <div className="flex-1 space-y-4">
+                          <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                            <Mail size={14} className="text-slate-300" /> Contact
+                          </h5>
+
+                          <div className="space-y-3">
+                            {selectedCustomer.isInstantNew ? (
+                              <>
+                                <Input
+                                  autoFocus={!selectedCustomer.displayName}
+                                  placeholder="Customer Name *"
+                                  value={selectedCustomer.displayName || ""}
+                                  onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, displayName: e.target.value }))}
+                                  className={`bg-white ${!selectedCustomer.displayName ? 'border-orange-300 ring-2 ring-orange-500/20' : ''}`}
+                                />
+                                <Input
+                                  autoFocus={!!selectedCustomer.displayName}
+                                  placeholder="Phone number"
+                                  value={selectedCustomer.workingPhone || ""}
+                                  onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, workingPhone: e.target.value }))}
+                                  className="bg-white"
+                                />
+                                <Input
+                                  placeholder="Email address"
+                                  value={selectedCustomer.email || ""}
+                                  onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, email: e.target.value }))}
+                                  className="bg-white"
+                                />
+                              </>
+                            ) : (
+                              <div className="space-y-3">
+                                <p className="text-sm font-medium text-slate-700 font-mono flex items-center h-10 bg-slate-50/50 px-4 rounded-xl">
+                                  {selectedCustomer.workingPhone || "No phone provided"}
+                                </p>
+                                <p className="text-sm font-medium text-slate-700 flex items-center h-10 bg-slate-50/50 px-4 rounded-xl truncate">
+                                  {selectedCustomer.email || "No email provided"}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Address Column */}
+                        <div className="flex-[1.5] space-y-4">
+                          <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                            <MapPin size={14} className="text-slate-300" /> Billing Address
+                          </h5>
+
+                          {selectedCustomer.isInstantNew ? (
+                            <div className="space-y-3">
+                              <Input
+                                placeholder="Street Address (e.g. 123 Main St)"
+                                value={selectedCustomer.billingAddress?.street1 || ""}
+                                onChange={(e) => setSelectedCustomer(prev => ({
+                                  ...prev, billingAddress: { ...prev.billingAddress, street1: e.target.value }
+                                }))}
+                                className="bg-white"
+                              />
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <Input
+                                  placeholder="City"
+                                  value={selectedCustomer.billingAddress?.city || ""}
+                                  onChange={(e) => setSelectedCustomer(prev => ({
+                                    ...prev, billingAddress: { ...prev.billingAddress, city: e.target.value }
+                                  }))}
+                                  className="bg-white"
+                                />
+                                <Input
+                                  placeholder="State"
+                                  value={selectedCustomer.billingAddress?.state || ""}
+                                  onChange={(e) => setSelectedCustomer(prev => ({
+                                    ...prev, billingAddress: { ...prev.billingAddress, state: e.target.value }
+                                  }))}
+                                  className="bg-white"
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <Input
+                                  placeholder="Pincode"
+                                  value={selectedCustomer.billingAddress?.pincode || ""}
+                                  onChange={(e) => setSelectedCustomer(prev => ({
+                                    ...prev, billingAddress: { ...prev.billingAddress, pincode: e.target.value }
+                                  }))}
+                                  className="bg-white"
+                                />
+                                <Input
+                                  placeholder="Country"
+                                  value={selectedCustomer.billingAddress?.country ?? "India"}
+                                  onChange={(e) => setSelectedCustomer(prev => ({
+                                    ...prev, billingAddress: { ...prev.billingAddress, country: e.target.value }
+                                  }))}
+                                  className="bg-white"
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-slate-50/60 p-4 rounded-xl min-h-[128px] border border-slate-100 flex flex-col justify-center">
+                              {selectedCustomer.billingAddress?.street1 ? (
+                                <div className="text-sm text-slate-700 leading-relaxed">
+                                  <p className="font-semibold text-slate-800">
+                                    {[selectedCustomer.billingAddress.street1, selectedCustomer.billingAddress.street2].filter(Boolean).join(", ")}
+                                  </p>
+                                  <p className="text-slate-500 mt-1">
+                                    {[
+                                      selectedCustomer.billingAddress.city,
+                                      selectedCustomer.billingAddress.state,
+                                      selectedCustomer.billingAddress.pincode
+                                    ].filter(Boolean).join(", ")}
+                                  </p>
+                                  <div className="inline-block mt-2 px-2.5 py-1 bg-white border border-slate-200 rounded-md text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+                                    {selectedCustomer.billingAddress.country || "India"}
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-slate-400 italic text-sm text-center">No billing address provided</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center gap-2 bg-slate-50/40 border border-dashed border-slate-200 rounded-xl h-[165px] text-slate-400 text-xs text-center px-6">
-                    <AlertCircle size={22} className="text-slate-300 stroke-[1.5]" />
-                    <p className="font-medium max-w-xs leading-normal">No active record allocated. Use lookup terminal above.</p>
+                  /* Empty State */
+                  <div className="flex flex-col items-center justify-center gap-4 bg-slate-50/30 border-2 border-dashed border-slate-200 rounded-2xl min-h-[220px] h-full text-center px-6 transition-colors hover:bg-slate-50/50">
+                    <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center">
+                      <AlertCircle size={24} className="text-slate-300" />
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-slate-700">No client selected</p>
+                      <p className="text-sm text-slate-400 mt-1.5 max-w-sm mx-auto leading-relaxed">
+                        Search for an existing client or type a new name/number above to dynamically allocate a record.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
+
             </div>
 
-            {/* Ledger Metadata Fields */}
-            <div className="space-y-6 border-l-0 lg:border-l lg:pl-12 border-slate-200">
+            {/* Timeline Metadata */}
+            <div className="space-y-6 lg:border-l lg:pl-12 border-slate-200">
               <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">Timeline Details</h2>
               <div className="space-y-4">
-                <div className="space-y-1"><label className={labelCls}>Invoice Issue Date</label><DatePickerInput onChange={setInvoiceIssueDate} value={invoiceIssueDate} /></div>
-                <div className="space-y-1"><label className={labelCls}>Payment Due Date</label><DatePickerInput onChange={setInvoiceDueDate} value={invoiceDueDate} /></div>
+                <div className="space-y-1"><label className={labelCls}>Issue Date</label><DatePickerInput onChange={setInvoiceIssueDate} value={invoiceIssueDate} /></div>
+                <div className="space-y-1"><label className={labelCls}>Due Date</label><DatePickerInput onChange={setInvoiceDueDate} value={invoiceDueDate} /></div>
                 <div className="space-y-1">
-                  <label htmlFor="invoice-number" className={labelCls}>Invoice Number Sequence</label>
-                  <Input className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono font-bold text-slate-500 cursor-not-allowed" value={invoiceNumberSequence} readOnly />
+                  <label className={labelCls}>Invoice No.</label>
+                  <Input className="w-full h-11 px-3 bg-slate-50 border-slate-200 text-sm font-mono font-bold text-slate-500 cursor-not-allowed" value={invoiceNumberSequence} readOnly />
                 </div>
               </div>
             </div>
@@ -1067,10 +998,12 @@ function AddInvoice() {
                 <TableBody>
                   {itemData.map((data, index) => {
                     const rowAmount = ((Number(data.quantity) || 0) * (Number(data.sellingPrice) || 0)) -
-                      (data.discountType === "%" ? (((Number(data.quantity) || 0) * (Number(data.sellingPrice) || 0)) * ((Number(data.discount) || 0) / 100)) : (Number(data.discount) || 0));
+                      (data.discountType === "%" 
+                        ? (((Number(data.quantity) || 0) * (Number(data.sellingPrice) || 0)) * ((Number(data.discount) || 0) / 100)) 
+                        : ((Number(data.discount) || 0) * (Number(data.quantity) || 0)));
 
                     return (
-                      <TableRow key={data._rowId} className="border-b border-slate-200 hover:bg-slate-50/20 transition-colors bg-white last:border-0 vertical-align-middle">
+                      <TableRow key={data._rowId} className="border-b border-slate-200 hover:bg-slate-50/20 transition-colors bg-white last:border-0 align-middle">
                         <TableCell className="pl-4 py-4 align-middle">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
@@ -1293,7 +1226,9 @@ function AddInvoice() {
             <div className="md:hidden space-y-4">
               {itemData.map((data, index) => {
                 const rowAmount = ((Number(data.quantity) || 0) * (Number(data.sellingPrice) || 0)) -
-                  (data.discountType === "%" ? (((Number(data.quantity) || 0) * (Number(data.sellingPrice) || 0)) * ((Number(data.discount) || 0) / 100)) : (Number(data.discount) || 0));
+                  (data.discountType === "%" 
+                    ? (((Number(data.quantity) || 0) * (Number(data.sellingPrice) || 0)) * ((Number(data.discount) || 0) / 100)) 
+                    : ((Number(data.discount) || 0) * (Number(data.quantity) || 0)));
 
                 return (
                   <div key={data._rowId} className="bg-white p-4 rounded-xl border border-slate-200 space-y-4 relative shadow-sm">
@@ -1384,7 +1319,6 @@ function AddInvoice() {
                                                 : it
                                             )
                                           );
-
                                           setActiveRowIndex(null);
                                           setItemSearchValue("");
                                           dispatch(clearSearchedItems());
@@ -1525,7 +1459,6 @@ function AddInvoice() {
 
             <Button
               onClick={() => {
-                // FIX: Clear active row states when adding a new row
                 setActiveRowIndex(null);
                 setItemSearchValue("");
                 dispatch(clearSearchedItems());
@@ -1707,27 +1640,27 @@ function AddInvoice() {
             {/* Safe Iframe Sandboxed Render Window */}
             <div className="flex-1 w-full bg-slate-100 p-3 overflow-hidden">
               {previewOpen && !isMobile && (
-                  <PDFViewer width="100%" height="100%" showToolbar={true} className="border-0 rounded-xl shadow-inner bg-slate-200">
-                    <InvoiceDesign1
-                      invoiceNumberSequence={invoiceNumberSequence}
-                      isPaid={isPaid}
-                      selectedCustomer={selectedCustomer}
-                      itemData={itemData}
-                      subtotal={subtotal}
-                      totalDiscount={totalDiscount}
-                      taxRate={taxRate}
-                      taxedAmount={taxedAmount}
-                      grandTotal={grandTotal}
-                      notes={notes}
-                      terms={terms}
-                      issueDate={invoiceIssueDate}
-                      dueDate={invoiceDueDate}
-                      isPreview={true}
-                      companyInfo={companyInfo}
-                      companyLogo={companyInfo?.logo || ""}
-                      companySignature={companyInfo?.signature || ""}
-                    />
-                  </PDFViewer>
+                <PDFViewer width="100%" height="100%" showToolbar={true} className="border-0 rounded-xl shadow-inner bg-slate-200">
+                  <InvoiceDesign1
+                    invoiceNumberSequence={invoiceNumberSequence}
+                    isPaid={isPaid}
+                    selectedCustomer={selectedCustomer}
+                    itemData={itemData}
+                    subtotal={subtotal}
+                    totalDiscount={totalDiscount}
+                    taxRate={taxRate}
+                    taxedAmount={taxedAmount}
+                    grandTotal={grandTotal}
+                    notes={notes}
+                    terms={terms}
+                    issueDate={invoiceIssueDate}
+                    dueDate={invoiceDueDate}
+                    isPreview={true}
+                    companyInfo={companyInfo}
+                    companyLogo={companyInfo?.logo || ""}
+                    companySignature={companyInfo?.signature || ""}
+                  />
+                </PDFViewer>
               )}
             </div>
           </DialogContent>
@@ -1737,4 +1670,4 @@ function AddInvoice() {
     );
 }
 
-export default AddInvoice;
+export default AddInvoice; 

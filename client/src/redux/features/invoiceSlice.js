@@ -11,9 +11,9 @@ const initialState = {
     error: null,
     isEnd: false,
     nextCursor: null,
+    deleteLoading: false
 }
 
-// Helper function to ensure all database records map to the exact same UI format
 const formatInvoiceData = (invoice) => ({
     _id: invoice._id,
     id: invoice._id,
@@ -92,6 +92,20 @@ export const invoiceSearchReq = createAsyncThunk(
     }
 );
 
+export const cancelInvoiceReq = createAsyncThunk(
+    "invoice/cancel",
+    async (id, thunkAPI) => {
+        try {
+            const res = await api.get(`/invoice/cancel/${id}`);
+            return res.data?.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response?.data || "Failed to cancel invoice"
+            );
+        }
+    }
+);
+
 const invoiceSlice = createSlice({
     name: "invoice",
     initialState,
@@ -110,7 +124,6 @@ const invoiceSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            // Add Invoice Lifecycle Actions
             .addCase(addInvoiceReq.pending, (state) => {
                 state.invoiceLoading = true;
                 state.error = null;
@@ -126,7 +139,6 @@ const invoiceSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // Get All Invoices Pagination Lifecycle Actions
             .addCase(getAllInvoiceReq.pending, (state) => {
                 state.invoiceLoading = true;
                 state.error = null;
@@ -134,10 +146,10 @@ const invoiceSlice = createSlice({
             .addCase(getAllInvoiceReq.fulfilled, (state, action) => {
                 state.invoiceLoading = false;
 
-                const rawInvoices = Array.isArray(action.payload) 
-                    ? action.payload 
+                const rawInvoices = Array.isArray(action.payload)
+                    ? action.payload
                     : (action.payload?.invoices || []);
-                    
+
                 const formattedInvoices = rawInvoices.map(formatInvoiceData);
 
                 const newInvoices = formattedInvoices.filter(
@@ -154,7 +166,6 @@ const invoiceSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // Search Invoices Infinite Scrolling Lifecycle Actions
             .addCase(invoiceSearchReq.pending, (state) => {
                 state.searchLoading = true;
                 state.error = null;
@@ -165,7 +176,7 @@ const invoiceSlice = createSlice({
                 const rawSearched = Array.isArray(action.payload?.results)
                     ? action.payload.results
                     : (action.payload?.results?.invoices || []);
-                    
+
                 const formattedSearched = rawSearched.map(formatInvoiceData);
 
                 if (action.payload.cursor) {
@@ -187,6 +198,30 @@ const invoiceSlice = createSlice({
                     state.error = action.payload;
                     state.searchedInvoices = [];
                 }
+            })
+
+            .addCase(cancelInvoiceReq.pending, (state) => {
+                state.deleteLoading = true;
+            })
+            .addCase(cancelInvoiceReq.fulfilled, (state, action) => {
+                const canceledInvoiceId = action.payload?._id || action.payload?.id;
+                
+                if (canceledInvoiceId) {
+                    const invoiceIndex = state.invoices.findIndex(inv => inv._id === canceledInvoiceId);
+                    if (invoiceIndex !== -1) {
+                        state.invoices[invoiceIndex].status = "Cancel";
+                    }
+
+                    const searchIndex = state.searchedInvoices.findIndex(inv => inv._id === canceledInvoiceId);
+                    if (searchIndex !== -1) {
+                        state.searchedInvoices[searchIndex].status = "Cancel";
+                    }
+                }
+                
+                state.deleteLoading = false;
+            })
+            .addCase(cancelInvoiceReq.rejected, (state) => {
+                state.deleteLoading = false;
             });
     }
 });

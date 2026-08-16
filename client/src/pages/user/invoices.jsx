@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge"
 import { useNavigate } from "react-router-dom"
 import { useDispatch, useSelector } from "react-redux"
 
-import { clearSearchedInvoices, clearInvoices, getAllInvoiceReq, invoiceSearchReq } from "@/redux/features/invoiceSlice.js"
+import { clearSearchedInvoices, clearInvoices, getAllInvoiceReq, invoiceSearchReq, cancelInvoiceReq } from "@/redux/features/invoiceSlice.js"
 import InfiniteScroll from "react-infinite-scroll-component"
 import Loader2 from '@/components/loaders/loader2'
 import { toast } from "sonner"
@@ -54,10 +54,13 @@ const formatDisplayDate = (dateValue) => {
   });
 }
 
-const CustomTableRow = React.memo(({ singleInvoice, navigate }) => {
+const CustomTableRow = React.memo(({ singleInvoice, navigate, onCancel }) => {
   const getCalculatedStatus = () => {
     const status = singleInvoice.status;
     if (status === "Paid") return "Paid";
+    
+    // Prevent cancelled invoices from calculating as overdue
+    if (status === "Cancel" || status === "cancel") return "Void";
 
     if (singleInvoice.dueDate) {
       const dueDate = new Date(singleInvoice.dueDate);
@@ -79,6 +82,8 @@ const CustomTableRow = React.memo(({ singleInvoice, navigate }) => {
     switch (status) {
       case "Paid":
         return "bg-green-100 text-green-700 border-green-200";
+      case "Void":
+        return "bg-slate-100 text-slate-700 border-slate-200";
       case "Overdue":
         return "bg-red-100 text-red-700 font-bold border-red-200";
       case "Unpaid":
@@ -133,7 +138,15 @@ const CustomTableRow = React.memo(({ singleInvoice, navigate }) => {
             <DropdownMenuItem className="cursor-pointer">Edit</DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer">Change Status</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50">Delete</DropdownMenuItem>
+            <DropdownMenuItem 
+              className="cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancel(singleInvoice._id || singleInvoice.id);
+              }}
+            >
+              Void Invoice
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
@@ -172,6 +185,17 @@ export default function Invoices() {
         toast.error(error.message || "Something went wrong");
       });
   }, [dispatch, invoiceLoading, filter]);
+
+  const handleCancelInvoice = async (invoiceId) => {
+    if (!window.confirm("Are you sure you want to cancel this invoice? Items will be restocked.")) return;
+
+    try {
+      await dispatch(cancelInvoiceReq(invoiceId)).unwrap();
+      toast.success("Invoice cancelled successfully");
+    } catch (error) {
+      toast.error(error.message || "Failed to cancel invoice");
+    }
+  };
 
   // Tab switch reset handler
   useEffect(() => {
@@ -228,14 +252,12 @@ export default function Invoices() {
 
       activeSearchRequestRef.current = requestPromise;
 
-      // FIX 1: Set debouncing to false AFTER the dispatch to leverage React 18's state batching.
-      // This prevents the 1ms gap where the component thinks it's not searching or loading, stopping the empty state flash.
       setSearchIsDebouncing(false);
 
       requestPromise
         .unwrap()
         .catch((err) => {
-          if (err.name === 'AbortError' || err === "Request canceled") return;
+          if (err.name === 'AbortError' || err === "Request cancelled") return;
           toast.error(err.message || "Something went wrong");
         })
         .finally(() => {
@@ -262,7 +284,7 @@ export default function Invoices() {
     }))
       .unwrap()
       .catch((error) => {
-        if (error.name === 'AbortError' || error === "Request canceled") return;
+        if (error.name === 'AbortError' || error === "Request cancelled") return;
         toast.error(error.message || "Something went wrong");
       });
   }, [searchQuery, searchLoading, dispatch, filter]);
@@ -270,7 +292,6 @@ export default function Invoices() {
   const isSearching = searchQuery.trim().length >= 1;
   const isSearchActive = isDebouncing || searchLoading;
   
-  // Unified loader logic
   const showLoader = (isSearching && isSearchActive && searchedInvoices.length === 0) || 
                      (!isSearching && invoiceLoading && invoices.length === 0);
 
@@ -306,6 +327,7 @@ export default function Invoices() {
               <SelectItem value="Paid">Paid</SelectItem>
               <SelectItem value="Unpaid">Unpaid</SelectItem>
               <SelectItem value="Overdue">Overdue</SelectItem>
+              <SelectItem value="Cancel">Void</SelectItem>
             </SelectContent>
           </Select>
           <Button onClick={() => navigate("/user/add-invoice")} className="bg-orange-500 hover:bg-orange-600 transition-colors shadow-sm font-medium">
@@ -325,8 +347,6 @@ export default function Invoices() {
             fetchInvoices(10, nextCursor);
           }
         }}
-        // FIX 2: Completely force 'hasMore' to false if ANY load activity is happening.
-        // This permanently stops the bottom loader from doubling up with the table-body loader.
         hasMore={(isSearchActive || invoiceLoading) ? false : (isSearching ? !searchIsEnd : !isEnd)}
         loader={
           <div className="py-6 flex items-center justify-center w-full">
@@ -364,6 +384,7 @@ export default function Invoices() {
                       key={singleInvoice._id || singleInvoice.id}
                       singleInvoice={singleInvoice}
                       navigate={navigate}
+                      onCancel={handleCancelInvoice}
                     />
                   ))
                 ) : (
@@ -386,6 +407,7 @@ export default function Invoices() {
                       key={singleInvoice._id || singleInvoice.id}
                       singleInvoice={singleInvoice}
                       navigate={navigate}
+                      onCancel={handleCancelInvoice}
                     />
                   ))
                 ) : (

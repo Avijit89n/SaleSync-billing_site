@@ -90,7 +90,7 @@ const invoiceSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Paid', 'Unpaid', 'Overdue'],
+        enum: ['Paid', 'Unpaid', 'Cancel'],
         default: 'Unpaid',
     }
 }, { timestamps: true });

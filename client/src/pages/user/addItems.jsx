@@ -34,7 +34,7 @@ const initialData = {
   image: null,
   MRP: "",
   sellingPrice: "",
-  stock: "",
+  stock: 0,
   unit: "",
   status: "Active",
 };
@@ -277,7 +277,7 @@ function AddItems() {
               />
             </Field>
 
-            <Field className="space-y-1">
+            {/* <Field className="space-y-1">
               <FieldLabel htmlFor="item-stock" className={labelCls}>Stock Quantity <span className='text-orange-500'>*</span></FieldLabel>
               <Input 
                 disabled={itemLoading}
@@ -289,7 +289,7 @@ function AddItems() {
                 className={`${inputCls} font-mono font-semibold`}
                 required
               />
-            </Field>
+            </Field> */}
           </FieldGroup>
         </div>
 

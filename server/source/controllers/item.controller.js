@@ -6,6 +6,7 @@ import apiResponse from "../utils/apiResponse.js";
 
 const additem = async (req, res) => {
     const { name, description, MRP, sellingPrice, stock, status, unit } = req.body;
+    console.log("Received item data:", req.body);
     if (!name || !MRP || !sellingPrice || !unit) {
         if (req.file) fs.unlinkSync(req.file.path)
         throw new ApiError("Required fields are missing", 400);
