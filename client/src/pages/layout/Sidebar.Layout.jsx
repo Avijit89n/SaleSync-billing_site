@@ -1,9 +1,21 @@
-import { AppSidebar } from "@/components/other-ui/app-sidebar"
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { Outlet, useLocation, Link } from "react-router-dom"
-import React from "react"
+import { AppSidebar } from "@/components/other-ui/app-sidebar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Separator } from "@/components/ui/separator";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { Outlet, useLocation, Link } from "react-router-dom";
+import React, { useEffect } from "react";
 
 const formatPathName = (path) => {
   return path
@@ -11,23 +23,31 @@ const formatPathName = (path) => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
-
-export default function SidebarLayout() {
+function SidebarContent() {
   const { pathname } = useLocation();
+  const { setOpenMobile } = useSidebar();
+
   const pathNames = pathname.split("/").filter((path) => path);
 
+  // Close mobile sidebar whenever route changes
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [pathname, setOpenMobile]);
 
   return (
-    <SidebarProvider className={"opacity-0 animate-fade-in-scale transition-all duration-500"}>
+    <>
       <AppSidebar />
-      <SidebarInset className={"min-w-0"}>
+
+      <SidebarInset className="min-w-0">
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
+
             <Separator
               orientation="vertical"
               className="mr-2 data-[orientation=vertical]:h-4"
             />
+
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem className="hidden md:block">
@@ -36,24 +56,39 @@ export default function SidebarLayout() {
                   </BreadcrumbLink>
                 </BreadcrumbItem>
 
-                {pathNames.length > 0 && <BreadcrumbSeparator className="hidden md:block" />}
+                {pathNames.length > 0 && (
+                  <BreadcrumbSeparator className="hidden md:block" />
+                )}
+
                 {pathNames.map((path, index) => {
-                  const routeTo = `/${pathNames.slice(0, index + 1).join("/")}`;
-                  const isLast = index === pathNames.length - 1;
+                  const routeTo = `/${pathNames
+                    .slice(0, index + 1)
+                    .join("/")}`;
+
+                  const isLast =
+                    index === pathNames.length - 1;
+
                   if (path === "user") return null;
 
                   return (
                     <React.Fragment key={path}>
                       <BreadcrumbItem className="hidden md:block">
                         {isLast ? (
-                          <BreadcrumbPage>{formatPathName(path)}</BreadcrumbPage>
+                          <BreadcrumbPage>
+                            {formatPathName(path)}
+                          </BreadcrumbPage>
                         ) : (
                           <BreadcrumbLink asChild>
-                            <Link to={routeTo}>{formatPathName(path)}</Link>
+                            <Link to={routeTo}>
+                              {formatPathName(path)}
+                            </Link>
                           </BreadcrumbLink>
                         )}
                       </BreadcrumbItem>
-                      {!isLast && <BreadcrumbSeparator className="hidden md:block" />}
+
+                      {!isLast && (
+                        <BreadcrumbSeparator className="hidden md:block" />
+                      )}
                     </React.Fragment>
                   );
                 })}
@@ -61,10 +96,19 @@ export default function SidebarLayout() {
             </Breadcrumb>
           </div>
         </header>
+
         <div className="flex flex-1 flex-col gap-4">
           <Outlet />
         </div>
       </SidebarInset>
+    </>
+  );
+}
+
+export default function SidebarLayout() {
+  return (
+    <SidebarProvider className="opacity-0 animate-fade-in-scale transition-all duration-500">
+      <SidebarContent />
     </SidebarProvider>
-  )
+  );
 }
