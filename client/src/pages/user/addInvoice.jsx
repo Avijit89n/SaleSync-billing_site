@@ -536,46 +536,45 @@ function AddInvoice() {
 
   const handlePrintPdf = async () => {
     const originalTitle = document.title;
+    const invoiceNumber = invoiceNumberSequence || "Invoice";
 
     try {
-      document.title = `Invoice-${invoiceNumberSequence}`;
-
+      document.title = invoiceNumber;
       const blob = await pdf(renderInvoiceDocument(false)).toBlob();
-
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if (isMobile) {
-        const file = new File(
-          [blob],
-          `Invoice-${invoiceNumberSequence}.pdf`,
-          { type: "application/pdf" }
-        );
+        const file = new File([blob], `${invoiceNumber}.pdf`, { type: "application/pdf" });
 
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `Invoice-${invoiceNumberSequence}`,
-            text: `Invoice ${invoiceNumberSequence}`,
-          });
-
-          document.title = originalTitle;
-          return;
+          try {
+            await navigator.share({
+              files: [file],
+              title: invoiceNumber,
+              text: `Here is ${invoiceNumber}`,
+            });
+            document.title = originalTitle;
+            return;
+          } catch (shareError) {
+            if (shareError.name === 'AbortError' || shareError.message.toLowerCase().includes('cancel')) {
+              console.log('User cancelled the share sheet');
+              document.title = originalTitle;
+              return; 
+            }
+            throw shareError;
+          }
         }
-
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `Invoice-${invoiceNumberSequence}.pdf`;
-
+        link.download = `${invoiceNumber}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-
         setTimeout(() => URL.revokeObjectURL(url), 5000);
-
         toast.info("PDF downloaded. Open it and use your PDF viewer's Print option.");
         document.title = originalTitle;
         return;
       }
-
       const blobUrl = URL.createObjectURL(blob);
       const iframe = document.createElement("iframe");
       iframe.style.position = "fixed";
@@ -611,7 +610,6 @@ function AddInvoice() {
       document.title = originalTitle;
       console.error(err);
       toast.error("Failed to generate invoice PDF.");
-      throw err;
     }
   };
 

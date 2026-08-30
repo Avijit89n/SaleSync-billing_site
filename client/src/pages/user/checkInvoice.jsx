@@ -213,13 +213,8 @@ export default function CheckInvoice() {
 
     try {
       document.title = invoiceNumber;
-
-      // Note: ensure 'pdf' is imported from '@react-pdf/renderer' at the top of your file
       const blob = await pdf(renderInvoiceDocument(false)).toBlob();
-
-      // Basic mobile detection
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
       if (isMobile) {
         const file = new File([blob], `${invoiceNumber}.pdf`, { type: "application/pdf" });
 
@@ -233,18 +228,14 @@ export default function CheckInvoice() {
             document.title = originalTitle;
             return;
           } catch (shareError) {
-            // ✅ FIX: Ignore the error if the user simply closed/cancelled the share sheet
             if (shareError.name === 'AbortError' || shareError.message.toLowerCase().includes('cancel')) {
               console.log('User cancelled the share sheet');
               document.title = originalTitle;
-              return;
+              return; 
             }
-            // If it's a real error, throw it to the outer catch block
             throw shareError;
           }
         }
-
-        // Mobile fallback if sharing is not supported
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -257,8 +248,6 @@ export default function CheckInvoice() {
         document.title = originalTitle;
         return;
       }
-
-      // Desktop iframe printing
       const blobUrl = URL.createObjectURL(blob);
       const iframe = document.createElement("iframe");
       iframe.style.position = "fixed";
@@ -288,7 +277,7 @@ export default function CheckInvoice() {
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
         iframe.contentWindow.onafterprint = cleanup;
-        setTimeout(cleanup, 10000); // Fallback cleanup
+        setTimeout(cleanup, 10000);
       };
     } catch (err) {
       document.title = originalTitle;
