@@ -209,46 +209,56 @@ export default function CheckInvoice() {
 
   const handlePrintPdf = async () => {
     const originalTitle = document.title;
+    const invoiceNumber = invoiceData?.invoiceNumber || "Invoice";
 
     try {
-      document.title = `Invoice-${invoiceData?.invoiceNumber}`;
+      document.title = invoiceNumber;
 
+      // Note: ensure 'pdf' is imported from '@react-pdf/renderer' at the top of your file
       const blob = await pdf(renderInvoiceDocument(false)).toBlob();
 
+      // Basic mobile detection
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
       if (isMobile) {
-        const file = new File(
-          [blob],
-          `Invoice-${invoiceData?.invoiceNumber}.pdf`,
-          { type: "application/pdf" }
-        );
+        const file = new File([blob], `${invoiceNumber}.pdf`, { type: "application/pdf" });
 
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `Invoice-${invoiceData?.invoiceNumber}`,
-            text: `Invoice ${invoiceData?.invoiceNumber}`,
-          });
-
-          document.title = originalTitle;
-          return;
+          try {
+            await navigator.share({
+              files: [file],
+              title: invoiceNumber,
+              text: `Here is ${invoiceNumber}`,
+            });
+            document.title = originalTitle;
+            return;
+          } catch (shareError) {
+            // ✅ FIX: Ignore the error if the user simply closed/cancelled the share sheet
+            if (shareError.name === 'AbortError' || shareError.message.toLowerCase().includes('cancel')) {
+              console.log('User cancelled the share sheet');
+              document.title = originalTitle;
+              return;
+            }
+            // If it's a real error, throw it to the outer catch block
+            throw shareError;
+          }
         }
 
+        // Mobile fallback if sharing is not supported
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `Invoice-${invoiceData?.invoiceNumber}.pdf`;
-
+        link.download = `${invoiceNumber}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-
         setTimeout(() => URL.revokeObjectURL(url), 5000);
-
         toast.info("PDF downloaded. Open it and use your PDF viewer's Print option.");
         document.title = originalTitle;
         return;
       }
 
+      // Desktop iframe printing
       const blobUrl = URL.createObjectURL(blob);
       const iframe = document.createElement("iframe");
       iframe.style.position = "fixed";
@@ -278,13 +288,12 @@ export default function CheckInvoice() {
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
         iframe.contentWindow.onafterprint = cleanup;
-        setTimeout(cleanup, 10000);
+        setTimeout(cleanup, 10000); // Fallback cleanup
       };
     } catch (err) {
       document.title = originalTitle;
       console.error(err);
       toast.error("Failed to generate invoice PDF.");
-      throw err;
     }
   };
 
