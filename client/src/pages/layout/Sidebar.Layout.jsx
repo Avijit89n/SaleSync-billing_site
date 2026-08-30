@@ -29,7 +29,6 @@ function SidebarContent() {
 
   const pathNames = pathname.split("/").filter((path) => path);
 
-  // Close mobile sidebar whenever route changes
   useEffect(() => {
     setOpenMobile(false);
   }, [pathname, setOpenMobile]);

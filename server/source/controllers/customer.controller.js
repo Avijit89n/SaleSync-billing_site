@@ -207,8 +207,101 @@ const customerSearch = async (req, res) => {
     }
 };
 
+const getCustomerById = async (req, res) => {
+    const { id } = req.params;
+    if (!id) {
+        throw new apiError("Customer ID is required", 400);
+    }
+    try {
+        const customer = await Customer.findById(id);
+        if (!customer) {
+            throw new apiError("Customer not found", 404);
+        }
+        return res.status(200).json(
+            new apiResponse("Customer fetched successfully", 200, customer)
+        );
+    } catch (error) {
+        throw new apiError("Failed to fetch customer", 500, error);
+    }
+}
+
+const updateCustomer = async (req, res) => {
+    const { id } = req.params;
+
+    if (!id) {
+        throw new apiError("Customer ID is required", 400);
+    }
+
+    const {
+        customerType,
+        customerName,
+        companyName,
+        displayName,
+        workingPhone,
+        email,
+        mobile,
+        addressSame,
+        billingAddress,
+        shippingAddress
+    } = req.body;
+
+    if ((!displayName && !customerName) || !workingPhone) {
+        throw new apiError("Required fields are missing", 400);
+    }
+
+    const finalDisplayName = displayName || customerName;
+
+    const finalShippingAddress = addressSame
+        ? billingAddress
+        : shippingAddress;
+
+    try {
+        const updatedCustomer = await Customer.findByIdAndUpdate(
+            id,
+            {
+                customerType,
+                customerName,
+                companyName,
+                displayName: finalDisplayName,
+                workingPhone,
+                email,
+                mobile,
+                addressSame,
+                billingAddress,
+                shippingAddress: finalShippingAddress
+            },
+            {
+                new: true,
+                runValidators: true
+            }
+        );
+
+        if (!updatedCustomer) {
+            throw new apiError("Customer not found", 404);
+        }
+
+        return res.status(200).json(
+            new apiResponse(
+                "Customer updated successfully",
+                200,
+                updatedCustomer
+            )
+        );
+
+    } catch (error) {
+        if (error instanceof apiError) {
+            throw error;
+        }
+
+        throw new apiError(
+            error.message || "Failed to update customer",
+            500,
+            error
+        );
+    }
+};
 
 
 export {
-    addCustomer, getAllCustomers, customerSearch
+    addCustomer, getAllCustomers, customerSearch, getCustomerById, updateCustomer
 }

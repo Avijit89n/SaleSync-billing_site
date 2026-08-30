@@ -66,7 +66,6 @@ function Home() {
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? "Good Morning" : currentHour < 18 ? "Good Afternoon" : "Good Evening";
 
-
   const getstacks = async () => {
     try {
       const res = await api.get("/home/home-data");
@@ -140,6 +139,7 @@ function Home() {
               year: "numeric",
             }),
             amount: `₹${invoice.grandTotal.toLocaleString("en-IN")}`,
+            balance: invoice.balanceAmount || 0,
             status: invoice.status,
           }))
         );
@@ -208,7 +208,7 @@ function Home() {
   const getSalesChartData = async () => {
     try {
       const res = await api.get("/home/get-chart");
-      const data = res.data?.data;
+      const data = res.data;
       setSalesChartData(data || null);
     } catch (error) {
       console.error("Error fetching sales chart data:", error.response?.data || error.message);
@@ -216,7 +216,6 @@ function Home() {
       toast.error("Failed to fetch sales chart data. Please try again later.");
     }
   };
-
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -237,7 +236,6 @@ function Home() {
 
     fetchAllData();
   }, []);
-
 
   return (
     <div className="opacity-0 animate-fade-in-scale transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-6 py-4 md:px-12 md:py-6 font-sans space-y-12">
@@ -337,7 +335,7 @@ function Home() {
             <div className="relative w-full h-64 bg-slate-50/50 rounded-xl border border-slate-200 p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={salesChartData.monthly}
+                  data={salesChartData.data}
                   margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                 >
                   <defs>
@@ -387,7 +385,7 @@ function Home() {
           )}
         </div>
 
-        {/* Quick Shortcut Navigation Panel (Static content - no skeleton needed) */}
+        {/* Quick Shortcut Navigation Panel */}
         <div className="lg:col-span-4 border border-slate-300 rounded-xl p-6 bg-white shadow-2xs flex flex-col justify-between">
           <div className="w-full">
             <h2 className={sectionHeadingCls}>
@@ -420,7 +418,7 @@ function Home() {
             </button>
           </div>
 
-          <div className="text-xs bg-slate-50 rounded-lg border border-slate-200 p-3 text-slate-400 text-center font-semibold tracking-wide uppercase font-mono">
+          <div className="text-xs bg-slate-50 rounded-lg border lg:mt-0 mt-3 border-slate-200 p-3 text-slate-400 text-center font-semibold tracking-wide uppercase font-mono">
             SSL SECURE NODE: SYNCED
           </div>
         </div>
@@ -469,12 +467,17 @@ function Home() {
                     <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors group">
                       <td className="py-3.5 px-3 font-mono font-bold text-slate-900 group-hover:text-orange-500 transition-colors">{inv.id}</td>
                       <td className="py-3.5 px-2 text-slate-600 font-sans">{inv.client}</td>
-                      <td className="py-3.5 px-2 font-bold text-slate-900">{inv.amount}</td>
+                      <td className="py-3.5 px-2">
+                        <div className="font-bold text-slate-900">{inv.amount}</div>
+                        {inv.balance > 0 && <div className="text-[10px] font-medium text-slate-400 mt-0.5">Due: ₹{inv.balance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</div>}
+                      </td>
                       <td className="py-3.5 px-3 text-right">
-                        <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full border ${inv.status === 'Paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
-                          inv.status === 'Pending' ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                            'bg-rose-50 border-rose-200 text-rose-700'
-                          }`}>
+                        <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                          inv.status === 'Paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
+                          inv.status === 'Partially Paid' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                          inv.status === 'Unpaid' ? 'bg-rose-50 border-rose-200 text-rose-700' :
+                          'bg-slate-50 border-slate-200 text-slate-700'
+                        }`}>
                           {inv.status}
                         </span>
                       </td>
@@ -530,8 +533,15 @@ function Home() {
                         </div>
                       </td>
                       <td className="py-3.5 px-2 font-bold text-slate-900">{customer.totalBills}</td>
-                      <td className="py-3.5 px-2 font-bold text-slate-900">
-                        ₹{customer.totalAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                      <td className="py-3.5 px-2">
+                        <div className="font-bold text-slate-900">
+                          ₹{customer.totalAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                        </div>
+                        {customer.totalBalance > 0 && (
+                          <div className="text-[10px] font-medium text-slate-400 mt-0.5">
+                            Due: ₹{customer.totalBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3.5 px-3 text-right">
                         <span className={`inline-flex items-center text-xs font-bold px-2.5 py-0.5 rounded-md border ${index === 0

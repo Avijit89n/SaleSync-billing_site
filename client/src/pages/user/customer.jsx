@@ -27,7 +27,7 @@ import { toast } from "sonner"
 
 const CustomTableRow = ({ singleItem, navigate }) => {
   return (
-    <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => { navigate(`/home/${singleItem._id}`) }}>
+    <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => { navigate(`/user/edit-customer/${singleItem._id}`) }}>
       <TableCell className="text-center truncate max-w-0 font-medium" title={singleItem.displayName}>
         {singleItem.displayName}
       </TableCell>
@@ -236,7 +236,7 @@ export default function Customer() {
                   Phone Number
                 </TableHead>
 
-                <TableHead className="min-w-[250px]">
+                <TableHead className="min-w-[250px] text-center w-[250px]">
                   Email
                 </TableHead>
 

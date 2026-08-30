@@ -24,6 +24,8 @@ const formatInvoiceData = (invoice) => ({
     amount: invoice.grandTotal || invoice.amount,
     dueDate: invoice.dueDate,
     invoiceItems: invoice.invoiceItems || [],
+    paidAmount: invoice.paidAmount || 0,
+    balanceAmount: invoice.balanceAmount || 0,
 });
 
 export const addInvoiceReq = createAsyncThunk(

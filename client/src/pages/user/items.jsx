@@ -33,7 +33,7 @@ const discountCalculate = (MRP, sellingPrice) => {
 
 const CustomTableRow = ({ singleItem, navigate }) => {
   return (
-    <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => { navigate(`/home/item-info?id=${singleItem._id}`) }}>
+    <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => { navigate(`/user/edit-item/${singleItem._id}`) }}>
       <TableCell className="flex justify-center items-center">
         <div className="h-10 w-10 justify-center flex items-center rounded-lg bg-gray-200 shrink-0">
           <img loading="lazy" className="h-8 w-8 rounded-md object-cover" src={singleItem.image} alt="" />

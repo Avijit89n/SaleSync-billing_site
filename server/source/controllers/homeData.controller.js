@@ -1,4 +1,6 @@
 import { Invoice } from "../models/invoice.models.js";
+import apiResponse from "../utils/apiResponse.js";
+import apiError from "../utils/apiError.js";
 
 const cardStats = async (req, res) => {
     try {
@@ -18,6 +20,7 @@ const cardStats = async (req, res) => {
                         $gte: startOfLastMonth,
                         $lt: startOfNextMonth,
                     },
+                    status: { $ne: "Cancel" } // Ignore canceled invoices in stats
                 },
             },
             {
@@ -30,24 +33,24 @@ const cardStats = async (req, res) => {
                             "last",
                         ],
                     },
+                    // Revenue is now accurately based on the new `paidAmount` field (includes partials)
                     revenue: {
-                        $sum: {
-                            $cond: [{ $eq: ["$status", "Paid"] }, "$grandTotal", 0],
-                        },
+                        $sum: "$paidAmount",
                     },
+                    // Fully paid bills count
                     paidBills: {
                         $sum: {
                             $cond: [{ $eq: ["$status", "Paid"] }, 1, 0],
                         },
                     },
+                    // Unpaid amount is now accurately based on `balanceAmount`
                     unpaidAmount: {
-                        $sum: {
-                            $cond: [{ $eq: ["$status", "Unpaid"] }, "$grandTotal", 0],
-                        },
+                        $sum: "$balanceAmount",
                     },
+                    // Unpaid bills count now includes both Unpaid and Partially Paid
                     unpaidBills: {
                         $sum: {
-                            $cond: [{ $eq: ["$status", "Unpaid"] }, 1, 0],
+                            $cond: [{ $in: ["$status", ["Unpaid", "Partially Paid"]] }, 1, 0],
                         },
                     },
                 },
@@ -95,31 +98,27 @@ const cardStats = async (req, res) => {
                 current: currentMonth.unpaidAmount,
                 previous: lastMonth.unpaidAmount,
                 percentage: calculatePercentage(currentMonth.unpaidAmount, lastMonth.unpaidAmount),
-                isPositive: currentMonth.unpaidAmount >= lastMonth.unpaidAmount ? true : false
+                isPositive: currentMonth.unpaidAmount <= lastMonth.unpaidAmount ? true : false // Lower unpaid is positive!
             },
             unpaidBills: {
                 current: currentMonth.unpaidBills,
                 previous: lastMonth.unpaidBills,
                 percentage: calculatePercentage(currentMonth.unpaidBills, lastMonth.unpaidBills),
-                isPositive: currentMonth.unpaidBills >= lastMonth.unpaidBills ? true : false
+                isPositive: currentMonth.unpaidBills <= lastMonth.unpaidBills ? true : false // Lower unpaid is positive!
             },
         };
 
-        res.status(200).json({
-            success: true,
-            data: result,
-        });
+        return res.status(200).json(
+            new apiResponse("Card statistics fetched successfully", 200, result)
+        );
     } catch (error) {
         console.error("Card stats error:", error);
 
-        res.status(500).json({
-            success: false,
-            message: "Failed to fetch card statistics",
-        });
+        return res.status(500).json(
+            new apiError("Failed to fetch card statistics", 500, null)
+        );
     }
 };
-
-// Add this below your cardStats method
 
 const getRecentInvoices = async (req, res) => {
     try {
@@ -130,82 +129,71 @@ const getRecentInvoices = async (req, res) => {
             .populate('customerID', 'name email phone') // Optional: Fetch related customer details if needed
             .lean(); // .lean() converts Mongoose documents to plain JS objects for better performance
 
-        res.status(200).json({
-            success: true,
-            data: recentInvoices,
-        });
+        res.status(200).json(
+            new apiResponse("Recent invoices fetched successfully", 200, recentInvoices)
+        );
     } catch (error) {
         console.error("Recent invoices error:", error);
 
-        res.status(500).json({
-            success: false,
-            message: "Failed to fetch recent invoices",
-        });
+        res.status(500).json(
+            new apiError("Failed to fetch recent invoices", 500, null)
+        );
     }
 };
-
-// Add this below your existing methods
 
 const getTopCustomers = async (req, res) => {
     try {
         const topCustomers = await Invoice.aggregate([
-            // 1. (Optional but recommended) Exclude 'Cancel' invoices so they don't count towards the total
+            // 1. Exclude 'Cancel' invoices
             {
                 $match: {
                     status: { $ne: "Cancel" }
                 }
             },
-
             // 2. Group the invoices by customerID
             {
                 $group: {
                     _id: "$customerID",
-                    // Grab the customer name directly from the invoice record
                     customerName: { $first: "$customerName" },
-                    // Sum up the grandTotal of all their invoices
                     totalAmount: { $sum: "$grandTotal" },
-                    // Count the number of invoices they have
+                    totalPaid: { $sum: "$paidAmount" }, // Added to show actual collected value
+                    totalBalance: { $sum: "$balanceAmount" }, // Added to show what they owe
                     totalBills: { $sum: 1 }
                 }
             },
-
             // 3. Sort by total amount in descending order (highest revenue first)
             {
                 $sort: { totalAmount: -1 }
             },
-
             // 4. Keep only the top 3 results
             {
                 $limit: 3
             },
-
             // 5. Clean up the output structure for the frontend
             {
                 $project: {
-                    _id: 0, // hide the default MongoDB _id
-                    customerID: "$_id", // map the grouped _id back to customerID
+                    _id: 0, 
+                    customerID: "$_id",
                     customerName: 1,
                     totalAmount: 1,
+                    totalPaid: 1,
+                    totalBalance: 1,
                     totalBills: 1
                 }
             }
         ]);
 
-        res.status(200).json({
-            success: true,
-            data: topCustomers,
-        });
+        return res.status(200).json(
+            new apiResponse("Top customers fetched successfully", 200, topCustomers)
+        );
     } catch (error) {
         console.error("Top customers error:", error);
 
-        res.status(500).json({
-            success: false,
-            message: "Failed to fetch top customers",
-        });
+        return res.status(500).json(
+            new apiError("Failed to fetch top customers", 500, null)
+        );
     }
 };
-
-// Add this below your existing methods
 
 const getTopSellingItems = async (req, res) => {
     try {
@@ -216,12 +204,10 @@ const getTopSellingItems = async (req, res) => {
                     status: { $ne: "Cancel" }
                 }
             },
-
             // 2. Break down the 'invoiceItems' array into separate documents
             {
                 $unwind: "$invoiceItems"
             },
-
             // 3. Group by item name and sum up quantities, times billed, AND total amount
             {
                 $group: {
@@ -237,17 +223,14 @@ const getTopSellingItems = async (req, res) => {
                     }
                 }
             },
-
             // 4. Sort by the highest quantity sold in descending order
             {
                 $sort: { totalQuantitySold: -1 }
             },
-
             // 5. Keep only the top 3 items
             {
                 $limit: 3
             },
-
             // 6. Clean up the final output for the frontend
             {
                 $project: {
@@ -256,38 +239,32 @@ const getTopSellingItems = async (req, res) => {
                     itemID: 1,
                     totalQuantitySold: 1,
                     timesBilled: 1,
-                    revenue: 1 // <--- Added to the final output
+                    revenue: 1 
                 }
             }
         ]);
 
-        res.status(200).json({
-            success: true,
-            data: topItems,
-        });
+        return res.status(200).json(
+            new apiResponse("Top selling items fetched successfully", 200, topItems)
+        );
     } catch (error) {
         console.error("Top selling items error:", error);
 
-        res.status(500).json({
-            success: false,
-            message: "Failed to fetch top selling items",
-        });
+        return res.status(500).json(
+            new apiError("Failed to fetch top selling items", 500, null)
+        );
     }
 };
-
-// Add this below your existing methods
 
 const getSalesChartData = async (req, res) => {
     try {
         const now = new Date();
 
         const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth(); // 0 = Jan, 7 = Aug
+        const currentMonth = now.getMonth(); 
 
-        // Start of current year
         const startOfYear = new Date(currentYear, 0, 1);
 
-        // Start of next month
         const startOfNextMonth = new Date(
             currentYear,
             currentMonth + 1,
@@ -305,32 +282,22 @@ const getSalesChartData = async (req, res) => {
                     status: { $ne: "Cancel" },
                 },
             },
-
             // Group revenue by month
             {
                 $group: {
                     _id: {
                         $month: "$invoiceDate",
                     },
-
                     // Total invoiced amount
                     totalRevenue: {
                         $sum: "$grandTotal",
                     },
-
-                    // Actually collected amount
+                    // Actually collected amount (now elegantly using $paidAmount)
                     collectedRevenue: {
-                        $sum: {
-                            $cond: [
-                                { $eq: ["$status", "Paid"] },
-                                "$grandTotal",
-                                0,
-                            ],
-                        },
+                        $sum: "$paidAmount",
                     },
                 },
             },
-
             // Sort by month
             {
                 $sort: {
@@ -340,21 +307,10 @@ const getSalesChartData = async (req, res) => {
         ]);
 
         const months = [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
         ];
 
-        // Only generate months up to the current month
         const monthlyData = months
             .slice(0, currentMonth + 1)
             .map((month, index) => {
@@ -369,84 +325,21 @@ const getSalesChartData = async (req, res) => {
                 };
             });
 
-        // Quarterly data
-        const quarterlyData = [
-            {
-                quarter: "Q1",
-                revenue: monthlyData
-                    .slice(0, 3)
-                    .reduce(
-                        (acc, curr) => acc + curr.collectedRevenue,
-                        0
-                    ),
-            },
-            {
-                quarter: "Q2",
-                revenue: monthlyData
-                    .slice(3, 6)
-                    .reduce(
-                        (acc, curr) => acc + curr.collectedRevenue,
-                        0
-                    ),
-            },
-            {
-                quarter: "Q3",
-                revenue: monthlyData
-                    .slice(6, 9)
-                    .reduce(
-                        (acc, curr) => acc + curr.collectedRevenue,
-                        0
-                    ),
-            },
-            {
-                quarter: "Q4",
-                revenue: monthlyData
-                    .slice(9, 12)
-                    .reduce(
-                        (acc, curr) => acc + curr.collectedRevenue,
-                        0
-                    ),
-            },
-        ];
-
-        // Maximum monthly revenue
-        const maxMonthlyRevenue = Math.max(
-            ...monthlyData.map((item) => item.totalRevenue),
-            0
+        return res.status(200).json(
+            new apiResponse("Chart data fetched successfully", 200, monthlyData)
         );
-
-        // Clean chart maximum
-        const chartMax =
-            maxMonthlyRevenue === 0
-                ? 100000
-                : Math.ceil(maxMonthlyRevenue / 100000) * 100000;
-
-        res.status(200).json({
-            success: true,
-            data: {
-                monthly: monthlyData,
-                quarterly: quarterlyData,
-                maxCap: chartMax,
-            },
-        });
     } catch (error) {
         console.error("Chart data error:", error);
 
-        res.status(500).json({
-            success: false,
-            message: "Failed to fetch chart data",
-        });
+        res.status(500).json(
+            new apiError("Failed to fetch chart data", 500, null)
+        );
     }
 };
-
-
-// Add this below your existing methods
 
 const getLifetimeInvoiceSummary = async (req, res) => {
     try {
         const now = new Date();
-        // FIX: Set the exact time to midnight (00:00:00) 
-        // This stops today's invoices from being instantly flagged as "Overdue"
         now.setHours(0, 0, 0, 0);
 
         const data = await Invoice.aggregate([
@@ -457,33 +350,34 @@ const getLifetimeInvoiceSummary = async (req, res) => {
                 $group: {
                     _id: null,
                     totalAmount: { $sum: "$grandTotal" },
-                    paidAmount: {
-                        $sum: { $cond: [{ $eq: ["$status", "Paid"] }, "$grandTotal", 0] },
-                    },
+                    // Paid amount sums up all payments received
+                    paidAmount: { $sum: "$paidAmount" },
+                    // Overdue sums balanceAmount for anything unpaid/partially paid with a past due date
                     overdueAmount: {
                         $sum: {
                             $cond: [
                                 {
                                     $and: [
-                                        { $eq: ["$status", "Unpaid"] },
+                                        { $in: ["$status", ["Unpaid", "Partially Paid"]] },
                                         { $lt: ["$dueDate", now] },
                                     ],
                                 },
-                                "$grandTotal",
+                                "$balanceAmount",
                                 0,
                             ],
                         },
                     },
+                    // Unpaid sums balanceAmount for anything unpaid/partially paid that is not yet due
                     unpaidAmount: {
                         $sum: {
                             $cond: [
                                 {
                                     $and: [
-                                        { $eq: ["$status", "Unpaid"] },
+                                        { $in: ["$status", ["Unpaid", "Partially Paid"]] },
                                         { $gte: ["$dueDate", now] },
                                     ],
                                 },
-                                "$grandTotal",
+                                "$balanceAmount",
                                 0,
                             ],
                         },
@@ -520,19 +414,22 @@ const getLifetimeInvoiceSummary = async (req, res) => {
             },
         };
 
-        res.status(200).json({ success: true, data: result });
+        res.status(200).json(
+            new apiResponse("Lifetime invoice summary fetched successfully", 200, result)
+        );
     } catch (error) {
         console.error("Lifetime summary error:", error);
-        res.status(500).json({ success: false, message: "Failed to fetch lifetime invoice summary" });
+        res.status(500).json(
+            new apiError("Failed to fetch lifetime invoice summary", 500, null)
+        );
     }
 };
 
-// Don't forget to export it
 export {
     cardStats,
     getRecentInvoices,
     getTopCustomers,
     getTopSellingItems,
     getSalesChartData,
-    getLifetimeInvoiceSummary // <--- new export
+    getLifetimeInvoiceSummary
 };
