@@ -10,6 +10,10 @@ import Loader2 from '@/components/loaders/loader2';
 import { Badge } from '@/components/ui/badge';
 import { pdf, PDFViewer } from '@react-pdf/renderer';
 import InvoiceDesign1 from '@/components/other-ui/invoice-design-1';
+import InvoiceDesign2 from '@/components/other-ui/invoice-design-2';
+import InvoiceDesign3 from '@/components/other-ui/invoice-design-3';
+import InvoiceDesign4 from '@/components/other-ui/invoice-design-4';
+import ThermalInvoice1 from '@/components/other-ui/thermal-design-1';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/other-ui/date-picker-input';
@@ -161,30 +165,44 @@ export default function CheckInvoice() {
     } finally { setSubmittingPayment(false); }
   };
 
-  const renderInvoiceDocument = (isPreview = false) => (
-    <InvoiceDesign1
-      invoiceNumberSequence={invoiceData?.invoiceNumber}
-      isPaid={invoiceData?.status === "Paid"}
-      paymentStatus={invoiceData?.status}
-      paidAmount={invoiceData?.paidAmount}
-      balanceAmount={invoiceData?.balanceAmount}
-      payments={invoiceData?.payments || []}
-      selectedCustomer={invoiceData?.customer?.[0] || {}}
-      itemData={invoiceData?.invoiceItems || []}
-      subtotal={invoiceData?.subtotal}
-      totalDiscount={invoiceData?.discount}
-      taxedAmount={invoiceData?.tax}
-      grandTotal={invoiceData?.grandTotal}
-      notes={invoiceData?.notes}
-      terms={invoiceData?.terms}
-      issueDate={invoiceData?.invoiceDate ? formatDate(invoiceData.invoiceDate) : "N/A"}
-      dueDate={invoiceData?.dueDate ? formatDate(invoiceData.dueDate) : "N/A"}
-      isPreview={isPreview}
-      companyInfo={companyInfo}
-      companyLogo={companyInfo?.logo || ""}
-      companySignature={companyInfo?.signature || ""}
-    />
-  );
+  const renderInvoiceDocument = (isPreview = false, type) => {
+
+    const invoiceInfo = {
+      invoiceNumberSequence: invoiceData?.invoiceNumber,
+      isPaid: invoiceData?.status === "Paid",
+      paymentStatus: invoiceData?.status,
+      paidAmount: invoiceData?.paidAmount,
+      balanceAmount: invoiceData?.balanceAmount,
+      payments: invoiceData?.payments || [],
+      selectedCustomer: invoiceData?.customer?.[0] || {},
+      itemData: invoiceData?.invoiceItems || [],
+      subtotal: invoiceData?.subtotal,
+      totalDiscount: invoiceData?.discount,
+      taxedAmount: invoiceData?.tax,
+      grandTotal: invoiceData?.grandTotal,
+      notes: invoiceData?.notes,
+      terms: invoiceData?.terms,
+      issueDate: invoiceData?.invoiceDate ? formatDate(invoiceData.invoiceDate) : "N/A",
+      dueDate: invoiceData?.dueDate ? formatDate(invoiceData.dueDate) : "N/A",
+      isPreview: isPreview,
+      companyInfo: companyInfo,
+      companyLogo: companyInfo?.logo || "",
+      companySignature: companyInfo?.signature || ""
+    };
+    if(type == "Thermal") return <ThermalInvoice1 {...invoiceInfo} />;
+    switch (companyInfo?.layout) {
+      case "invoiceDesign2":
+        return <InvoiceDesign2 {...invoiceInfo} />;
+      case "invoiceDesign3":
+        return <InvoiceDesign3 {...invoiceInfo} />;
+      case "invoiceDesign4":
+        return <InvoiceDesign4 {...invoiceInfo} />; 
+
+
+      default:
+        return <InvoiceDesign1 {...invoiceInfo} />;
+    }
+  };
 
   const handleDownloadPdf = async () => {
     try {
@@ -207,13 +225,13 @@ export default function CheckInvoice() {
     }
   };
 
-  const handlePrintPdf = async () => {
+  const handlePrintPdf = async (type = "Normal") => {
     const originalTitle = document.title;
     const invoiceNumber = invoiceData?.invoiceNumber || "Invoice";
 
     try {
       document.title = invoiceNumber;
-      const blob = await pdf(renderInvoiceDocument(false)).toBlob();
+      const blob = await pdf(renderInvoiceDocument(false, type)).toBlob();
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if (isMobile) {
         const file = new File([blob], `${invoiceNumber}.pdf`, { type: "application/pdf" });
@@ -231,7 +249,7 @@ export default function CheckInvoice() {
             if (shareError.name === 'AbortError' || shareError.message.toLowerCase().includes('cancel')) {
               console.log('User cancelled the share sheet');
               document.title = originalTitle;
-              return; 
+              return;
             }
             throw shareError;
           }
@@ -310,6 +328,7 @@ export default function CheckInvoice() {
             </div>
             <div className="items-center gap-2 flex-wrap flex">
               <Button onClick={() => handlePrintPdf()} variant="outline" className="h-9 rounded-lg border-slate-300 bg-white px-3.5 text-xs font-bold text-slate-600 shadow-none hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600"><Printer size={14} className="mr-2" /> Print</Button>
+              <Button onClick={() => handlePrintPdf("Thermal")} variant="outline" className="h-9 rounded-lg border-slate-300 bg-white px-3.5 text-xs font-bold text-slate-600 shadow-none hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600"><Printer size={14} className="mr-2" /> Thermal Print</Button>
               <Button onClick={() => handleDownloadPdf()} variant="outline" className="h-9 rounded-lg border-slate-300 bg-white px-3.5 text-xs font-bold text-slate-600 shadow-none hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600"><Download size={14} className="mr-2" /> Download PDF</Button>
               {canAddPayment && <Button onClick={handleOpenPaymentModal} className="h-9 rounded-lg bg-orange-500 px-4 text-xs font-bold text-white shadow-md shadow-orange-500/10 hover:bg-orange-600"><CreditCard size={14} className="mr-2" /> Record Payment</Button>}
             </div>

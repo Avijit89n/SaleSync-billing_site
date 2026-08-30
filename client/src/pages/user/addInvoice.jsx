@@ -41,6 +41,10 @@ import { getAllCustomerReq, customerSearchReq, clearSearchedCustomers } from '@/
 import { getAllItemReq, itemSearchReq, clearSearchedItems } from '@/redux/features/itemSlice';
 import { pdf, PDFViewer } from '@react-pdf/renderer';
 import InvoiceDesign1 from '@/components/other-ui/invoice-design-1';
+import InvoiceDesign2 from '@/components/other-ui/invoice-design-2';
+import InvoiceDesign3 from '@/components/other-ui/invoice-design-3';
+import InvoiceDesign4 from '@/components/other-ui/invoice-design-4';
+import ThermalInvoice1 from '@/components/other-ui/thermal-design-1';
 import { addInvoiceReq } from '@/redux/features/invoiceSlice';
 import api from '@/axios/interceptor';
 
@@ -405,7 +409,7 @@ function AddInvoice() {
     dispatch(clearSearchedItems());
   };
 
-  const saveInvoice = async (action = "save") => {
+  const saveInvoice = async (action = "save", type = "Normal") => {
     if (saving) return;
 
     if (!selectedCustomer || (selectedCustomer.isInstantNew && (!selectedCustomer.displayName || !selectedCustomer.displayName.trim()))) {
@@ -465,8 +469,10 @@ function AddInvoice() {
 
       if (action === "download") {
         await handleDownloadPdf();
-      } else if (action === "print") {
+      } else if (action === "print" && type === "Normal") {
         await handlePrintPdf();
+      } else if (action === "print" && type === "Thermal") {
+        await handlePrintPdf("Thermal");
       }
 
       const nextTokenRes = await api.get('/invoice/get-next-token');
@@ -482,36 +488,49 @@ function AddInvoice() {
     }
   };
 
-  const renderInvoiceDocument = (isPreview) => (
-    <InvoiceDesign1
-      invoiceNumberSequence={invoiceNumberSequence}
-      isPaid={effectivePaymentStatus === "Paid"}
-      paymentStatus={effectivePaymentStatus}
-      paidAmount={numericPaidAmount}
-      balanceAmount={balanceAmount}
-      payments={numericPaidAmount > 0 ? [{
+  const renderInvoiceDocument = (isPreview, type) => {
+    const invoiceInfo = {
+      invoiceNumberSequence: invoiceNumberSequence,
+      isPaid: effectivePaymentStatus === "Paid",
+      paymentStatus: effectivePaymentStatus,
+      paidAmount: numericPaidAmount,
+      balanceAmount: balanceAmount,
+      payments: numericPaidAmount > 0 ? [{
         amount: numericPaidAmount,
         paymentDate: invoiceIssueDate,
-        paymentMethod,
+        paymentMethod: paymentMethod,
         note: paymentNote.trim()
-      }] : []}
-      selectedCustomer={selectedCustomer}
-      itemData={itemData}
-      subtotal={subtotal}
-      totalDiscount={totalDiscount}
-      taxRate={taxRate}
-      taxedAmount={taxedAmount}
-      grandTotal={grandTotal}
-      notes={notes}
-      terms={terms}
-      issueDate={invoiceIssueDate}
-      dueDate={invoiceDueDate}
-      isPreview={isPreview}
-      companyInfo={companyInfo}
-      companyLogo={companyInfo?.logo || ""}
-      companySignature={companyInfo?.signature || ""}
-    />
-  );
+      }] : [],
+      selectedCustomer: selectedCustomer,
+      itemData: itemData,
+      subtotal: subtotal,
+      totalDiscount: totalDiscount,
+      taxRate: taxRate,
+      taxedAmount: taxedAmount,
+      grandTotal: grandTotal,
+      notes: notes,
+      terms: terms,
+      issueDate: invoiceIssueDate,
+      dueDate: invoiceDueDate,
+      isPreview: isPreview,
+      companyInfo: companyInfo,
+      companyLogo: companyInfo?.logo || "",
+      companySignature: companyInfo?.signature || ""
+    };
+    if(type == "Thermal") return <ThermalInvoice1 {...invoiceInfo} />;
+    switch (companyInfo?.layout) {
+      case "invoiceDesign2":
+        return <InvoiceDesign2 {...invoiceInfo} />;
+      case "invoiceDesign3":
+        return <InvoiceDesign3 {...invoiceInfo} />;
+      case "invoiceDesign4":
+        return <InvoiceDesign4 {...invoiceInfo} />;
+
+
+      default:
+        return <InvoiceDesign1 {...invoiceInfo} />;
+    }
+  };
 
   const handleDownloadPdf = async () => {
     try {
@@ -534,13 +553,13 @@ function AddInvoice() {
     }
   };
 
-  const handlePrintPdf = async () => {
+  const handlePrintPdf = async (type="Normal") => {
     const originalTitle = document.title;
     const invoiceNumber = invoiceNumberSequence || "Invoice";
 
     try {
       document.title = invoiceNumber;
-      const blob = await pdf(renderInvoiceDocument(false)).toBlob();
+      const blob = await pdf(renderInvoiceDocument(false, type)).toBlob();
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if (isMobile) {
         const file = new File([blob], `${invoiceNumber}.pdf`, { type: "application/pdf" });
@@ -558,7 +577,7 @@ function AddInvoice() {
             if (shareError.name === 'AbortError' || shareError.message.toLowerCase().includes('cancel')) {
               console.log('User cancelled the share sheet');
               document.title = originalTitle;
-              return; 
+              return;
             }
             throw shareError;
           }
@@ -1064,7 +1083,7 @@ function AddInvoice() {
                       <TableCell className="py-3.5 align-middle">
                         <input value={data.MRP} className="w-full h-10 px-2 text-center min-w-20 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-400 font-mono outline-none cursor-not-allowed font-semibold" type="number" readOnly />
                       </TableCell>
-                      
+
                       <TableCell className="text-right py-3.5 align-middle">
                         <input
                           value={data.sellingPrice ?? ""}
@@ -1513,6 +1532,15 @@ function AddInvoice() {
               disabled={saving}
             >
               Save & Print
+            </Button>
+
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => saveInvoice("print", "Thermal")}
+              disabled={saving}
+            >
+              Save & Thermal Print
             </Button>
 
             <Button
