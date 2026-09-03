@@ -1,5 +1,42 @@
 import React from "react";
-import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet, Font } from "@react-pdf/renderer";
+
+Font.register({
+  family: "NotoSansDevanagari",
+  fonts: [
+    { src: "/fonts/NotoSansDevanagari-Regular.ttf", fontWeight: "normal" },
+    { src: "/fonts/NotoSansDevanagari-Bold.ttf", fontWeight: "bold" },
+  ],
+});
+
+Font.register({
+  family: "NotoSansBengali",
+  fonts: [
+    { src: "/fonts/NotoSansBengali-Regular.ttf", fontWeight: "normal" },
+    { src: "/fonts/NotoSansBengali-Bold.ttf", fontWeight: "bold" },
+  ],
+});
+
+const parseChildrenToString = (child) => {
+  if (Array.isArray(child)) return child.map(parseChildrenToString).join("");
+  if (child == null || typeof child === "boolean") return "";
+  return String(child);
+};
+
+const UnicodeText = ({ children, style }) => {
+  const text = parseChildrenToString(children);
+  const hasDevanagari = /[\u0900-\u097F]/.test(text);
+  const hasBengali = /[\u0980-\u09FF]/.test(text);
+
+  let fontFamily = style?.fontFamily || "Helvetica";
+  if (hasBengali) {
+    fontFamily = "NotoSansBengali";
+  } else if (hasDevanagari) {
+    fontFamily = "NotoSansDevanagari";
+  }
+
+  return <Text style={[style, { fontFamily }]}>{text}</Text>;
+};
 
 const styles = StyleSheet.create({
   page: { width: 226, paddingTop: 18, paddingHorizontal: 12, paddingBottom: 18, backgroundColor: "#ffffff", color: "#111827", fontFamily: "Helvetica", fontSize: 8 },
@@ -122,11 +159,11 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
 
         <View style={styles.header}>
           {companyLogo && <Image src={companyLogo} style={styles.logo} />}
-          <Text style={styles.companyName}>{companyName}</Text>
-          {companyInfo?.address && <Text style={styles.companyText}>{companyInfo.address}</Text>}
-          {companyInfo?.phone && <Text style={styles.companyText}>Ph: {companyInfo.phone}</Text>}
-          {companyInfo?.email && <Text style={styles.companyText}>{companyInfo.email}</Text>}
-          {companyInfo?.gstin && <Text style={styles.companyText}>GSTIN: {companyInfo.gstin}</Text>}
+          <UnicodeText style={styles.companyName}>{companyName}</UnicodeText>
+          {companyInfo?.address && <UnicodeText style={styles.companyText}>{companyInfo.address}</UnicodeText>}
+          {companyInfo?.phone && <UnicodeText style={styles.companyText}>Ph: {companyInfo.phone}</UnicodeText>}
+          {companyInfo?.email && <UnicodeText style={styles.companyText}>{companyInfo.email}</UnicodeText>}
+          {companyInfo?.gstin && <UnicodeText style={styles.companyText}>GSTIN: {companyInfo.gstin}</UnicodeText>}
           <Text style={styles.invoiceTitle}>TAX INVOICE</Text>
           <Text style={styles.invoiceNumber}>#{invoiceNumberSequence}</Text>
         </View>
@@ -148,11 +185,11 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
 
         <View style={styles.customerSection}>
           <Text style={styles.sectionTitle}>Customer</Text>
-          <Text style={styles.customerName}>{selectedCustomer?.displayName || "Walk-in Customer"}</Text>
-          {selectedCustomer?.companyName && <Text style={styles.customerText}>{selectedCustomer.companyName}</Text>}
-          {(selectedCustomer?.workingPhone || selectedCustomer?.phone) && <Text style={styles.customerText}>Ph: {selectedCustomer.workingPhone || selectedCustomer.phone}</Text>}
-          {selectedCustomer?.email && <Text style={styles.customerText}>{selectedCustomer.email}</Text>}
-          {customerAddress && <Text style={styles.customerText}>{customerAddress}</Text>}
+          <UnicodeText style={styles.customerName}>{selectedCustomer?.displayName || "Walk-in Customer"}</UnicodeText>
+          {selectedCustomer?.companyName && <UnicodeText style={styles.customerText}>{selectedCustomer.companyName}</UnicodeText>}
+          {(selectedCustomer?.workingPhone || selectedCustomer?.phone) && <UnicodeText style={styles.customerText}>Ph: {selectedCustomer.workingPhone || selectedCustomer.phone}</UnicodeText>}
+          {selectedCustomer?.email && <UnicodeText style={styles.customerText}>{selectedCustomer.email}</UnicodeText>}
+          {customerAddress && <UnicodeText style={styles.customerText}>{customerAddress}</UnicodeText>}
         </View>
 
         <View style={styles.itemsHeader}>
@@ -174,12 +211,12 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
           return (
             <View key={item._id || index} style={styles.itemRow} wrap={false}>
               <View style={styles.itemColumn}>
-                <Text style={styles.itemName}>{name}{discount > 0 ? "*" : ""}</Text>
+                <UnicodeText style={styles.itemName}>{name}{discount > 0 ? "*" : ""}</UnicodeText>
                 {discount > 0 && (
                   <Text style={styles.itemDiscountText}>{money(discount)} off</Text>
                 )}
               </View>
-              <Text style={[styles.qtyColumn, styles.itemText]}>{quantity}{unit}</Text>
+              <Text style={[styles.qtyColumn, styles.itemText]}>{quantity} {unit}</Text>
               <Text style={[styles.rateColumn, styles.itemText]}>{money(rate)}</Text>
               <Text style={[styles.amountColumn, styles.itemText, { fontWeight: "bold" }]}>{money(amount)}</Text>
             </View>
@@ -226,7 +263,7 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
               <Text style={styles.sectionTitle}>Payment History</Text>
               {paymentList.map((payment, index) => (
                 <View key={payment?._id || index} style={styles.historyRow}>
-                  <Text style={styles.historyText}>#{index + 1} {formatDate(payment?.paymentDate)} {payment?.paymentMethod ? `• ${payment.paymentMethod}` : ""}</Text>
+                  <UnicodeText style={styles.historyText}>#{index + 1} {formatDate(payment?.paymentDate)} {payment?.paymentMethod ? `• ${payment.paymentMethod}` : ""}</UnicodeText>
                   <Text style={styles.historyAmount}>{money(payment?.amount)}</Text>
                 </View>
               ))}
@@ -237,27 +274,25 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
         {notes && (
           <View style={styles.noteSection}>
             <Text style={styles.noteTitle}>Notes</Text>
-            <Text style={styles.noteText}>{notes}</Text>
+            <UnicodeText style={styles.noteText}>{notes}</UnicodeText>
           </View>
         )}
 
         {terms && (
           <View style={styles.noteSection}>
             <Text style={styles.noteTitle}>Terms & Conditions</Text>
-            <Text style={styles.noteText}>{terms}</Text>
+            <UnicodeText style={styles.noteText}>{terms}</UnicodeText>
           </View>
         )}
 
-        {companySignature && <View style={styles.signatureSection}>
-          {companySignature ? (
+        {companySignature && (
+          <View style={styles.signatureSection}>
             <Image src={companySignature} style={styles.signatureImage} />
-          ) : (
-            <View style={styles.signatureSpace} />
-          )}
-          <View style={styles.signatureLine} />
-          <Text style={styles.signatureName}>{companyName}</Text>
-          <Text style={styles.signatureSub}>Authorized Signatory</Text>
-        </View>}
+            <View style={styles.signatureLine} />
+            <UnicodeText style={styles.signatureName}>{companyName}</UnicodeText>
+            <Text style={styles.signatureSub}>Authorized Signatory</Text>
+          </View>
+        )}
 
         <View style={styles.thankYou}>
           <Text style={styles.thankYouText}>Thank you for your business!</Text>
