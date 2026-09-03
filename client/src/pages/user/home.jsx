@@ -44,11 +44,6 @@ const mockStats = [
   { id: 4, title: "Pending Bills", value: "NaN Bills", change: "NaN", isPositive: false, icon: Clock },
 ];
 
-const mockActivities = [
-  { id: 1, text: "Invoice INV-2026-003 sent out using Classic Blueprint template.", time: "12 mins ago" },
-  { id: 2, text: "Received ₹18,200 cash payment from Globex Holdings.", time: "1 hour ago" },
-  { id: 3, text: "Product stock for 'Gigabit Ethernet Switch' hit zero.", time: "3 hours ago" },
-];
 
 function Home() {
   // Application Data States
@@ -58,6 +53,7 @@ function Home() {
   const [lifetimeInvoiceSummary, setLifetimeInvoiceSummary] = useState(null);
   const [topCustomers, setTopCustomers] = useState(null);
   const [salesChartData, setSalesChartData] = useState(null);
+  const [recentActivities, setRecentActivities] = useState(null);
   
   // Loading State
   const [isLoading, setIsLoading] = useState(true);
@@ -138,8 +134,8 @@ function Home() {
               month: "short",
               year: "numeric",
             }),
-            amount: `₹${invoice.grandTotal.toLocaleString("en-IN")}`,
-            balance: invoice.balanceAmount || 0,
+            amount: `₹${Number(invoice.grandTotal || 0).toLocaleString("en-IN")}`,
+            balance: Number(invoice.balanceAmount || 0),
             status: invoice.status,
           }))
         );
@@ -164,7 +160,7 @@ function Home() {
             timesBilled: item.timesBilled,
             revenue:
               item.revenue != null
-                ? `₹${item.revenue.toLocaleString("en-IN")}`
+                ? `₹${Number(item.revenue || 0).toLocaleString("en-IN")}`
                 : "₹0",
           }))
           : []
@@ -217,6 +213,24 @@ function Home() {
     }
   };
 
+
+  const getRecentActivities = async () => {
+    try {
+      const res = await api.get("/home/get-recent-activities");
+      const data = res.data?.data;
+
+      setRecentActivities(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(
+        "Error fetching recent activities:",
+        error.response?.data || error.message
+      );
+
+      setRecentActivities([]);
+      toast.error("Failed to fetch recent activities.");
+    }
+  };
+
   useEffect(() => {
     const fetchAllData = async () => {
       setIsLoading(true);
@@ -228,7 +242,8 @@ function Home() {
         topSellingItems(),
         getLifetimeInvoiceSummary(),
         getTopCustomers(),
-        getSalesChartData()
+        getSalesChartData(),
+        getRecentActivities()
       ]);
       
       setIsLoading(false);
@@ -535,11 +550,11 @@ function Home() {
                       <td className="py-3.5 px-2 font-bold text-slate-900">{customer.totalBills}</td>
                       <td className="py-3.5 px-2">
                         <div className="font-bold text-slate-900">
-                          ₹{customer.totalAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                          ₹{Number(customer.totalAmount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                         </div>
                         {customer.totalBalance > 0 && (
                           <div className="text-[10px] font-medium text-slate-400 mt-0.5">
-                            Due: ₹{customer.totalBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                            Due: ₹{Number(customer.totalBalance || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                           </div>
                         )}
                       </td>
@@ -565,49 +580,334 @@ function Home() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
 
         {/* Invoice Clear Progress Bar Trackers */}
-        <div className="border border-slate-300 rounded-xl p-5 bg-white shadow-2xs space-y-4">
-          <h2 className={sectionHeadingCls}>
-            <CreditCard size={13} strokeWidth={2.5} className="text-orange-500" /> Invoice Clear Progress
-          </h2>
-
-          {isLoading ? (
-            <div className="space-y-5 pt-1">
-              {Array(3).fill(0).map((_, i) => (
-                <div key={`skeleton-prog-${i}`} className="space-y-2.5">
-                  <div className="flex justify-between">
-                    <div className="h-3 w-32 bg-slate-200 rounded animate-pulse"></div>
-                    <div className="h-3 w-20 bg-slate-200 rounded animate-pulse"></div>
-                  </div>
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full w-2/3 bg-slate-200 animate-pulse rounded-full`}></div>
-                  </div>
-                </div>
-              ))}
+<div className="border border-slate-300 rounded-xl p-5 bg-white shadow-2xs space-y-4">
+  <h2 className={sectionHeadingCls}>
+    <CreditCard
+      size={13}
+      strokeWidth={2.5}
+      className="text-orange-500"
+    />
+    Invoice Clear Progress
+  </h2>
+  {isLoading ? (
+    <div className="space-y-5 pt-1">
+      {Array(4)
+        .fill(0)
+        .map((_, i) => (
+          <div
+            key={`skeleton-prog-${i}`}
+            className="space-y-2.5"
+          >
+            <div className="flex justify-between">
+             <div className="h-3 w-32 bg-slate-200 rounded animate-pulse" />
+              <div className="h-3 w-24 bg-slate-200 rounded animate-pulse" />
             </div>
-          ) : lifetimeInvoiceSummary === null ? (
-            <div className="py-8 text-center text-sm text-slate-400">No data found</div>
-          ) : (
-            <div className="space-y-4 pt-1">
-              {[
-                { label: "Fully Paid & Cleared", amount: lifetimeInvoiceSummary.paid.amount, percentage: lifetimeInvoiceSummary.paid.percentage, colorClass: "bg-orange-500" },
-                { label: "Pending (Awaiting Payment)", amount: lifetimeInvoiceSummary.unpaid.amount, percentage: lifetimeInvoiceSummary.unpaid.percentage, colorClass: "bg-slate-700" },
-                { label: "Overdue (Late Bills)", amount: lifetimeInvoiceSummary.overdue.amount, percentage: lifetimeInvoiceSummary.overdue.percentage, colorClass: "bg-rose-500" },
-              ].map((item, i) => (
-                <div key={i} className="space-y-2">
-                  <div className="flex justify-between items-center text-xs font-bold text-slate-600">
-                    <span>{item.label}</span>
-                    <span className="font-mono font-bold text-slate-900">
-                      ₹{item.amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })} ({item.percentage}%)
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
-                    <div className={`h-full rounded-full transition-all duration-500 ${item.colorClass}`} style={{ width: `${item.percentage}%` }} />
-                  </div>
-                </div>
-              ))}
+           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-full w-2/3 bg-slate-200 animate-pulse rounded-full" />
             </div>
-          )}
+          </div>
+        ))}
+    </div>
+  ) : lifetimeInvoiceSummary === null ? (
+    <div className="py-8 text-center text-sm text-slate-400">
+      No data found
+    </div>
+  ) : (
+    <div className="space-y-5 pt-1">
+<div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Lifetime Invoiced
+          </p>
+          <p className="text-lg font-bold text-slate-900 mt-0.5">
+            ₹{Number(
+              lifetimeInvoiceSummary.totalLifetimeAmount || 0
+            ).toLocaleString("en-IN", {
+              maximumFractionDigits: 2,
+            })}
+          </p>
         </div>
+        <div className="text-right">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Cleared
+          </p>
+          <p className="text-sm font-bold text-emerald-600 mt-0.5">
+            ₹{Number(
+              lifetimeInvoiceSummary.totalClearedAmount || 0
+            ).toLocaleString("en-IN", {
+              maximumFractionDigits: 2,
+            })}
+          </p>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <div className="flex justify-between items-center text-xs font-bold">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-orange-500" />
+            <span className="text-slate-600">
+              Fully Paid & Cleared
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="font-mono text-slate-900">
+              ₹{Number(
+                lifetimeInvoiceSummary.fullyPaid?.amount || 0
+              ).toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}
+            </span>
+            <span className="text-slate-400 ml-1">
+              (
+              {Number(
+                lifetimeInvoiceSummary.fullyPaid?.bills || 0
+              )}
+              {" "}
+              {Number(
+                lifetimeInvoiceSummary.fullyPaid?.bills || 0
+              ) === 1
+                ? "bill"
+                : "bills"}
+              )
+            </span>
+          </div>
+        </div>
+        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+          <div
+            className="h-full bg-orange-500 rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(
+                Math.max(
+                  Number(
+                    lifetimeInvoiceSummary.fullyPaid?.percentage || 0
+                  ),
+                  0
+                ),
+                100
+              )}%`,
+            }}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <div className="flex justify-between items-start text-xs font-bold gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+            <span className="text-slate-600">
+              Partially Paid
+            </span>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="font-mono text-slate-900">
+              ₹{Number(
+                lifetimeInvoiceSummary.partiallyPaid?.clearedAmount || 0
+              ).toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}
+              <span className="text-slate-400">
+                {" "}
+                cleared
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+              {Number(
+                lifetimeInvoiceSummary.partiallyPaid?.bills || 0
+              )}
+              {" "}
+              {Number(
+                lifetimeInvoiceSummary.partiallyPaid?.bills || 0
+              ) === 1
+                ? "bill"
+                : "bills"}
+              {" · "}
+              ₹{Number(
+                lifetimeInvoiceSummary.partiallyPaid?.remainingAmount || 0
+              ).toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}
+              {" "}
+              remaining
+            </div>
+          </div>
+        </div>
+        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+          <div
+            className="h-full bg-amber-500 rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(
+                Math.max(
+                  Number(
+                    lifetimeInvoiceSummary.partiallyPaid?.clearedPercentage || 0
+                  ),
+                  0
+                ),
+                100
+              )}%`,
+            }}
+          />
+        </div>
+        <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+          <span>
+            Invoiced: ₹{Number(
+              lifetimeInvoiceSummary.partiallyPaid?.invoicedAmount || 0
+            ).toLocaleString("en-IN", {
+              maximumFractionDigits: 2,
+            })}
+          </span>
+          <span>
+            {Number(
+              lifetimeInvoiceSummary.partiallyPaid?.clearedPercentage || 0
+            ).toFixed(1)}
+            % cleared
+          </span>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <div className="flex justify-between items-center text-xs font-bold">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-slate-700" />
+            <span className="text-slate-600">
+              Pending / Awaiting Payment
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="font-mono text-slate-900">
+              ₹{Number(
+                lifetimeInvoiceSummary.pending?.amount || 0
+              ).toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}
+            </span>
+            <span className="text-slate-400 ml-1">
+              (
+              {Number(
+                lifetimeInvoiceSummary.pending?.bills || 0
+              )}
+              {" "}
+              {Number(
+                lifetimeInvoiceSummary.pending?.bills || 0
+              ) === 1
+                ? "bill"
+                : "bills"}
+              )
+            </span>
+          </div>
+        </div>
+        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+          <div
+          className="h-full bg-slate-700 rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(
+                Math.max(
+                  Number(
+                    lifetimeInvoiceSummary.pending?.percentage || 0
+                  ),
+                  0
+                ),
+                100
+              )}%`,
+            }}
+          />
+
+        </div>
+
+      </div>
+
+
+      <div className="space-y-2">
+
+        <div className="flex justify-between items-center text-xs font-bold">
+
+          <div className="flex items-center gap-2">
+
+            <span className="h-2 w-2 rounded-full bg-rose-500" />
+
+            <span className="text-slate-600">
+              Overdue / Late Bills
+            </span>
+
+          </div>
+
+
+          <div className="text-right">
+
+            <span className="font-mono text-rose-600">
+
+              ₹{Number(
+                lifetimeInvoiceSummary.overdue?.amount || 0
+              ).toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}
+
+            </span>
+
+            <span className="text-slate-400 ml-1">
+              (
+              {Number(
+                lifetimeInvoiceSummary.overdue?.bills || 0
+              )}
+              {" "}
+              {Number(
+                lifetimeInvoiceSummary.overdue?.bills || 0
+              ) === 1
+                ? "bill"
+                : "bills"}
+              )
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+
+          <div
+            className="h-full bg-rose-500 rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(
+                Math.max(
+                  Number(
+                    lifetimeInvoiceSummary.overdue?.percentage || 0
+                  ),
+                  0
+                ),
+                100
+              )}%`,
+            }}
+          />
+
+        </div>
+
+      </div>
+
+      <div className="pt-3 border-t border-slate-100">
+
+        <div className="flex justify-between items-center">
+
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Total Outstanding
+          </span>
+
+          <span className="text-sm font-bold text-slate-900 font-mono">
+
+            ₹{Number(
+              lifetimeInvoiceSummary.totalRemainingAmount || 0
+            ).toLocaleString("en-IN", {
+              maximumFractionDigits: 2,
+            })}
+
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  )}
+
+</div>
+
 
         {/* Top Performing Asset Product Arrays */}
         <div className="border border-slate-300 rounded-xl p-5 bg-white shadow-2xs space-y-4">
@@ -617,7 +917,7 @@ function Home() {
 
           {isLoading ? (
             <div className="space-y-1 divide-y divide-slate-100">
-              {Array(3).fill(0).map((_, i) => (
+              {Array(6).fill(0).map((_, i) => (
                 <div key={`skeleton-item-${i}`} className={`flex items-center justify-between py-3 ${i === 0 ? "pt-0" : ""}`}>
                   <div className="space-y-2">
                     <div className="h-4 w-40 bg-slate-200 rounded animate-pulse"></div>
@@ -650,28 +950,109 @@ function Home() {
           )}
         </div>
 
-        {/* Operations Activity Logs Timeline Feed (Static/Mocked) */}
+        {/* Operations Activity Logs Timeline Feed */}
         <div className="border border-slate-300 rounded-xl p-5 bg-white shadow-2xs space-y-4 md:col-span-2 xl:col-span-1">
           <h2 className={sectionHeadingCls}>
-            <Activity size={13} strokeWidth={2.5} className="text-orange-500" /> Recent Action History
+            <Activity size={13} strokeWidth={2.5} className="text-orange-500" />
+            Recent Action History
           </h2>
-          <div className="space-y-4 relative before:absolute before:inset-y-1 before:left-3 before:w-0.5 before:bg-slate-100 pl-1">
-            {mockActivities.map((act) => (
-              <div key={act.id} className="relative flex gap-4 pl-6 text-xs">
-                <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white border-2 border-orange-500 flex items-center justify-center shadow-2xs">
-                  <div className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-                </div>
-                <div className="space-y-1 flex-1">
-                  <p className="text-slate-600 font-medium leading-relaxed text-xs">{act.text}</p>
-                  <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
-                    <Calendar size={11} /> {act.time}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
+          {isLoading ? (
+            <div className="space-y-5 relative before:absolute before:inset-y-1 before:left-3 before:w-0.5 before:bg-slate-100 pl-1">
+              {Array(4).fill(0).map((_, index) => (
+                <div
+                  key={`activity-skeleton-${index}`}
+                  className="relative flex gap-4 pl-6"
+                >
+                  <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white border-2 border-slate-200 animate-pulse" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-3/4 bg-slate-200 rounded animate-pulse" />
+                    <div className="h-3 w-full bg-slate-100 rounded animate-pulse" />
+                    <div className="h-2.5 w-20 bg-slate-100 rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : recentActivities === null ? (
+            <div className="py-8 text-center text-sm text-slate-400">
+              No activity data
+            </div>
+          ) : recentActivities.length === 0 ? (
+            <div className="py-8 text-center">
+              <Activity size={24} className="mx-auto text-slate-300 mb-2" />
+              <p className="text-sm font-semibold text-slate-400">
+                No recent activity
+              </p>
+              <p className="text-xs text-slate-300 mt-1">
+                Invoice and payment activity will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-5 relative before:absolute before:inset-y-1 before:left-3 before:w-0.5 before:bg-slate-100 pl-1">
+              {recentActivities.map((act) => {
+                const type = act.type || "activity";
+                const isOverdue = type === "overdue";
+                const isCompleted = type === "payment-complete";
+                const isPartial = type === "partial";
+                const isPayment = type === "payment";
+
+                const dotColor = isOverdue
+                  ? "border-rose-500"
+                  : isCompleted
+                  ? "border-emerald-500"
+                  : isPartial
+                  ? "border-amber-500"
+                  : "border-orange-500";
+
+                const innerDotColor = isOverdue
+                  ? "bg-rose-500"
+                  : isCompleted
+                  ? "bg-emerald-500"
+                  : isPartial
+                  ? "bg-amber-500"
+                  : "bg-orange-500";
+
+                const titleColor = isOverdue
+                  ? "text-rose-600"
+                  : isCompleted
+                  ? "text-emerald-600"
+                  : isPartial
+                  ? "text-amber-600"
+                  : isPayment
+                  ? "text-slate-800"
+                  : "text-slate-700";
+
+                return (
+                  <div
+                    key={act.id}
+                    className="relative flex gap-4 pl-6 text-xs"
+                  >
+                    <div
+                      className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white border-2 flex items-center justify-center shadow-2xs ${dotColor}`}
+                    >
+                      <div className={`h-1.5 w-1.5 rounded-full ${innerDotColor}`} />
+                    </div>
+
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <p className={`font-bold leading-snug text-xs ${titleColor}`}>
+                        {act.title || "Recent activity"}
+                      </p>
+
+                      <p className="text-slate-500 font-medium leading-relaxed break-words">
+                        {act.description || ""}
+                      </p>
+
+                      <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                        <Calendar size={10} />
+                        {act.time || "Just now"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

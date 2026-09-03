@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { MoreHorizontal, Plus, Search, FileText } from "lucide-react";
+import { MoreHorizontal, Plus, Search, FileText, AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -61,7 +69,7 @@ const formatDisplayDate = (dateValue) => {
   });
 };
 
-const CustomTableRow = React.memo(({ singleInvoice, navigate, onCancel }) => {
+const CustomTableRow = React.memo(({ singleInvoice, navigate, onOpenCancelDialog }) => {
   const getCalculatedStatus = () => {
     const status = singleInvoice.status;
     if (status === "Paid") return "Paid";
@@ -159,17 +167,16 @@ const CustomTableRow = React.memo(({ singleInvoice, navigate, onCancel }) => {
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem
               className="cursor-pointer"
-              onClick={() => navigate(`/home/${singleInvoice._id || singleInvoice.id}`)}
+              onClick={() => navigate(`/user/check-invoice/${singleInvoice._id || singleInvoice.id}`)}
             >
               View Details
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">Edit</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50"
               onClick={(e) => {
                 e.stopPropagation();
-                onCancel(singleInvoice._id || singleInvoice.id);
+                onOpenCancelDialog(singleInvoice);
               }}
             >
               Void Invoice
@@ -190,8 +197,14 @@ export default function Invoices() {
   const [isDebouncing, setSearchIsDebouncing] = useState(false);
   const [filter, setFilter] = useState("All");
 
+  // Modal State for Void Confirmation
+  const [invoiceToCancel, setInvoiceToCancel] = useState(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+
   const activeSearchRequestRef = useRef(null);
   const initialFetchKeyRef = useRef(null);
+  const isMountedRef = useRef(true);
 
   const {
     invoices,
@@ -203,6 +216,13 @@ export default function Invoices() {
     searchNextCursor,
     invoiceLoading,
   } = useSelector((state) => state.invoice);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const fetchInvoices = useCallback(
     async (limit = 10, cursor = undefined) => {
@@ -219,22 +239,41 @@ export default function Invoices() {
 
         return true;
       } catch (error) {
-        toast.error(error?.message || "Something went wrong");
+        if (isMountedRef.current) {
+          toast.error(error?.message || "Something went wrong");
+        }
         return false;
       }
     },
     [dispatch, invoiceLoading, filter]
   );
 
-  const handleCancelInvoice = async (invoiceId) => {
-    if (!window.confirm("Are you sure you want to cancel this invoice? Items will be restocked."))
-      return;
+  const handleOpenCancelDialog = (invoice) => {
+    setInvoiceToCancel(invoice);
+    setIsCancelModalOpen(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!invoiceToCancel) return;
+
+    const invoiceId = invoiceToCancel._id || invoiceToCancel.id;
+    setIsCancelling(true);
 
     try {
       await dispatch(cancelInvoiceReq(invoiceId)).unwrap();
-      toast.success("Invoice cancelled successfully");
+      if (isMountedRef.current) {
+        toast.success("Invoice cancelled successfully");
+        setIsCancelModalOpen(false);
+        setInvoiceToCancel(null);
+      }
     } catch (error) {
-      toast.error(error.message || "Failed to cancel invoice");
+      if (isMountedRef.current) {
+        toast.error(error?.message || "Failed to cancel invoice");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsCancelling(false);
+      }
     }
   };
 
@@ -261,7 +300,6 @@ export default function Invoices() {
 
     const fetchKey = filter || "All";
 
-    // React StrictMode and state updates can run this effect more than once.
     if (initialFetchKeyRef.current === fetchKey) return;
 
     initialFetchKeyRef.current = fetchKey;
@@ -318,7 +356,9 @@ export default function Invoices() {
         .unwrap()
         .catch((err) => {
           if (err.name === "AbortError" || err === "Request cancelled") return;
-          toast.error(err.message || "Something went wrong");
+          if (isMountedRef.current) {
+            toast.error(err.message || "Something went wrong");
+          }
         })
         .finally(() => {
           if (activeSearchRequestRef.current === requestPromise) {
@@ -355,9 +395,9 @@ export default function Invoices() {
           return;
         }
 
-        toast.error(
-          error?.message || "Something went wrong"
-        );
+        if (isMountedRef.current) {
+          toast.error(error?.message || "Something went wrong");
+        }
       }
     },
     [searchQuery, searchLoading, dispatch, filter]
@@ -502,7 +542,7 @@ export default function Invoices() {
                       key={singleInvoice._id || singleInvoice.id}
                       singleInvoice={singleInvoice}
                       navigate={navigate}
-                      onCancel={handleCancelInvoice}
+                      onOpenCancelDialog={handleOpenCancelDialog}
                     />
                   ))
                 ) : (
@@ -524,7 +564,7 @@ export default function Invoices() {
                     key={singleInvoice._id || singleInvoice.id}
                     singleInvoice={singleInvoice}
                     navigate={navigate}
-                    onCancel={handleCancelInvoice}
+                    onOpenCancelDialog={handleOpenCancelDialog}
                   />
                 ))
               ) : (
@@ -546,6 +586,46 @@ export default function Invoices() {
           </Table>
         </div>
       </InfiniteScroll>
+
+      {/* Confirmation Dialog for Voiding Invoice */}
+      <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-rose-50 rounded-full border border-rose-100 text-rose-600">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-gray-900">
+                  Void Invoice {invoiceToCancel?.invoiceNo}?
+                </DialogTitle>
+                <DialogDescription className="text-xs text-gray-500 mt-0.5">
+                  This action will mark the invoice as void and automatically restock associated items.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isCancelling}
+              onClick={() => setIsCancelModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isCancelling}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleConfirmCancel}
+            >
+              {isCancelling ? "Voiding..." : "Confirm Void"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

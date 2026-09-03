@@ -7,7 +7,7 @@ const invoiceItemsSchema = new mongoose.Schema({
         default: null,
     },
     quantity: {
-        type: Number,
+        type: Number, 
         required: true,
     },
     itemName: {
@@ -113,6 +113,72 @@ const invoiceSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Customer',
         required: true,
+    },
+
+    customerPhone: {
+        type: String,
+        required: true,
+        trim: true,
+    },
+
+    customerEmail: {
+        type: String,
+    },
+
+    customerBillingAddress: {
+        attention: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
+        country: {
+            type: String,
+            trim: true,
+            default: "India"
+        },
+
+        street1: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
+        street2: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
+        city: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
+        state: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
+        pincode: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
+        phone: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
+        fax: {
+            type: String,
+            trim: true,
+            default: ""
+        }
     },
 
     subtotal: {

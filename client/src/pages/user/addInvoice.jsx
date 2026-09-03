@@ -45,6 +45,7 @@ import InvoiceDesign2 from '@/components/other-ui/invoice-design-2';
 import InvoiceDesign3 from '@/components/other-ui/invoice-design-3';
 import InvoiceDesign4 from '@/components/other-ui/invoice-design-4';
 import ThermalInvoice1 from '@/components/other-ui/thermal-design-1';
+import ThermalInvoice2 from '@/components/other-ui/thermal-design-2';
 import { addInvoiceReq } from '@/redux/features/invoiceSlice';
 import api from '@/axios/interceptor';
 
@@ -71,7 +72,8 @@ const initialData = {
   address: "",
   logo: null,
   signature: null,
-  layout: "invoiceDesign1",
+  a4Layout: "invoiceDesign1",
+  thermalLayout: "thermalDesign1",
 };
 
 const labelCls = "block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5";
@@ -187,18 +189,48 @@ function AddInvoice() {
 
   const handleInstantClientCreate = (searchValue) => {
     const val = searchValue.trim();
-    const isPhoneNumberSearch = looksLikePhoneNumber(val);
+
+    const isPhoneNumberSearch =
+      looksLikePhoneNumber(val);
 
     const instantClient = {
       _id: `temp_${Date.now()}`,
       displayName: isPhoneNumberSearch ? "" : val,
       workingPhone: isPhoneNumberSearch ? val : "",
+      email: "",
       customerType: "Individual",
-      isInstantNew: true
+      isInstantNew: true,
+      billingAddress: {
+        attention: "",
+        country: "India",
+        street1: "",
+        street2: "",
+        city: "",
+        state: "",
+        pincode: "",
+        phone: isPhoneNumberSearch ? val : "",
+        fax: "",
+      },
+      shippingAddress: {
+        attention: "",
+        country: "India",
+        street1: "",
+        street2: "",
+        city: "",
+        state: "",
+        pincode: "",
+        phone: isPhoneNumberSearch ? val : "",
+        fax: "",
+      },
     };
 
     setSelectedCustomer(instantClient);
-    toast.success(isPhoneNumberSearch ? `Record allocated with phone "${val}"` : `Created "${val}"`);
+
+    toast.success(
+      isPhoneNumberSearch
+        ? `Record allocated with phone "${val}"`
+        : `Created "${val}"`
+    );
   };
 
   useEffect(() => {
@@ -348,36 +380,65 @@ function AddInvoice() {
 
   const buildInvoicePayload = () => {
     const finalPaid = Number(numericPaidAmount.toFixed(2));
-
-    const initialPayments = finalPaid > 0 ? [{
-      amount: finalPaid,
-      paymentDate: invoiceIssueDate
-        ? new Date(invoiceIssueDate).toISOString()
-        : new Date().toISOString(),
-      paymentMethod: paymentMethod || "Cash",
-      note: paymentNote.trim() || "Initial payment on invoice creation",
-    }] : [];
-
+    const initialPayments = finalPaid > 0 ? [
+      {
+        amount: finalPaid,
+        paymentDate: invoiceIssueDate
+          ? new Date(invoiceIssueDate).toISOString()
+          : new Date().toISOString(),
+        paymentMethod: paymentMethod || "Cash",
+        note: paymentNote.trim() || "Initial payment on invoice creation",
+      }
+    ] : [];
+    const billingAddress = {
+      attention: selectedCustomer?.billingAddress?.attention || "",
+      country: selectedCustomer?.billingAddress?.country || "India",
+      street1: selectedCustomer?.billingAddress?.street1 || "",
+      street2: selectedCustomer?.billingAddress?.street2 || "",
+      city: selectedCustomer?.billingAddress?.city || "",
+      state: selectedCustomer?.billingAddress?.state || "",
+      pincode: selectedCustomer?.billingAddress?.pincode || "",
+      phone: selectedCustomer?.billingAddress?.phone || selectedCustomer?.workingPhone || "",
+      fax: selectedCustomer?.billingAddress?.fax || "",
+    };
+    const shippingAddress = {
+      attention: selectedCustomer?.shippingAddress?.attention || "",
+      country: selectedCustomer?.shippingAddress?.country || "India",
+      street1: selectedCustomer?.shippingAddress?.street1 || "",
+      street2: selectedCustomer?.shippingAddress?.street2 || "",
+      city: selectedCustomer?.shippingAddress?.city || "",
+      state: selectedCustomer?.shippingAddress?.state || "",
+      pincode: selectedCustomer?.shippingAddress?.pincode || "",
+      phone: selectedCustomer?.shippingAddress?.phone || selectedCustomer?.workingPhone || "",
+      fax: selectedCustomer?.shippingAddress?.fax || "",
+    };
     return {
       invoiceNumber: invoiceNumberSequence,
-      customerId: selectedCustomer._id,
-      customerName: selectedCustomer.displayName,
-      customerPhone: selectedCustomer.workingPhone || "",
-      items: itemData.map(item => {
-        const cleanedItem = {
-          name: item.name,
-          quantity: Number(item.quantity) || 1,
-          MRP: Number(item.MRP) || 0,
-          sellingPrice: Number(item.sellingPrice) || 0,
-          discount: Number(item.discount) || 0,
-          discountType: item.discountType || "%",
-          image: item.image || null,
-          unit: item.unit || ""
-        };
-        if (item._id && item._id.trim() !== "") cleanedItem.itemId = item._id;
-        return cleanedItem;
-      }),
-      subtotal: Number(subtotal.toFixed(2)),
+      customerId: selectedCustomer?._id,
+      customerName: selectedCustomer?.displayName || "",
+      customerPhone: selectedCustomer?.workingPhone || "",
+      customerEmail: selectedCustomer?.email || "",
+      customerBillingAddress: billingAddress,
+      customerShippingAddress: shippingAddress,
+      items:
+        itemData.map(item => {
+          const cleanedItem = {
+            name: item.name,
+            quantity: Number(item.quantity) || 1,
+            MRP: Number(item.MRP) || 0,
+            sellingPrice: Number(item.sellingPrice) || 0,
+            discount: Number(item.discount) || 0,
+            discountType: item.discountType || "%",
+            image: item.image || null,
+            unit: item.unit || "",
+          };
+          if (item._id && item._id.trim() !== "") {
+            cleanedItem.itemId = item._id;
+          }
+          return cleanedItem;
+        }),
+      subtotal:
+        Number(subtotal.toFixed(2)),
       invoiceDate: invoiceIssueDate ? new Date(invoiceIssueDate).toISOString() : new Date().toISOString(),
       dueDate: invoiceDueDate ? new Date(invoiceDueDate).toISOString() : new Date().toISOString(),
       discount: Number(totalDiscount.toFixed(2)),
@@ -387,8 +448,8 @@ function AddInvoice() {
       terms: terms ? terms.trim() : "",
       status: effectivePaymentStatus,
       paidAmount: finalPaid,
-      balanceAmount,
-      payments: initialPayments
+      balanceAmount: balanceAmount,
+      payments: initialPayments,
     };
   };
 
@@ -517,8 +578,17 @@ function AddInvoice() {
       companyLogo: companyInfo?.logo || "",
       companySignature: companyInfo?.signature || ""
     };
-    if(type == "Thermal") return <ThermalInvoice1 {...invoiceInfo} />;
-    switch (companyInfo?.layout) {
+    if (type == "Thermal") {
+      switch (companyInfo?.thermalLayout) {
+        case "thermalDesign2":
+          return <ThermalInvoice2 {...invoiceInfo} />;
+
+        default:
+          return <ThermalInvoice1 {...invoiceInfo} />;
+          return <ThermalInvoice2 {...invoiceInfo} />;
+      }
+    }
+    switch (companyInfo?.a4Layout) {
       case "invoiceDesign2":
         return <InvoiceDesign2 {...invoiceInfo} />;
       case "invoiceDesign3":
@@ -553,12 +623,11 @@ function AddInvoice() {
     }
   };
 
-  const handlePrintPdf = async (type="Normal") => {
+  const handlePrintPdf = async (type = "Normal") => {
     const originalTitle = document.title;
     const invoiceNumber = invoiceNumberSequence || "Invoice";
 
     try {
-      document.title = invoiceNumber;
       const blob = await pdf(renderInvoiceDocument(false, type)).toBlob();
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if (isMobile) {
@@ -685,7 +754,8 @@ function AddInvoice() {
         phone: data.companyPhone || "",
         email: data.companyEmail || "",
         address: data.companyAddress || "",
-        layout: data.companyInvoiceLayoutId || "invoiceDesign1",
+        a4Layout: data.companyA4LayoutId || "invoiceDesign1",
+        thermalLayout: data.companyThermalLayoutId || "thermalDesign1",
         logo: data.companyLogo || null,
         signature: data.companySignature || null,
       });

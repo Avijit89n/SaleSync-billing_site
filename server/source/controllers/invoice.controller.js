@@ -5,17 +5,11 @@ import ApiError from "../utils/apiError.js";
 import apiResponse from "../utils/apiResponse.js";
 
 const addInvoice = async (req, res) => {
-    console.log("got:")
-    console.log(req.body)
-
     const session = await mongoose.startSession();
-
     try {
         session.startTransaction();
-
         const {
             customerId,
-            customerName,
             items,
             invoiceDate,
             dueDate,
@@ -25,141 +19,180 @@ const addInvoice = async (req, res) => {
             grandTotal,
             notes,
             terms,
-            paidAmount = 0, // Catching paidAmount from frontend
+            paidAmount = 0,
+            payments = [],
         } = req.body;
 
+        const customer =req.customer;
+        const isNewCustomerFlag = req.isNewCustomerFlag;
+        if (!customer) {
+            throw new ApiError("Customer validation failed", 400);
+        }
         if (!customerId) {
             throw new ApiError("Customer is required", 400);
         }
-
+        if (!mongoose.Types.ObjectId.isValid(customerId)) {
+            throw new ApiError("Invalid customer ID", 400);
+        }
         if (!items?.length) {
             throw new ApiError("At least one item is required", 400);
         }
-
-        // Generate Invoice Number
+        const invoiceCustomerName = customer.displayName || "";
+        const invoiceCustomerPhone = customer.workingPhone || customer.mobile || "";
+        const invoiceCustomerEmail = customer.email || "";
+        const invoiceCustomerBillingAddress = {
+            attention: customer.billingAddress?.attention || "",
+            country: customer.billingAddress?.country || "India",
+            street1: customer.billingAddress?.street1 || "",
+            street2: customer.billingAddress?.street2 || "",
+            city: customer.billingAddress?.city || "",
+            state: customer.billingAddress?.state || "",
+            pincode: customer.billingAddress?.pincode || "",
+            phone: customer.billingAddress?.phone || invoiceCustomerPhone,
+            fax: customer.billingAddress?.fax || "",
+        };
         const year = new Date().getFullYear();
-
         const counter = await InvoiceCounter.findOneAndUpdate(
-            { name: `invoice-${year}` },
-            { $inc: { sequence: 1 } },
-            { new: true, upsert: true, session }
-        );
+                {
+                    name: `invoice-${year}`
+                },
+                {
+                    $inc: { sequence: 1 }
+                },
+                {
+                    new: true,
+                    upsert: true,
+                    session
+                }
+            );
 
-        const invoiceNumber = `INV-${year}-${String(
-            counter.sequence
-        ).padStart(6, "0")}`;
-
+        const invoiceNumber = `INV-${year}-${String(counter.sequence).padStart(6, "0")}`;
         const invoiceItems = [];
-        console.log("check1")
-
-        // Loop through items and handle Listed vs. Custom items
         for (const invoiceItem of items) {
             let dbItemId = null;
-
             if (invoiceItem.itemId) {
                 const item = await Item.findById(invoiceItem.itemId).session(session);
-
                 if (!item) {
                     throw new ApiError(`${invoiceItem.name} does not exist in inventory`, 400);
                 }
-
                 if (item.status !== "Active") {
                     throw new ApiError(`${item.name} is inactive`, 400);
                 }
-
-                // Deduct stock for database items
-                item.stock -= invoiceItem.quantity;
-                await item.save({ session });
-
-                dbItemId = item._id; 
+                const quantity = Number(invoiceItem.quantity) || 0;
+                if (quantity <= 0) {
+                    throw new ApiError(`Invalid quantity for ${invoiceItem.name}`,400);
+                }
+                // item.stock -= quantity;
+                await item.save({session});
+                dbItemId = item._id;
             }
-
-            // Calculate Discounts 
+            const quantity = Number(invoiceItem.quantity) || 0;
+            const sellingPrice = Number(invoiceItem.sellingPrice) || 0;
+            const mrp = Number(invoiceItem.MRP) || 0;
+            const itemDiscount = Number(invoiceItem.discount) || 0;
+            if (quantity <= 0) {
+                throw new ApiError(`Invalid quantity for ${invoiceItem.name}`,400);
+            }
+            if (sellingPrice < 0) {
+                throw new ApiError(`Invalid selling price for ${invoiceItem.name}`,400);
+            }
             let discountAmount = 0;
-
             if (invoiceItem.discountType === "%" || invoiceItem.discountType === "percentage") {
-                discountAmount =
-                    ((invoiceItem.sellingPrice * invoiceItem.discount) / 100) * invoiceItem.quantity;
+                discountAmount = (sellingPrice *itemDiscount /100) *quantity;
             } else {
-                discountAmount = invoiceItem.discount * invoiceItem.quantity;
+                discountAmount =itemDiscount *quantity;
             }
+            discountAmount =Number(discountAmount.toFixed(2));
 
             invoiceItems.push({
-                itemID: dbItemId, 
-                quantity: invoiceItem.quantity,
-                itemDescription: invoiceItem.description || null,
-                itemName: invoiceItem.name,
-                itemUnit: invoiceItem.unit || "pcs", 
-                itemMRP: invoiceItem.MRP || 0,
-                itemSellingPrice: invoiceItem.sellingPrice,
-                itemDiscount: invoiceItem.discount || 0,
-                itemDiscountType: (invoiceItem.discountType === "%" || invoiceItem.discountType === "percentage") ? "percentage" : "fixed",
-                itemImage: invoiceItem.image || null,
-                itemDiscountAmount: discountAmount,
+                itemID:dbItemId,
+                quantity:quantity,
+                itemName:invoiceItem.name,
+                itemMRP:mrp,
+                itemSellingPrice:sellingPrice,
+                itemDiscount:itemDiscount,
+                itemDiscountType: (invoiceItem.discountType === "%" ||invoiceItem.discountType === "percentage")
+                        ? "percentage" : "fixed",
+
+                itemUnit:invoiceItem.unit ||"pcs",
+                itemDescription:invoiceItem.description ||null,
+                itemImage:invoiceItem.image ||null,
+                itemDiscountAmount:
+                    discountAmount,
             });
         }
 
-        console.log("check2")
+        const safeGrandTotal = Number(grandTotal) || 0;
+        if (safeGrandTotal < 0) {
+            throw new ApiError("Invalid invoice total",400);
+        }
+        const safePaidAmount = Math.max(0, Number(paidAmount) || 0);
+        const finalPaidAmount =Math.min(safePaidAmount,safeGrandTotal);
+        const calculatedBalance =Math.max(0,safeGrandTotal -finalPaidAmount);
 
-        // --- BACKEND-FORCED PAYMENT CALCULATION LOGIC ---
-        const safePaidAmount = Number(paidAmount) || 0;
-        const calculatedBalance = Math.max(0, grandTotal - safePaidAmount);
-        
-        // Ensure data integrity by overriding frontend status with math
-        let computedStatus = 'Unpaid';
+        let computedStatus = "Unpaid";
         if (calculatedBalance <= 0) {
-            computedStatus = 'Paid';
-        } else if (safePaidAmount > 0) {
-            computedStatus = 'Partially Paid';
+            computedStatus ="Paid";
+        } else if (finalPaidAmount > 0) {
+            computedStatus ="Partially Paid";
         }
-
-        // Generate the initial payment record if money was received upon creation
+        
         const initialPayments = [];
-        if (safePaidAmount > 0) {
+        if (finalPaidAmount > 0) {
+            const frontendPayment = payments?.[0] || {};
             initialPayments.push({
-                amount: safePaidAmount,
+                amount: finalPaidAmount,
                 paymentDate: invoiceDate || new Date(),
-                paymentMethod: req.body.payments?.[0]?.paymentMethod || 'Cash', 
-                note: req.body.payments?.[0]?.note || 'Initial payment upon invoice creation'
+                paymentMethod: frontendPayment.paymentMethod ||"Cash",
+                note: frontendPayment.note || "Initial payment upon invoice creation",
             });
         }
-
-        const invoice = await Invoice.create(
-            [
-                {
-                    invoiceNumber,
-                    invoiceDate,
-                    dueDate,
-                    customerName,
-                    customerID: customerId,
-                    invoiceItems,
-                    subtotal,
-                    discount,
-                    tax,
-                    grandTotal,
-                    notes,
-                    terms,
-                    status: computedStatus,
-                    paidAmount: safePaidAmount,
-                    balanceAmount: calculatedBalance,
-                    payments: initialPayments
-                },
-            ],
-            { session }
-        );
+        const invoice =
+            await Invoice.create([
+                    {
+                        invoiceNumber,
+                        invoiceDate,
+                        dueDate,
+                        customerID: customer._id,
+                        customerName: invoiceCustomerName,
+                        customerPhone: invoiceCustomerPhone,
+                        customerEmail: invoiceCustomerEmail,
+                        customerBillingAddress: invoiceCustomerBillingAddress,
+                        invoiceItems,
+                        subtotal: Number(subtotal) || 0,
+                        discount: Number(discount) || 0,
+                        tax:Number(tax) || 0,
+                        grandTotal:safeGrandTotal,
+                        payments:initialPayments,
+                        paidAmount:finalPaidAmount,
+                        balanceAmount:calculatedBalance,
+                        status:computedStatus,
+                        notes:notes || "",
+                        terms:terms || "",
+                    }
+                ],{ session }
+            );
 
         await session.commitTransaction();
-        console.log("saved");
+
         return res.status(201).json(
-            new apiResponse("Invoice created successfully", 200, invoice[0])
-        )
+            new apiResponse("Invoice created successfully",200,{
+                customer,
+                isNewCustomerFlag,
+                data: invoice[0]
+            })
+        );
     } catch (error) {
-        await session.abortTransaction();
-        throw new ApiError(error.message, 400, error)
+        if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
+        console.error("Error creating invoice:",error);
+        throw new ApiError(error.message ||"Failed to create invoice",400,error);
     } finally {
-        session.endSession();
+        await session.endSession();
     }
 };
+
 
 const addPaymentRecord = async (req, res) => {
     const { id } = req.params;
@@ -253,7 +286,7 @@ const getNextInvoiceNumber = async (req, res) => {
 const getAllInvoice = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
     const lastCreatedAt = req.query.lastCreatedAt;
-    const filterStatus = req.query.status; 
+    const filterStatus = req.query.status;
 
     let query = {};
 
@@ -273,20 +306,20 @@ const getAllInvoice = async (req, res) => {
             query.$or = [
                 { dueDate: { $gte: today } },
                 { dueDate: null },
-                { dueDate: { $exists: false } } 
+                { dueDate: { $exists: false } }
             ];
         } else if (filterStatus === "Unpaid") {
             query.status = "Unpaid";
             query.$or = [
                 { dueDate: { $gte: today } },
                 { dueDate: null },
-                { dueDate: { $exists: false } } 
+                { dueDate: { $exists: false } }
             ];
         } else if (filterStatus === "Overdue") {
             query.status = { $in: ["Unpaid", "Partially Paid"] };
             query.dueDate = { $lt: today };
         } else if (filterStatus === "Cancel") {
-            query.status = "Cancel"; 
+            query.status = "Cancel";
         }
     }
 
@@ -338,7 +371,7 @@ const invoiceSearch = async (req, res) => {
 
     const search = req.query.search?.trim();
     const cursor = req.query.cursor;
-    const filterStatus = req.query.status; 
+    const filterStatus = req.query.status;
 
     if (!search) {
         throw new ApiError("Search query is required", 400);
@@ -398,7 +431,7 @@ const invoiceSearch = async (req, res) => {
             today.setHours(0, 0, 0, 0);
 
             let matchStage = {};
-            
+
             if (filterStatus === "Paid") {
                 matchStage.status = "Paid";
             } else if (filterStatus === "Partially Paid") {
@@ -520,31 +553,11 @@ const getInvoice = async (req, res) => {
     if (!id) {
         throw new ApiError("ID is needed for invoice fetch", 400);
     }
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new ApiError("Invalid invoice ID", 400);
-    }
-
     try {
-        const invoice = await Invoice.aggregate([
-            {
-                $match: {
-                    _id: new mongoose.Types.ObjectId(id),
-                },
-            },
-            {
-                $lookup: {
-                    from: "customers",
-                    localField: "customerID",
-                    foreignField: "_id",
-                    as: "customer",
-                },
-            }
-        ]);
-        if (!invoice.length) {
-            throw new ApiError("Invoice not found", 404);
+        const invoiceData = await Invoice.findById(id)
+        if(!invoiceData) {
+            throw new ApiError("Invoice not found", 500)
         }
-        const invoiceData = invoice[0];
-
         return res.status(200).json(
             new apiResponse("Invoice fetched successfully", 200, invoiceData)
         );
@@ -554,12 +567,12 @@ const getInvoice = async (req, res) => {
     }
 };
 
-export { 
-    addInvoice, 
-    getNextInvoiceNumber, 
-    getAllInvoice, 
-    invoiceSearch, 
-    cancelInvoice, 
+export {
+    addInvoice,
+    getNextInvoiceNumber,
+    getAllInvoice,
+    invoiceSearch,
+    cancelInvoice,
     addPaymentRecord,
     getInvoice
 };

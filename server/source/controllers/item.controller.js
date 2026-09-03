@@ -169,5 +169,136 @@ const itemSearch = async (req, res) => {
     }
 };
 
+const deleteItem = async(req, res) => {
+    try {
+        const {id} = req.params
+        if(!id){
+            throw new ApiError("Item ID is required", 400)
+        }
+        const item = await Item.findById(id)
+        if(!item) {
+            throw new ApiError("Failed to find the item or Invalid Item ID", 500)
+        }
+        await Item.findByIdAndDelete(id)
 
-export { additem, getAllItem, itemSearch };
+        return res.status(200).json(
+            new apiResponse("Item Deleted successfully", 200, item)
+        )
+    } catch (error) {
+        console.error("delete item error: ", error)
+        throw new ApiError("Failed to delete the item", 500, error)
+    }
+}
+
+const getItemById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            throw new ApiError("Item ID is required", 400);
+        }
+        const item = await Item.findById(id);
+        if (!item) {
+            throw new ApiError("Item not found", 404);
+        }
+        return res.status(200).json(
+            new apiResponse("Item fetched successfully", 200, item)
+        );
+    } catch (error) {
+        throw new ApiError("Failed to fetch item", 500, error);
+    }
+};
+
+const updateItem = async (req, res) => {
+    const { id } = req.params;
+    const {
+        name,
+        description,
+        MRP,
+        sellingPrice,
+        stock,
+        unit,
+        status,
+        image
+    } = req.body;
+
+    const itemImage = req.file; // From multer upload.single('image')
+
+    try {
+        const existingItem = await Item.findById(id);
+        
+        if (!existingItem) {
+            if (itemImage?.path && fs.existsSync(itemImage.path)) {
+                fs.unlinkSync(itemImage.path);
+            }
+            throw new ApiError("Item not found", 404);
+        }
+
+        let imageUrl = existingItem.image;
+        let imagePublicId = existingItem.imagePublicId; 
+        
+        // Scenario A: User uploaded a NEW image
+        if (itemImage) {
+            const uploadResult = await cloudinaryUpload(itemImage.path);
+
+            if (!uploadResult?.optimizeUrl || !uploadResult?.imageInfo) {
+                if (itemImage?.path && fs.existsSync(itemImage.path)) fs.unlinkSync(itemImage.path);
+                throw new ApiError("Image upload failed", 500);
+            }
+
+            if (itemImage?.path && fs.existsSync(itemImage.path)) fs.unlinkSync(itemImage.path);
+
+            imageUrl = uploadResult.optimizeUrl;
+            imagePublicId = uploadResult.imageInfo.public_id;
+
+            if (existingItem.imagePublicId) {
+                try {
+                    await cloudinaryDelete(existingItem.imagePublicId);
+                } catch (cleanupError) {
+                    console.error("Failed to delete old item image from Cloudinary:", cleanupError);
+                }
+            }
+        } 
+        
+        else if (!image) {
+            if (existingItem.imagePublicId) {
+                try {
+                    await cloudinaryDelete(existingItem.imagePublicId);
+                } catch (cleanupError) {
+                    console.error("Failed to delete item image from Cloudinary:", cleanupError);
+                }
+            }
+            imageUrl = null;
+            imagePublicId = null;
+        }
+
+        const updateData = {
+            name: name || existingItem.name,
+            description: description || existingItem.description,
+            MRP: MRP !== undefined ? MRP : existingItem.MRP,
+            sellingPrice: sellingPrice !== undefined ? sellingPrice : existingItem.sellingPrice,
+            stock: stock !== undefined ? stock : existingItem.stock,
+            unit: unit || existingItem.unit,
+            status: status || existingItem.status,
+            image: imageUrl,
+            imagePublicId: imagePublicId
+        };
+
+        const updatedItem = await Item.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+        return res.status(200).json(
+            new apiResponse ("Item updated successfully", 200, updatedItem)
+        );
+
+    } catch (error) {
+        if (itemImage && imagePublicId && imagePublicId !== existingItem?.imagePublicId) {
+            try {
+                await cloudinaryDelete(imagePublicId);
+            } catch (rollbackError) {
+                console.error("Failed to rollback Cloudinary upload:", rollbackError);
+            }
+        }
+
+        throw new ApiError(error.message || "Failed to update item", error.statusCode || 500);
+    }
+};
+
+export { additem, getAllItem, itemSearch, deleteItem, getItemById, updateItem };

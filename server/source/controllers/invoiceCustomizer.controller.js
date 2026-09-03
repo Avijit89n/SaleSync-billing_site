@@ -11,16 +11,15 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
         phone,
         email,
         address,
-        layout,
+        a4Layout,
+        thermalLayout,    
         currentLogo,
-        currentSignature, // Added signature string tracker
+        currentSignature, 
     } = req.body;
 
-    // Grab both files from req.files (Requires upload.fields() in router)
     const companyLogo = req.files?.companyLogo?.[0];
     const companySignature = req.files?.companySignature?.[0];
 
-    // Initial Validation & Local Cleanup
     if (!companyName || !gstin || !phone || !email || !address) {
         if (companyLogo?.path && fs.existsSync(companyLogo.path)) {
             fs.unlinkSync(companyLogo.path);
@@ -42,7 +41,6 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
     const oldSignaturePublicId = existingCustomizer?.companySignaturePublicId;
 
     try {
-        // --- 1. Upload new Logo (if provided) ---
         if (companyLogo) {
             const uploadResult = await cloudinaryUpload(companyLogo.path);
 
@@ -55,8 +53,7 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
             logoUrl = uploadResult.optimizeUrl;
             logoPublicId = uploadResult.imageInfo.public_id;
         }
-
-        // --- 2. Upload new Signature (if provided) ---
+        
         if (companySignature) {
             const uploadResult = await cloudinaryUpload(companySignature.path);
 
@@ -74,17 +71,16 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
             signaturePublicId = uploadResult.imageInfo.public_id;
         }
 
-        // --- 3. Build Update Object ---
         const updateData = {
             companyName,
             companyGSTIN: gstin,
             companyPhone: phone,
             companyEmail: email,
             companyAddress: address,
-            companyInvoiceLayoutId: layout,
+            companyA4LayoutId: a4Layout,
+            companyThermalLayoutId: thermalLayout,
         };
 
-        // Handle Logo State
         if (companyLogo) {
             updateData.companyLogo = logoUrl;
             updateData.companyLogoPublicId = logoPublicId;
@@ -102,7 +98,6 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
             updateData.companySignaturePublicId = null;
         }
 
-        // --- 4. Save to Database ---
         let customizer;
 
         if (existingCustomizer) {
@@ -117,8 +112,6 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
         } else {
             customizer = await InvoiceCustomizer.create(updateData);
         }
-
-        // --- 5. Cloudinary Cleanup (Delete replaced/removed images) ---
         
         // Logo Cleanup
         if (companyLogo && oldLogoPublicId && oldLogoPublicId !== logoPublicId) {

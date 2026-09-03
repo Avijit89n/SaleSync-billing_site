@@ -27,9 +27,13 @@ const invoiceCustomizerSchema = new mongoose.Schema({
     companyLogoPublicId: {
         type: String,
     },
-    companyInvoiceLayoutId:{
+    companyA4LayoutId: {
         type: String,
         default: "invoiceDesign1",
+    },
+    companyThermalLayoutId: {
+        type: String,
+        default: "thermalDesign1",
     },
     companySignature: {
         type: String,
@@ -37,6 +41,6 @@ const invoiceCustomizerSchema = new mongoose.Schema({
     companySignaturePublicId: {
         type: String,
     },
-}, { timestamps: true })
+}, { timestamps: true });
 
 export const InvoiceCustomizer = mongoose.model('InvoiceCustomizer', invoiceCustomizerSchema);

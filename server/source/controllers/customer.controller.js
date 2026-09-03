@@ -1,6 +1,7 @@
 import apiError from "../utils/apiError.js"
 import apiResponse from "../utils/apiResponse.js"
 import { Customer } from "../models/customer.models.js"
+import { Invoice } from "../models/invoice.models.js";
 
 const addCustomer = async (req, res) => {
     let {
@@ -31,7 +32,7 @@ const addCustomer = async (req, res) => {
     try {
         const customer = await Customer.create({
             customerType,
-            customerName,
+            customerName: customerName || displayName || "",
             companyName,
             displayName,
             workingPhone,
@@ -53,20 +54,74 @@ const addCustomer = async (req, res) => {
 
 const getAllCustomers = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
-    const lastCreatedAt = req.query.lastCreatedAt === "undefined" ? null : req.query.lastCreatedAt;
+
+    const lastCreatedAt =
+        req.query.lastCreatedAt === "undefined"
+            ? null
+            : req.query.lastCreatedAt;
 
     const pipeline = [
+        // Pagination
         ...(lastCreatedAt
             ? [
                 {
                     $match: {
-                        createdAt: { $lt: new Date(lastCreatedAt) },
+                        createdAt: {
+                            $lt: new Date(lastCreatedAt),
+                        },
                     },
                 },
             ]
             : []),
-        { $sort: { createdAt: -1 } },
-        { $limit: limit + 1 },
+
+        // Newest customers first
+        {
+            $sort: {
+                createdAt: -1,
+            },
+        },
+
+        // Fetch one extra document to determine if more data exists
+        {
+            $limit: limit + 1,
+        },
+
+        // Get all invoices belonging to each customer
+        {
+            $lookup: {
+                from: "invoices",
+                localField: "_id",
+                foreignField: "customerID",
+                as: "invoices",
+            },
+        },
+
+        // Calculate customer billing information
+        {
+            $addFields: {
+                // Total number of bills
+                totalBills: {
+                    $size: "$invoices",
+                },
+
+                // Total value of all bills
+                totalSales: {
+                    $sum: "$invoices.grandTotal",
+                },
+
+                // Total amount customer has paid
+                totalPaid: {
+                    $sum: "$invoices.paidAmount",
+                },
+
+                // Total amount still pending
+                pendingAmount: {
+                    $sum: "$invoices.balanceAmount",
+                },
+            },
+        },
+
+        // Return only required customer fields
         {
             $project: {
                 companyName: 1,
@@ -75,33 +130,56 @@ const getAllCustomers = async (req, res) => {
                 email: 1,
                 customerType: 1,
                 createdAt: 1,
-                billingAddress: 1
-            }
-        }
-    ]
+                billingAddress: 1,
+
+                // Billing information
+                totalBills: 1,
+                totalSales: 1,
+                totalPaid: 1,
+                pendingAmount: 1,
+            },
+        },
+    ];
 
     try {
         const customers = await Customer.aggregate(pipeline);
+
         let isEnd = true;
         let nextCursor = null;
 
+        // Check if more customers are available
         if (customers.length > limit) {
             isEnd = false;
+
+            // Remove extra customer
             customers.pop();
-            nextCursor = customers[customers.length - 1].createdAt;
+
+            // Last customer's createdAt becomes the next cursor
+            nextCursor =
+                customers[customers.length - 1].createdAt;
         }
 
         return res.status(200).json(
-            new apiResponse("Customers fetched successfully", 200, {
-                customers,
-                isEnd,
-                nextCursor
-            })
+            new apiResponse(
+                "Customers fetched successfully",
+                200,
+                {
+                    customers,
+                    isEnd,
+                    nextCursor,
+                }
+            )
         );
     } catch (error) {
-        throw new apiError("Failed to fetch customers", 500, error);
+        console.error("Get all customers error:", error);
+
+        throw new apiError(
+            "Failed to fetch customers",
+            500,
+            error
+        );
     }
-}
+};
 
 const customerSearch = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
@@ -301,7 +379,35 @@ const updateCustomer = async (req, res) => {
     }
 };
 
+const deleteCustomer = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            throw new apiError("Customer ID is required", 404)
+        }
+
+        const customer = await Customer.findById(id);
+        if (!customer) {
+            throw new apiError("Customer not found", 500)
+        }
+
+        await Customer.findByIdAndDelete(id);
+
+        return res.status(200).json(
+            new apiResponse("Customer Deleted successfylly", 200, customer)
+        );
+    } catch (error) {
+        console.error("Delete customer error:", error);
+        throw new apiError("Failed to delete customer", 500, error)
+    }
+};
+
 
 export {
-    addCustomer, getAllCustomers, customerSearch, getCustomerById, updateCustomer
+    addCustomer,
+    getAllCustomers,
+    customerSearch,
+    getCustomerById,
+    updateCustomer,
+    deleteCustomer
 }

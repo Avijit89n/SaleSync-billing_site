@@ -1,5 +1,6 @@
 import api from "@/axios/interceptor";
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { addCustomerManually } from "./customerSlice";
 
 const initialState = {
     invoices: [],
@@ -33,7 +34,13 @@ export const addInvoiceReq = createAsyncThunk(
     async (data, thunkAPI) => {
         try {
             const res = await api.post("/invoice/add-invoice", data);
-            return res.data;
+            const invoiceData = res.data?.data
+            const customerData = invoiceData.customer
+            const isNewCustomerFlag = invoiceData.isNewCustomerFlag
+            if(isNewCustomerFlag && customerData){
+                thunkAPI.dispatch(addCustomerManually(invoiceData))
+            }
+            return res.data?.data;
         } catch (error) {
             return thunkAPI.rejectWithValue(
                 error.response?.data || "Failed to add invoice"

@@ -14,6 +14,7 @@ import InvoiceDesign2 from '@/components/other-ui/invoice-design-2';
 import InvoiceDesign3 from '@/components/other-ui/invoice-design-3';
 import InvoiceDesign4 from '@/components/other-ui/invoice-design-4';
 import ThermalInvoice1 from '@/components/other-ui/thermal-design-1';
+import ThermalInvoice2 from '@/components/other-ui/thermal-design-2';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/other-ui/date-picker-input';
@@ -44,7 +45,8 @@ const initialData = {
   address: "",
   logo: null,
   signature: null,
-  layout: "invoiceDesign1",
+  a4Layout: "invoiceDesign1",
+  thermalLayout: "thermalDesign1",
 };
 
 const StatusBadge = ({ status, dueDate }) => {
@@ -95,13 +97,11 @@ export default function CheckInvoice() {
   const [fetchLoading, setFetchLoading] = useState(false)
   const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Cash', date: new Date(), note: '' });
 
-  const isMobile = useMemo(() => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent), []);
-
   const fetchInvoice = async () => {
     try {
       setLoading(true);
       const res = await api.get(`/invoice/get-invoice/${id}`);
-      console.log('Invoice Data:', res.data.data);
+      console.log(res.data.data)
       if (res.data?.success) setInvoiceData(res.data.data);
       else { toast.error('Failed to load invoice details'); navigate('/user/invoices'); }
     } catch (err) {
@@ -112,19 +112,17 @@ export default function CheckInvoice() {
 
   const fetchInvoiceSettings = async () => {
     setFetchLoading(true)
-    console.log('Fetching invoice settings...');
     try {
       const res = await api.get("/invoice-customizer/get-invoice-settings");
       const data = res?.data?.data || {};
-      console.log('Invoice Settings:', data);
-
       setCompanyInfo({
         companyName: data.companyName || "",
         gstin: data.companyGSTIN || "",
         phone: data.companyPhone || "",
         email: data.companyEmail || "",
         address: data.companyAddress || "",
-        layout: data.companyInvoiceLayoutId || "invoiceDesign1",
+        a4Layout: data.companyA4LayoutId || "invoiceDesign1",
+        thermalLayout: data.companyThermalLayoutId || "thermalDesign1",
         logo: data.companyLogo || null,
         signature: data.companySignature || null,
       });
@@ -174,7 +172,12 @@ export default function CheckInvoice() {
       paidAmount: invoiceData?.paidAmount,
       balanceAmount: invoiceData?.balanceAmount,
       payments: invoiceData?.payments || [],
-      selectedCustomer: invoiceData?.customer?.[0] || {},
+      selectedCustomer: {
+        displayName: invoiceData?.customerName,
+        workingPhone: invoiceData?.customerPhone,
+        email: invoiceData?.customerEmail,
+        billingAddress: invoiceData?.customerBillingAddress
+      },
       itemData: invoiceData?.invoiceItems || [],
       subtotal: invoiceData?.subtotal,
       totalDiscount: invoiceData?.discount,
@@ -189,8 +192,16 @@ export default function CheckInvoice() {
       companyLogo: companyInfo?.logo || "",
       companySignature: companyInfo?.signature || ""
     };
-    if(type == "Thermal") return <ThermalInvoice1 {...invoiceInfo} />;
-    switch (companyInfo?.layout) {
+    if(type == "Thermal") {
+      switch (companyInfo?.thermalLayout) {
+        case "thermalDesign2":
+          return <ThermalInvoice2 {...invoiceInfo} />;
+        
+        default:
+          return <ThermalInvoice1 {...invoiceInfo} />;
+      }
+    }
+    switch (companyInfo?.a4Layout) {
       case "invoiceDesign2":
         return <InvoiceDesign2 {...invoiceInfo} />;
       case "invoiceDesign3":
@@ -230,7 +241,6 @@ export default function CheckInvoice() {
     const invoiceNumber = invoiceData?.invoiceNumber || "Invoice";
 
     try {
-      document.title = invoiceNumber;
       const blob = await pdf(renderInvoiceDocument(false, type)).toBlob();
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if (isMobile) {
@@ -322,7 +332,7 @@ export default function CheckInvoice() {
                 <button onClick={() => navigate(-1)} className="h-9 p-2 w-9 flex justify-center items-center rounded-lg bg-orange-50 border-orange-100 border text-slate-600 shadow-none hover:border-orange-300 hover:bg-orange-100 hover:text-orange-600">
                   <ArrowLeftToLine className="text-orange-500" size={28} />
                 </button>
-                {invoiceData.invoiceNumber}
+                {invoiceData.invoiceNumber} {StatusBadge(invoiceData, formatDate(invoiceData))}
               </h1>
               <p className="text-sm text-gray-500">Invoice details and payment history</p>
             </div>
@@ -344,18 +354,17 @@ export default function CheckInvoice() {
                     <span className="text-[11px] font-mono text-slate-400">{invoiceData.invoiceNumber}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-base font-bold text-orange-500">{(customer.displayName || invoiceData.customerName || 'N').charAt(0).toUpperCase()}</div>
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-base font-bold text-orange-500">{(invoiceData.customerName || 'N').charAt(0).toUpperCase()}</div>
                     <div className="min-w-0">
-                      <h2 className="truncate text-base font-bold text-slate-900">{customer.displayName || invoiceData.customerName || 'N/A'}</h2>
-                      {customer.companyName && <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400"><Building2 size={12} />{customer.companyName}</div>}
+                      <h2 className="truncate text-base font-bold text-slate-900">{invoiceData.customerName || 'N/A'}</h2>
                     </div>
                   </div>
                   <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                    <InfoRow icon={Mail}>{customer.email || 'No email'}</InfoRow>
-                    <InfoRow icon={Phone}>{customer.workingPhone || customer.phone || 'No phone'}</InfoRow>
+                    <InfoRow icon={Mail}>{invoiceData.customerEmail || 'No email'}</InfoRow>
+                    <InfoRow icon={Phone}>{invoiceData.customerPhone || 'No phone'}</InfoRow>
                   </div>
                   <div className="mt-3">
-                    <InfoRow icon={MapPin}>{customer.billingAddress?.street1 ? <span>{[customer.billingAddress.street1, customer.billingAddress.street2].filter(Boolean).join(', ')}<br />{[customer.billingAddress.city, customer.billingAddress.state, customer.billingAddress.pincode].filter(Boolean).join(', ')}</span> : 'No address provided'}</InfoRow>
+                    <InfoRow icon={MapPin}>{invoiceData.customerBillingAddress?.street1 ? <span>{[invoiceData.customerBillingAddress.street1, invoiceData.customerBillingAddress.street2].filter(Boolean).join(', ')}<br />{[invoiceData.customerBillingAddress.city, invoiceData.customerBillingAddress.state, invoiceData.customerBillingAddress.pincode].filter(Boolean).join(', ')}</span> : 'No address provided'}</InfoRow>
                   </div>
                 </div>
                 <div className="border-t border-slate-100 bg-slate-50/40 p-5 md:border-l md:border-t-0 md:p-6">
@@ -376,7 +385,7 @@ export default function CheckInvoice() {
             <div className="relative overflow-hidden rounded-xl border border-orange-200 bg-orange-50 p-5 md:p-6">
               <div className="relative z-10">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-orange-700/60">{invoiceData.balanceAmount > 0 ? 'Amount Due' : 'Total Paid'}</p>
+                  <p className={`text-[10px] font-bold uppercase tracking-widest text-orange-700/60`}>{invoiceData.balanceAmount > 0 ? 'Amount Due' : 'Total Paid'}</p>
                   {invoiceData.balanceAmount === 0 && <CheckCircle2 size={18} className="text-emerald-500" />}
                 </div>
                 <div className={`mt-3 truncate font-mono text-3xl font-bold tracking-tight md:text-4xl text-orange-600`}>
@@ -500,7 +509,7 @@ export default function CheckInvoice() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-orange-600/60">Balance Due</p>
-                        <p className={`mt-1 font-mono text-xl font-bold ${invoiceData.balanceAmount > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>{formatCurrency(invoiceData.balanceAmount)}</p>
+                        <p className={`mt-1 font-mono text-xl font-bold text-orange-600`}>{formatCurrency(invoiceData.balanceAmount)}</p>
                       </div>
                       {invoiceData.balanceAmount === 0 && <CheckCircle2 size={20} className="text-emerald-500" />}
                     </div>
@@ -559,7 +568,7 @@ export default function CheckInvoice() {
             </div>
             <div className="flex gap-2 border-t-2 border-slate-200 bg-slate-50/60 p-4 sm:justify-end">
               <Button variant="outline" onClick={() => setIsPaymentModalOpen(false)} className="h-10 flex-1 rounded-lg border-slate-300 bg-white text-xs font-bold text-slate-600 shadow-none hover:border-slate-400 sm:flex-none">Cancel</Button>
-              <Button onClick={submitPayment} disabled={submittingPayment || !paymentForm.amount} className="h-10 flex-1 rounded-lg bg-orange-500 px-5 text-xs font-bold text-white shadow-md shadow-orange-500/10 hover:bg-orange-600 sm:flex-none">{submittingPayment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Confirm Payment</Button>
+              <Button onClick={submitPayment} disabled={submittingPayment || !paymentForm.amount} className="h-10 flex-1 rounded-lg bg-orange-500 px-5 text-xs font-bold text-white shadow-md shadow-orange-500/10 hover:bg-orange-600 sm:flex-none">{submittingPayment ? "Confirming..." : "Confirm Payment"}</Button>
             </div>
           </DialogContent>
         </Dialog>

@@ -5,6 +5,7 @@ const initialState = {
     customers: [],
     searchedCustomers: [],
     customerLoading: false,
+    deleteLoading: false,
     searchLoading: false,
     searchIsEnd: false,
     searchNextCursor: null,
@@ -27,10 +28,39 @@ export const addCustomerReq = createAsyncThunk(
     }
 )
 
+export const deleteCustomerReq = createAsyncThunk(
+    "customer/delete",
+    async (data, thunkAPI) => {
+        const id = data;
+        try {
+            const res = await api.get(`/customer/delete-customer/${id}`)
+            return res.data?.data
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response?.data || "failed to delete the customer"
+            )
+        }
+    }
+)
+
+export const updateCustomerReq = createAsyncThunk(
+    "customer/update-customer",
+    async (data, thunkAPI) => {
+        const updateData = data
+        try {
+            const res = await api.post(`/customer/update-customer/${updateData?._id}`, updateData)
+            return res.data?.data
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response?.data || "Failed to update the customer data"
+            )
+        }
+    }
+)
+
 export const getAllCustomerReq = createAsyncThunk(
     "customer/get-all",
     async (data, thunkAPI) => {
-        console.log("clicked")
         const { limit, lastCreatedAt } = data;
         try {
             const res = await api.get(`/customer/get-all-customers?limit=${limit}&lastCreatedAt=${lastCreatedAt}`);
@@ -86,6 +116,10 @@ const customerSlice = createSlice({
             state.searchNextCursor = null;
             state.searchIsEnd = false;
             state.searchLoading = false;
+        },
+        addCustomerManually: (state, action) => {
+            if (action.payload?.isNewCustomerFlag)
+                state.customers = [action.payload?.customer, ...state.customers]
         }
     },
     extraReducers: (builder) => {
@@ -156,9 +190,47 @@ const customerSlice = createSlice({
                 state.searchedCustomers = [];
             })
 
+
+            .addCase(deleteCustomerReq.pending, (state) => {
+                state.deleteLoading = true
+                state.error = null
+            })
+            .addCase(deleteCustomerReq.rejected, (state, action) => {
+                state.deleteLoading = false
+                state.error = action.payload
+            })
+            .addCase(deleteCustomerReq.fulfilled, (state, action) => {
+                state.deleteLoading = false
+                state.customers = state.customers.filter((customer) =>
+                    action.payload._id !== customer._id
+                )
+                state.searchedCustomers = state.searchedCustomers.filter((customer) =>
+                    action.payload._id !== customer._id
+                )
+                state.error = null
+            })
+
+            .addCase(updateCustomerReq.pending, (state) => {
+                state.customerLoading = true
+                state.error = null
+            })
+            .addCase(updateCustomerReq.fulfilled, (state, action) => {
+                state.customerLoading = false
+                state.customers = state.customers.map((customer) =>
+                    customer._id === action.payload?._id
+                        ? action.payload
+                        : customer
+                )
+                state.error = null
+            })
+            .addCase(updateCustomerReq.rejected, (state, action) => {
+                state.customerLoading = false
+                state.error = action.payload
+            })
+
     }
 
 })
 
 export default customerSlice.reducer;
-export const { clearSearchedCustomers } = customerSlice.actions;
+export const { clearSearchedCustomers, addCustomerManually } = customerSlice.actions;

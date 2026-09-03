@@ -9,6 +9,7 @@ const initialState = {
     searchIsEnd: false,
     searchNextCursor: null,
     itemLoading: false,
+    deleteLoading: false,
     error: null,
     isEnd: false,
     nextCursor: null,
@@ -24,6 +25,21 @@ export const addItemReq = createAsyncThunk(
             return thunkAPI.rejectWithValue(
                 error.response?.data || "Failed to add item"
             );
+        }
+    }
+)
+
+export const deleteItemReq = createAsyncThunk(
+    "item/delete",
+    async (data, thunkAPI) => {
+        const id = data;
+        try {
+            const res = await api.get(`/item/delete-item/${id}`)
+            return res.data?.data
+        } catch (error) {
+            return thunkAPI.rejectWithValue(
+                error.response?.data || "Failed to delete the item"
+            )
         }
     }
 )
@@ -74,6 +90,21 @@ export const itemSearchReq = createAsyncThunk(
 
             return thunkAPI.rejectWithValue(
                 error.response?.data || "Failed to search items"
+            );
+        }
+    }
+);
+
+export const updateItemReq = createAsyncThunk(
+    "item/update",
+    async ({ id, data }, thunkAPI) => {
+        try {
+            const res = await api.put(`/item/update-item/${id}`, data);
+            return res.data?.data;
+        } catch (error) {
+            console.error("Error updating item:", error);
+            return thunkAPI.rejectWithValue(
+                error.response?.data || "Failed to update item"
             );
         }
     }
@@ -160,6 +191,42 @@ const itemSlice = createSlice({
                 state.searchedItems = [];
             })
 
+            .addCase(deleteItemReq.fulfilled, (state, action) => {
+                state.deleteLoading = false
+                state.items = state.items.filter(item => 
+                    action.payload._id !== item._id
+                )
+                state.searchedItems = state.searchedItems.filter(item => 
+                    action.payload._id !== item._id
+                )
+                state.error = null
+            })
+            .addCase(deleteItemReq.rejected, (state, action) => {
+                state.deleteLoading = false
+                state.error = action.payload
+            })
+            .addCase(deleteItemReq.pending, (state) => {
+                state.deleteLoading = true
+                state.error = null
+            })
+
+            .addCase(updateItemReq.pending, (state) => {
+                state.itemLoading = true;
+                state.error = null;
+            })
+            .addCase(updateItemReq.fulfilled, (state, action) => {
+                state.itemLoading = false;
+                state.items = state.items.map((item) =>
+                    item._id === action.payload?._id
+                        ? action.payload
+                        : item
+                )
+                state.error = null;
+            })
+            .addCase(updateItemReq.rejected, (state, action) => {
+                state.itemLoading = false;
+                state.error = action.payload;
+            })
     }
 })
 

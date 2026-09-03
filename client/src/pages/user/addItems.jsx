@@ -76,15 +76,15 @@ function AddItems() {
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
-    setAddItemData({ ...addItemData, image: file });
+    setAddItemData(prev => ({ ...prev, image: file }));
     if (!file) return;
     setPreview(URL.createObjectURL(file));
   };
 
   return (
     <div className="opacity-0 animate-fade-in-scale transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-6 py-4 md:px-12 md:py-6 font-sans">
-      <form onSubmit={handleSubmit} className="space-y-12">
-        
+      <form onSubmit={handleSubmit} autoComplete="off" className="space-y-12">
+
         {/* ── Page Header ── */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-5 mb-12 gap-4">
           <div className="space-y-2">
@@ -97,7 +97,7 @@ function AddItems() {
 
         {/* ── Section 1: Split Media & Descriptor Column Grid ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start bg-white">
-          
+
           {/* Item Visual Media File Drop Block */}
           <div className="space-y-4">
             <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
@@ -112,7 +112,7 @@ function AddItems() {
                         <div className="flex items-center justify-center w-full h-40 rounded-lg overflow-hidden bg-slate-50/50">
                           <img src={preview} alt="Preview" className="h-full object-cover rounded-lg" />
                         </div>
-                        
+
                         <Dialog>
                           <DialogTrigger asChild>
                             <div className="absolute duration-300 transition-opacity top-3 left-3 w-[200px] h-40 opacity-0 hover:opacity-100 flex items-center justify-center">
@@ -128,7 +128,7 @@ function AddItems() {
                               <div className="h-full w-full flex items-center justify-center pt-4">
                                 <img src={preview} alt="Preview Zoom" className="max-h-[380px] w-full rounded-xl object-contain bg-white" />
                               </div>
-                            </DialogHeader> 
+                            </DialogHeader>
                           </DialogContent>
                         </Dialog>
 
@@ -137,12 +137,16 @@ function AddItems() {
                             Change Image
                             <Input disabled={itemLoading} id="item-image2" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                           </FieldLabel>
-                          <Button 
-                            disabled={itemLoading} 
-                            variant="ghost" 
-                            className="h-8 w-8 p-0 cursor-pointer hover:bg-rose-50 rounded-lg text-rose-500" 
-                            type="button" 
-                            onClick={(e) => { e.preventDefault(); setPreview(null); }}
+                          <Button
+                            disabled={itemLoading}
+                            variant="ghost"
+                            className="h-8 w-8 p-0 cursor-pointer hover:bg-rose-50 rounded-lg text-rose-500"
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setPreview(null);
+                              setAddItemData(prev => ({ ...prev, image: null }));
+                            }}
                           >
                             <Trash2 className="h-4 w-4" strokeWidth={2.5} />
                           </Button>
@@ -172,14 +176,15 @@ function AddItems() {
             <FieldGroup className="space-y-4">
               <Field className="space-y-1">
                 <FieldLabel htmlFor="item-name" className={labelCls}>Item Name <span className='text-orange-500'>*</span></FieldLabel>
-                <Input 
+                <Input
                   disabled={itemLoading}
                   id="item-name"
                   placeholder="Enter your item name description..."
                   value={addItemData.name}
-                  onChange={(e) => setAddItemData({ ...addItemData, name: e.target.value })}
+                  onChange={(e) => setAddItemData(prev => ({ ...prev, name: e.target.value }))}
                   className={inputCls}
                   required
+                  autoComplete="off"
                 />
               </Field>
               <Field className="space-y-1">
@@ -187,7 +192,7 @@ function AddItems() {
                 <Textarea
                   disabled={itemLoading}
                   value={addItemData.description}
-                  onChange={(e) => setAddItemData({ ...addItemData, description: e.target.value })}
+                  onChange={(e) => setAddItemData(prev => ({ ...prev, description: e.target.value }))}
                   className="w-full min-h-[100px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium placeholder-slate-400 resize-none"
                   id="item-description"
                   placeholder="Enter explicit stock item specifications..."
@@ -202,14 +207,14 @@ function AddItems() {
           <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
             Metrics & Valuation
           </h2>
-          
-          <FieldGroup className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+          <FieldGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <Field className="space-y-1">
               <FieldLabel htmlFor="item-unit" className={labelCls}>Unit <span className='text-orange-500'>*</span></FieldLabel>
               <Select
                 disabled={itemLoading}
                 value={addItemData.unit}
-                onValueChange={(value) => setAddItemData({ ...addItemData, unit: value })}
+                onValueChange={(value) => setAddItemData(prev => ({ ...prev, unit: value }))}
               >
                 <SelectTrigger id="item-unit" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
                   <SelectValue placeholder="Select item metrics unit" />
@@ -231,65 +236,36 @@ function AddItems() {
             </Field>
 
             <Field className="space-y-1">
-              <FieldLabel htmlFor="item-status" className={labelCls}>Status <span className='text-orange-500'>*</span></FieldLabel>
-              <Select
-                disabled={itemLoading}
-                value={addItemData.status}
-                onValueChange={(value) => setAddItemData({ ...addItemData, status: value })}
-              >
-                <SelectTrigger id="item-status" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
-                  <SelectValue placeholder="Select current status profile" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border border-slate-200">
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-          </FieldGroup>
-
-          <FieldGroup className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <Field className="space-y-1">
               <FieldLabel htmlFor="MRP" className={labelCls}>MRP <span className='text-orange-500'>*</span></FieldLabel>
-              <Input 
+              <Input
                 disabled={itemLoading}
                 type="number"
                 value={addItemData.MRP}
-                onChange={(e) => setAddItemData({ ...addItemData, MRP: e.target.value })}
+                onChange={(e) => setAddItemData(prev => ({ ...prev, MRP: e.target.value }))}
+                onWheel={(e) => e.target.blur()} 
                 id="MRP"
                 placeholder="₹ 0.00"
                 className={`${inputCls} font-mono font-semibold`}
                 required
+                autoComplete="off"
               />
             </Field>
 
             <Field className="space-y-1">
               <FieldLabel htmlFor="item-price" className={labelCls}>Selling Price <span className='text-orange-500'>*</span></FieldLabel>
-              <Input 
+              <Input
                 disabled={itemLoading}
                 type="number"
                 value={addItemData.sellingPrice}
-                onChange={(e) => setAddItemData({ ...addItemData, sellingPrice: e.target.value })}
+                onChange={(e) => setAddItemData(prev => ({ ...prev, sellingPrice: e.target.value }))}
+                onWheel={(e) => e.target.blur()} 
                 id="item-price"
                 placeholder="₹ 0.00"
                 className={`${inputCls} font-mono font-semibold`}
                 required
+                autoComplete="off"
               />
             </Field>
-
-            {/* <Field className="space-y-1">
-              <FieldLabel htmlFor="item-stock" className={labelCls}>Stock Quantity <span className='text-orange-500'>*</span></FieldLabel>
-              <Input 
-                disabled={itemLoading}
-                type="number"
-                value={addItemData.stock}
-                onChange={(e) => setAddItemData({ ...addItemData, stock: e.target.value })}
-                id="item-stock"
-                placeholder="Available units counter"
-                className={`${inputCls} font-mono font-semibold`}
-                required
-              />
-            </Field> */}
           </FieldGroup>
         </div>
 

@@ -107,7 +107,7 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
   const footerHeight = 25;
   const safetySpace = 45;
 
-  const receiptHeight = 18 + companyHeaderHeight + 7 + 50 + 7 + customerHeight + itemHeight + 65 + paymentHeight + notesHeight + termsHeight + signatureHeight + thankYouHeight + footerHeight + safetySpace;
+  const receiptHeight = companyHeaderHeight + 18 + customerHeight + itemHeight + 65 + paymentHeight + notesHeight + termsHeight + signatureHeight + thankYouHeight + footerHeight + safetySpace;
 
   return (
     <Document title={`Thermal-Invoice-${invoiceNumberSequence || "Invoice"}`}>

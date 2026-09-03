@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeftToLine, UserPen } from 'lucide-react';
 import api from "@/axios/interceptor";
+import { useDispatch, useSelector } from 'react-redux';
+import Loader from '../../components/loaders/loader2';
 
 // UI components
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { updateCustomerReq } from '../../redux/features/customerSlice';
 
 const countries = [
     "India",
@@ -77,14 +80,20 @@ const initialCustomerData = {
 
 // Precise high-contrast typographical settings matching the Invoice final configuration
 const labelCls = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
-const inputCls = "w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium";
+const inputCls = "w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed";
 
 function EditCustomer() {
     const [customerData, setCustomerData] = useState(initialCustomerData);
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
     const { id } = useParams();
+    const dispatch = useDispatch();
+    const { customerLoading } = useSelector((state) => state.customer);
+
+    const isAppLoading = isLoading || customerLoading;
 
     const fetchCustomerData = async (customerId) => {
+        setIsLoading(true);
         try {
             const res = await api.get(`/customer/customer-id/${customerId}`);
             if (res.status === 200) {
@@ -94,6 +103,8 @@ function EditCustomer() {
             }
         } catch (err) {
             toast.error("Failed to fetch customer data");
+        } finally {
+            setIsLoading(false);
         }
     }
 
@@ -111,284 +122,298 @@ function EditCustomer() {
                 : { ...customerData.shippingAddress }
         };
 
-        // UI Mock for update process
         toast.promise(
-            new Promise(resolve => setTimeout(() => resolve({ message: "Customer profile updated successfully" }), 1000)),
+            dispatch(updateCustomerReq(absolutePayload)).unwrap(),
             {
-                loading: "Updating record...",
+                loading: "Updating...",
                 success: (res) => {
-                    navigate("/user/customer");
-                    return res?.message;
+                    navigate("/user/customer")
+                    return res?.message || "Customer Updated successfully"
                 },
-                error: "Failed to update record"
+                error: (err) => {
+                    return err?.message || "Failed to update the customer"
+                }
             }
         );
     };
 
-    return (
-        <div className="opacity-0 animate-fade-in-scale transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-6 py-4 md:px-12 md:py-6 font-sans">
-            <form onSubmit={handleSubmit} className="space-y-12">
+    return isLoading ?
+        <div className='flex h-full justify-center items-center w-full'>
+            <Loader />
+        </div> : (
+            <div className="opacity-0 animate-fade-in-scale transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-6 py-4 md:px-12 md:py-6 font-sans">
+                <form onSubmit={handleSubmit} className="space-y-12">
 
-                {/* ── Page Header ── */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-5 mb-12 gap-4">
-                    <div className="space-y-2">
-                        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                            <button onClick={() => navigate(-1)} className="h-9 p-2 w-9 flex justify-center items-center rounded-lg bg-orange-50 border-orange-100 border text-slate-600 shadow-none hover:border-orange-300 hover:bg-orange-100 hover:text-orange-600">
-                                <ArrowLeftToLine className="text-orange-500" size={28} />
-                            </button>
-                            Edit Customer Profile
-                        </h1>
-                        <p className="text-sm text-gray-500">Update and configure existing client ledger indices, communication endpoints, and billing targets.</p>
+                    {/* ── Page Header ── */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-5 mb-12 gap-4">
+                        <div className="space-y-2">
+                            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                                <button type="button" disabled={isAppLoading} onClick={() => navigate(-1)} className="h-9 p-2 w-9 flex justify-center items-center rounded-lg bg-orange-50 border-orange-100 border text-slate-600 shadow-none hover:border-orange-300 hover:bg-orange-100 hover:text-orange-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <ArrowLeftToLine className="text-orange-500" size={28} />
+                                </button>
+                                Edit Customer Profile
+                            </h1>
+                            <p className="text-sm text-gray-500">Update and configure existing client ledger indices, communication endpoints, and billing targets.</p>
+                        </div>
                     </div>
-                </div>
 
-                {/* ── Section 1: Primary Profile Dossier Details ── */}
-                <div className="space-y-6">
-                    <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
-                        Primary Profile Details
-                    </h2>
-
-                    <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Field className="space-y-1">
-                            <FieldLabel htmlFor="display-name" className={labelCls}>
-                                Customer Name <span className='text-orange-500'>*</span>
-                            </FieldLabel>
-                            <Input
-                                value={customerData.displayName}
-                                onChange={(e) => setCustomerData({ ...customerData, displayName: e.target.value })}
-                                id="display-name"
-                                placeholder="Public system billing alias name"
-                                className={inputCls}
-                                required
-                            />
-                        </Field>
-
-                        <Field className="space-y-1">
-                            <FieldLabel htmlFor="phone" className={labelCls}>
-                                Work Phone <span className='text-orange-500'>*</span>
-                            </FieldLabel>
-                            <Input
-                                type="text"
-                                value={customerData.workingPhone}
-                                onChange={(e) => setCustomerData({ ...customerData, workingPhone: e.target.value })}
-                                id="phone"
-                                placeholder="Primary office landline or desk number"
-                                className={inputCls}
-                                required
-                            />
-                        </Field>
-                    </FieldGroup>
-
-                    <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Field className="space-y-1">
-                            <FieldLabel htmlFor="email" className={labelCls}>Email Address</FieldLabel>
-                            <Input
-                                value={customerData.email}
-                                onChange={(e) => setCustomerData({ ...customerData, email: e.target.value })}
-                                id="email"
-                                type="email"
-                                placeholder="client@domain.com"
-                                className={inputCls}
-                            />
-                        </Field>
-                    </FieldGroup>
-                </div>
-
-                {/* ── Section 2: Address Space Split Columns ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 pt-4 border-t border-slate-200 bg-white">
-
-                    {/* BILLING ADDRESS SPECIFICATION BLOCK */}
+                    {/* ── Section 1: Primary Profile Dossier Details ── */}
                     <div className="space-y-6">
                         <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
-                            Billing Address
+                            Primary Profile Details
                         </h2>
 
-                        <div className="grid gap-4">
-                            <div className="space-y-1">
-                                <label htmlFor="country" className={labelCls}>Country/Region</label>
-                                <Select
-                                    value={customerData?.billingAddress?.country}
-                                    onValueChange={(val) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, country: val } })}
-                                >
-                                    <SelectTrigger id="country" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
-                                        <SelectValue placeholder="Region" />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-64 bg-white border border-slate-200">
-                                        {countries.map((country) => (
-                                            <SelectItem key={country} value={country}>{country}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                        <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Field className="space-y-1">
+                                <FieldLabel htmlFor="display-name" className={labelCls}>
+                                    Customer Name <span className='text-orange-500'>*</span>
+                                </FieldLabel>
+                                <Input
+                                    disabled={isAppLoading}
+                                    value={customerData.displayName}
+                                    onChange={(e) => setCustomerData({ ...customerData, displayName: e.target.value })}
+                                    id="display-name"
+                                    placeholder="Public system billing alias name"
+                                    className={inputCls}
+                                    required
+                                />
+                            </Field>
+
+                            <Field className="space-y-1">
+                                <FieldLabel htmlFor="phone" className={labelCls}>
+                                    Work Phone <span className='text-orange-500'>*</span>
+                                </FieldLabel>
+                                <Input
+                                    disabled={isAppLoading}
+                                    type="text"
+                                    value={customerData.workingPhone}
+                                    onChange={(e) => setCustomerData({ ...customerData, workingPhone: e.target.value })}
+                                    id="phone"
+                                    placeholder="Primary office landline or desk number"
+                                    className={inputCls}
+                                    required
+                                />
+                            </Field>
+                        </FieldGroup>
+
+                        <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Field className="space-y-1">
+                                <FieldLabel htmlFor="email" className={labelCls}>Email Address</FieldLabel>
+                                <Input
+                                    disabled={isAppLoading}
+                                    value={customerData.email}
+                                    onChange={(e) => setCustomerData({ ...customerData, email: e.target.value })}
+                                    id="email"
+                                    type="email"
+                                    placeholder="client@domain.com"
+                                    className={inputCls}
+                                />
+                            </Field>
+                        </FieldGroup>
+                    </div>
+
+                    {/* ── Section 2: Address Space Split Columns ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 pt-4 border-t border-slate-200 bg-white">
+
+                        {/* BILLING ADDRESS SPECIFICATION BLOCK */}
+                        <div className="space-y-6">
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
+                                Billing Address
+                            </h2>
+
+                            <div className="grid gap-4">
+                                <div className="space-y-1">
+                                    <label htmlFor="country" className={labelCls}>Country/Region</label>
+                                    <Select
+                                        disabled={isAppLoading}
+                                        value={customerData?.billingAddress?.country}
+                                        onValueChange={(val) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, country: val } })}
+                                    >
+                                        <SelectTrigger id="country" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                            <SelectValue placeholder="Region" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-64 bg-white border border-slate-200">
+                                            {countries.map((country) => (
+                                                <SelectItem key={country} value={country}>{country}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="space-y-1">
+                                    <label htmlFor="street1" className={labelCls}>Address 1</label>
+                                    <Textarea disabled={isAppLoading} id="street1" value={customerData?.billingAddress?.street1} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, street1: e.target.value } })} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed" placeholder="Plot line, building details, sector..." />
+                                </div>
+                                <div className="space-y-1">
+                                    <label htmlFor="street2" className={labelCls}>Address 2</label>
+                                    <Textarea disabled={isAppLoading} id="street2" value={customerData?.billingAddress?.street2} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, street2: e.target.value } })} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed" placeholder="Appartment unit, landmark, locality..." />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="space-y-1">
+                                    <label htmlFor="city" className={labelCls}>City</label>
+                                    <Input disabled={isAppLoading} value={customerData?.billingAddress?.city} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, city: e.target.value } })} id="city" placeholder="Kolkata" className={inputCls} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label htmlFor="state" className={labelCls}>State</label>
+                                    <Select
+                                        disabled={isAppLoading}
+                                        value={customerData?.billingAddress?.state}
+                                        onValueChange={(val) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, state: val } })}
+                                    >
+                                        <SelectTrigger id="state" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                            <SelectValue placeholder="State" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-64 bg-white border border-slate-200">
+                                            {indianStates.map((state) => (
+                                                <SelectItem key={state} value={state}>{state}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label htmlFor="pincode" className={labelCls}>Pincode</label>
+                                    <Input disabled={isAppLoading} type="text" id="pincode" value={customerData?.billingAddress?.pincode} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, pincode: e.target.value } })} placeholder="700001" className={`${inputCls} font-mono`} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label htmlFor="phonebillingaddress" className={labelCls}>Address Phone</label>
+                                    <Input disabled={isAppLoading} type="text" id="phonebillingaddress" value={customerData?.billingAddress?.phone} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, phone: e.target.value } })} placeholder="Local contact reference" className={inputCls} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label htmlFor="faxbillingaddress" className={labelCls}>Fax Gateway</label>
+                                    <Input disabled={isAppLoading} type="text" id="faxbillingaddress" value={customerData?.billingAddress?.fax} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, fax: e.target.value } })} placeholder="Fax routing matrix" className={inputCls} />
+                                </div>
                             </div>
                         </div>
 
-                        <div className="space-y-4">
-                            <div className="space-y-1">
-                                <label htmlFor="street1" className={labelCls}>Address 1</label>
-                                <Textarea id="street1" value={customerData?.billingAddress?.street1} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, street1: e.target.value } })} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none" placeholder="Plot line, building details, sector..." />
-                            </div>
-                            <div className="space-y-1">
-                                <label htmlFor="street2" className={labelCls}>Address 2</label>
-                                <Textarea id="street2" value={customerData?.billingAddress?.street2} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, street2: e.target.value } })} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none" placeholder="Appartment unit, landmark, locality..." />
-                            </div>
-                        </div>
+                        {/* SHIPPING ADDRESS SPECIFICATION BLOCK */}
+                        <div className="space-y-6">
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
+                                Shipping Logistics Address
+                            </h2>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="space-y-1">
-                                <label htmlFor="city" className={labelCls}>City</label>
-                                <Input value={customerData?.billingAddress?.city} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, city: e.target.value } })} id="city" placeholder="Kolkata" className={inputCls} />
-                            </div>
-                            <div className="space-y-1">
-                                <label htmlFor="state" className={labelCls}>State</label>
-                                <Select
-                                    value={customerData?.billingAddress?.state}
-                                    onValueChange={(val) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, state: val } })}
-                                >
-                                    <SelectTrigger id="state" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
-                                        <SelectValue placeholder="State" />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-64 bg-white border border-slate-200">
-                                        {indianStates.map((state) => (
-                                            <SelectItem key={state} value={state}>{state}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1">
-                                <label htmlFor="pincode" className={labelCls}>Pincode</label>
-                                <Input type="text" id="pincode" value={customerData?.billingAddress?.pincode} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, pincode: e.target.value } })} placeholder="700001" className={`${inputCls} font-mono`} />
-                            </div>
-                        </div>
+                            <Label className={`flex items-start gap-3 rounded-xl border border-slate-200 p-4 transition-all duration-150 bg-white mb-6 ${isAppLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-slate-300 has-[[aria-checked=true]]:border-orange-500/40'}`}>
+                                <Checkbox
+                                    disabled={isAppLoading}
+                                    id="address-mirror-toggle"
+                                    checked={customerData.addressSame}
+                                    onCheckedChange={(checked) => setCustomerData({ ...customerData, addressSame: !!checked })}
+                                    className="mt-0.5 data-[state=checked]:border-orange-500 data-[state=checked]:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <div className="grid gap-1 font-normal">
+                                    <p className="text-sm font-semibold text-slate-900 leading-none">
+                                        Mirror Billing Address Destinations
+                                    </p>
+                                    <p className="text-slate-400 text-xs mt-0.5">
+                                        Automatically map inventory routing and dispatch nodes to match client billing lines.
+                                    </p>
+                                </div>
+                            </Label>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label htmlFor="phonebillingaddress" className={labelCls}>Address Phone</label>
-                                <Input type="text" id="phonebillingaddress" value={customerData?.billingAddress?.phone} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, phone: e.target.value } })} placeholder="Local contact reference" className={inputCls} />
-                            </div>
-                            <div className="space-y-1">
-                                <label htmlFor="faxbillingaddress" className={labelCls}>Fax Gateway</label>
-                                <Input type="text" id="faxbillingaddress" value={customerData?.billingAddress?.fax} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, fax: e.target.value } })} placeholder="Fax routing matrix" className={inputCls} />
-                            </div>
+                            {!customerData.addressSame && (
+                                <div className="animate-fade-in-scale opacity-0 transition-all duration-300 space-y-6 bg-white pt-2">
+                                    <div className="grid gap-4">
+                                        <div className="space-y-1">
+                                            <label htmlFor="countryShippingAddress" className={labelCls}>Country/Region</label>
+                                            <Select
+                                                disabled={isAppLoading}
+                                                value={customerData?.shippingAddress?.country}
+                                                onValueChange={(val) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, country: val } })}
+                                            >
+                                                <SelectTrigger id="countryShippingAddress" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <SelectValue placeholder="Region" />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-64 bg-white border border-slate-200">
+                                                    {countries.map((country) => (
+                                                        <SelectItem key={country} value={country}>{country}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="space-y-1">
+                                            <label htmlFor="street1ShippingAddress" className={labelCls}>Address 1</label>
+                                            <Textarea disabled={isAppLoading} id="street1ShippingAddress" value={customerData?.shippingAddress?.street1} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, street1: e.target.value } })} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed" placeholder="Warehouse plot line..." />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label htmlFor="street2ShippingAddress" className={labelCls}>Address 2</label>
+                                            <Textarea disabled={isAppLoading} id="street2ShippingAddress" value={customerData?.shippingAddress?.street2} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, street2: e.target.value } })} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed" placeholder="Crossroad junction index..." />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <div className="space-y-1">
+                                            <label htmlFor="cityShippingAddress" className={labelCls}>City</label>
+                                            <Input disabled={isAppLoading} id="cityShippingAddress" value={customerData?.shippingAddress?.city} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, city: e.target.value } })} placeholder="City index" className={inputCls} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label htmlFor="stateShippingAddress" className={labelCls}>State</label>
+                                            <Select
+                                                disabled={isAppLoading}
+                                                value={customerData?.shippingAddress?.state}
+                                                onValueChange={(val) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, state: val } })}
+                                            >
+                                                <SelectTrigger id="stateShippingAddress" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <SelectValue placeholder="State" />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-64 bg-white border border-slate-200">
+                                                    {indianStates.map((state) => (
+                                                        <SelectItem key={state} value={state}>{state}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label htmlFor="pincodeShippingAddress" className={labelCls}>Pincode</label>
+                                            <Input disabled={isAppLoading} type="text" id="pincodeShippingAddress" value={customerData?.shippingAddress?.pincode} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, pincode: e.target.value } })} placeholder="Zip index" className={`${inputCls} font-mono`} />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label htmlFor="phoneShippingAddress" className={labelCls}>Logistics Phone</label>
+                                            <Input disabled={isAppLoading} type="text" id="phoneShippingAddress" value={customerData?.shippingAddress?.phone} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, phone: e.target.value } })} placeholder="Receiving post contact" className={inputCls} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label htmlFor="faxShippingAddress" className={labelCls}>Logistics Fax</label>
+                                            <Input disabled={isAppLoading} type="text" id="faxShippingAddress" value={customerData?.shippingAddress?.fax} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, fax: e.target.value } })} placeholder="Terminal fax marker" className={inputCls} />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* SHIPPING ADDRESS SPECIFICATION BLOCK */}
-                    <div className="space-y-6">
-                        <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
-                            Shipping Logistics Address
-                        </h2>
-
-                        <Label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 transition-all duration-150 cursor-pointer bg-white hover:border-slate-300 has-[[aria-checked=true]]:border-orange-500/40 mb-6">
-                            <Checkbox
-                                id="address-mirror-toggle"
-                                checked={customerData.addressSame}
-                                onCheckedChange={(checked) => setCustomerData({ ...customerData, addressSame: !!checked })}
-                                className="mt-0.5 data-[state=checked]:border-orange-500 data-[state=checked]:bg-orange-500"
-                            />
-                            <div className="grid gap-1 font-normal">
-                                <p className="text-sm font-semibold text-slate-900 leading-none">
-                                    Mirror Billing Address Destinations
-                                </p>
-                                <p className="text-slate-400 text-xs mt-0.5">
-                                    Automatically map inventory routing and dispatch nodes to match client billing lines.
-                                </p>
-                            </div>
-                        </Label>
-
-                        {!customerData.addressSame && (
-                            <div className="animate-fade-in-scale opacity-0 transition-all duration-300 space-y-6 bg-white pt-2">
-                                <div className="grid gap-4">
-                                    <div className="space-y-1">
-                                        <label htmlFor="countryShippingAddress" className={labelCls}>Country/Region</label>
-                                        <Select
-                                            value={customerData?.shippingAddress?.country}
-                                            onValueChange={(val) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, country: val } })}
-                                        >
-                                            <SelectTrigger id="countryShippingAddress" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
-                                                <SelectValue placeholder="Region" />
-                                            </SelectTrigger>
-                                            <SelectContent className="max-h-64 bg-white border border-slate-200">
-                                                {countries.map((country) => (
-                                                    <SelectItem key={country} value={country}>{country}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div className="space-y-1">
-                                        <label htmlFor="street1ShippingAddress" className={labelCls}>Address 1</label>
-                                        <Textarea id="street1ShippingAddress" value={customerData?.shippingAddress?.street1} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, street1: e.target.value } })} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none" placeholder="Warehouse plot line..." />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label htmlFor="street2ShippingAddress" className={labelCls}>Address 2</label>
-                                        <Textarea id="street2ShippingAddress" value={customerData?.shippingAddress?.street2} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, street2: e.target.value } })} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none" placeholder="Crossroad junction index..." />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <div className="space-y-1">
-                                        <label htmlFor="cityShippingAddress" className={labelCls}>City</label>
-                                        <Input id="cityShippingAddress" value={customerData?.shippingAddress?.city} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, city: e.target.value } })} placeholder="City index" className={inputCls} />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label htmlFor="stateShippingAddress" className={labelCls}>State</label>
-                                        <Select
-                                            value={customerData?.shippingAddress?.state}
-                                            onValueChange={(val) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, state: val } })}
-                                        >
-                                            <SelectTrigger id="stateShippingAddress" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
-                                                <SelectValue placeholder="State" />
-                                            </SelectTrigger>
-                                            <SelectContent className="max-h-64 bg-white border border-slate-200">
-                                                {indianStates.map((state) => (
-                                                    <SelectItem key={state} value={state}>{state}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label htmlFor="pincodeShippingAddress" className={labelCls}>Pincode</label>
-                                        <Input type="text" id="pincodeShippingAddress" value={customerData?.shippingAddress?.pincode} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, pincode: e.target.value } })} placeholder="Zip index" className={`${inputCls} font-mono`} />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label htmlFor="phoneShippingAddress" className={labelCls}>Logistics Phone</label>
-                                        <Input type="text" id="phoneShippingAddress" value={customerData?.shippingAddress?.phone} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, phone: e.target.value } })} placeholder="Receiving post contact" className={inputCls} />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label htmlFor="faxShippingAddress" className={labelCls}>Logistics Fax</label>
-                                        <Input type="text" id="faxShippingAddress" value={customerData?.shippingAddress?.fax} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, fax: e.target.value } })} placeholder="Terminal fax marker" className={inputCls} />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                    {/* ── Action Footer Console Bar ── */}
+                    <div className="pt-4 border-t border-slate-200 flex justify-end items-center gap-3">
+                        <Button
+                            disabled={isAppLoading}
+                            type="button"
+                            variant="outline"
+                            className="border-slate-200 hover:border-slate-300 text-slate-600 bg-white text-sm h-10 px-5 font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => navigate("/user/customer")}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            disabled={isAppLoading}
+                            type="submit"
+                            className="bg-orange-500 hover:bg-orange-600 active:scale-[0.99] text-white font-bold text-sm h-10 px-6 rounded-xl transition-all shadow-md shadow-orange-600/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Update Record
+                        </Button>
                     </div>
-                </div>
-
-                {/* ── Action Footer Console Bar ── */}
-                <div className="pt-4 border-t border-slate-200 flex justify-end items-center gap-3">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="border-slate-200 hover:border-slate-300 text-slate-600 bg-white text-sm h-10 px-5 font-bold rounded-xl transition-all shadow-sm"
-                        onClick={() => navigate("/user/customer")}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="submit"
-                        className="bg-orange-500 hover:bg-orange-600 active:scale-[0.99] text-white font-bold text-sm h-10 px-6 rounded-xl transition-all shadow-md shadow-orange-600/10"
-                    >
-                        Update Record
-                    </Button>
-                </div>
-            </form>
-        </div>
-    );
+                </form>
+            </div>
+        );
 }
 
 export default EditCustomer;

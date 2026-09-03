@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Trash2, Upload, Settings, Eye, FileCog } from 'lucide-react';
+import { Trash2, Upload, Eye, FileCog } from 'lucide-react';
 
 // Custom UI Imports
 import { Button } from "@/components/ui/button";
@@ -11,7 +9,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,8 +20,9 @@ import InvoiceDesign1 from "@/components/other-ui/invoice-design-1";
 import InvoiceDesign2 from "@/components/other-ui/invoice-design-2";
 import InvoiceDesign3 from "@/components/other-ui/invoice-design-3";
 import InvoiceDesign4 from "@/components/other-ui/invoice-design-4";
+import ThermalInvoice1 from '@/components/other-ui/thermal-design-1';
+import ThermalInvoice2 from '@/components/other-ui/thermal-design-2';
 import api from '@/axios/interceptor';
-import Loader1 from '@/components/loaders/loader1';
 import Loader from '@/components/loaders/loader2';
 
 const initialData = {
@@ -35,7 +33,8 @@ const initialData = {
   address: "",
   logo: null,
   signature: null,
-  layout: "invoiceDesign1",
+  a4Layout: "invoiceDesign1",
+  thermalLayout: "thermalDesign1",
 };
 
 const invoiceLayouts = [
@@ -65,7 +64,25 @@ const invoiceLayouts = [
   },
 ];
 
-// High-contrast typographical settings matching your original configuration token keys
+const invoiceLayoutsThermal = [
+  {
+    id: "thermalDesign1",
+    name: "Classic Thermal Blueprint",
+    description: "Traditional professional thermal layout",
+    component: ThermalInvoice1,
+  },
+  {
+    id: "thermalDesign2",
+    name: "Modern Thermal Minimalist",
+    description: "Clean and modern thermal design",
+    component: ThermalInvoice2,
+  }
+];
+
+// Combine layouts for easier lookups in the preview modal
+const allLayouts = [...invoiceLayouts, ...invoiceLayoutsThermal];
+
+// High-contrast typographical settings
 const labelCls = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
 const inputCls = "w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium";
 
@@ -75,21 +92,21 @@ function InvoiceCustomizer() {
   const [signaturePreview, setSignaturePreview] = useState(null);
   const [companyInfo, setCompanyInfo] = useState(initialData);
   const [saving, setSaving] = useState(false);
-  const [fetchLoading, setFetchLoading] = useState(false)
+  const [fetchLoading, setFetchLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    console.log("Submitted Data:", companyInfo);
-    
+
     const formData = new FormData();
     formData.append("companyName", companyInfo.companyName);
     formData.append("gstin", companyInfo.gstin);
     formData.append("phone", companyInfo.phone);
     formData.append("email", companyInfo.email);
     formData.append("address", companyInfo.address);
-    formData.append("layout", companyInfo.layout);
-    
+    formData.append("a4Layout", companyInfo.a4Layout);
+    formData.append("thermalLayout", companyInfo.thermalLayout);
+
     if (companyInfo.logo instanceof File) {
       formData.append("companyLogo", companyInfo.logo);
     } else {
@@ -119,7 +136,7 @@ function InvoiceCustomizer() {
   };
 
   useEffect(() => {
-    setFetchLoading(true)
+    setFetchLoading(true);
     const fetchInvoiceSettings = async () => {
       try {
         const res = await api.get("/invoice-customizer/get-invoice-settings");
@@ -131,19 +148,20 @@ function InvoiceCustomizer() {
           phone: data.companyPhone || "",
           email: data.companyEmail || "",
           address: data.companyAddress || "",
-          layout: data.companyInvoiceLayoutId || "invoiceDesign1",
+          a4Layout: data.companyA4LayoutId || "invoiceDesign1",
+          thermalLayout: data.companyThermalLayoutId || "thermalDesign1",
           logo: data.companyLogo || null,
           signature: data.companySignature || null,
         });
 
         if (data.companyLogo) setPreview(data.companyLogo);
         if (data.companySignature) setSignaturePreview(data.companySignature);
-        
+
       } catch (err) {
         console.log(err);
         setCompanyInfo(initialData);
       } finally {
-        setFetchLoading(false)
+        setFetchLoading(false);
       }
     };
 
@@ -153,16 +171,12 @@ function InvoiceCustomizer() {
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
-
     if (!allowedTypes.includes(file.type)) {
       toast.error("Only PNG and JPG images are supported.");
       return;
     }
-
     setCompanyInfo(prev => ({ ...prev, logo: file }));
-
     const reader = new FileReader();
     reader.onloadend = () => setPreview(reader.result);
     reader.readAsDataURL(file);
@@ -171,22 +185,20 @@ function InvoiceCustomizer() {
   const handleSignatureChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
-
     if (!allowedTypes.includes(file.type)) {
       toast.error("Only PNG and JPG images are supported.");
       return;
     }
-
     setCompanyInfo(prev => ({ ...prev, signature: file }));
-
     const reader = new FileReader();
     reader.onloadend = () => setSignaturePreview(reader.result);
     reader.readAsDataURL(file);
   };
 
-  const PreviewComponent = invoiceLayouts.find(l => l.id === activePreviewLayout)?.component;
+  const PreviewComponent = allLayouts.find(l => l.id === activePreviewLayout)?.component;
+  const activeA4Name = invoiceLayouts.find(l => l.id === companyInfo.a4Layout)?.name || companyInfo.a4Layout;
+  const activeThermalName = invoiceLayoutsThermal.find(l => l.id === companyInfo.thermalLayout)?.name || companyInfo.thermalLayout;
 
   return fetchLoading ?
     <div className='h-full flex justify-center items-center'>
@@ -207,12 +219,10 @@ function InvoiceCustomizer() {
           </div>
 
           {/* ── Section 1: Logo, Signature & Company Info ── */}
-          {/* Removed items-start to allow columns to stretch equally */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 bg-white">
 
             {/* Logo & Signature Left Column Block */}
             <div className="space-y-8 flex flex-col">
-              
               {/* Logo Block */}
               <div className="space-y-4">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
@@ -312,15 +322,13 @@ function InvoiceCustomizer() {
                   </Field>
                 </FieldGroup>
               </div>
-
             </div>
 
-            {/* Core Info Fields - Added flex layout to stretch to the bottom */}
+            {/* Core Info Fields */}
             <div className="lg:col-span-2 flex flex-col h-full space-y-6">
               <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
                 Company Information
               </h2>
-              {/* Added flex-1 to push the address down appropriately */}
               <FieldGroup className="flex-1 flex flex-col space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <Field className="space-y-1">
@@ -342,7 +350,6 @@ function InvoiceCustomizer() {
                     <Input disabled={saving} id="comp-email" type="email" placeholder="Enter Email Address" value={companyInfo.email} onChange={(e) => setCompanyInfo({ ...companyInfo, email: e.target.value })} className={inputCls} required />
                   </Field>
                 </div>
-                {/* Address field absorbs the remaining space */}
                 <Field className="flex-1 flex flex-col space-y-1 pb-1">
                   <FieldLabel htmlFor="comp-address" className={labelCls}>Company address</FieldLabel>
                   <Textarea disabled={saving} value={companyInfo.address} onChange={(e) => setCompanyInfo({ ...companyInfo, address: e.target.value })} className="flex-1 w-full min-h-[150px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium placeholder-slate-400 resize-none" id="comp-address" placeholder="Enter Company Address..." />
@@ -351,36 +358,31 @@ function InvoiceCustomizer() {
             </div>
           </div>
 
-          {/* ── Section 2: Invoice Layout Architecture (Scalable Inventory Engine matched to Orange Theme) ── */}
+          {/* ── Section 2: Output Documentation Blueprints (A4) ── */}
           <div className="space-y-6 pt-8 border-t border-slate-200 bg-white">
-
-            {/* Section Section Title Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div className="space-y-1">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Output Documentation Blueprints
+                  Output Documentation Blueprints (A4)
                 </h2>
               </div>
             </div>
 
-            {/* High-Performance Extensible Blueprint Inventory Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {invoiceLayouts.map((layout, index) => {
-                const isSelected = companyInfo.layout === layout.id;
-
+                const isSelected = companyInfo.a4Layout === layout.id;
                 return (
                   <div
                     key={layout.id}
                     onClick={() => {
                       if (saving) return;
-                      setCompanyInfo({ ...companyInfo, layout: layout.id });
+                      setCompanyInfo({ ...companyInfo, a4Layout: layout.id });
                     }}
                     className={`${saving ? "pointer-events-none opacity-50" : ""} group relative flex flex-col justify-between rounded-xl border p-5 bg-white cursor-pointer transition-all duration-200 select-none ${isSelected
                       ? "border-orange-500 shadow-sm ring-1 ring-orange-500 bg-orange-50/5"
                       : "border-slate-300 hover:border-orange-400 hover:bg-slate-50/30"
                       }`}
                   >
-                    {/* Top Details Metadata Bar */}
                     <div className="flex items-center justify-between gap-4 w-full">
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded transition-colors ${isSelected
@@ -393,8 +395,6 @@ function InvoiceCustomizer() {
                           {layout.id}
                         </span>
                       </div>
-
-                      {/* Integrated Radio Indicator matching Original Theme */}
                       <div className={`h-4 w-4 rounded-full border flex items-center justify-center transition-all ${isSelected
                         ? "border-orange-500 bg-orange-500 text-white scale-105"
                         : "border-slate-300 bg-white group-hover:border-slate-400"
@@ -402,8 +402,6 @@ function InvoiceCustomizer() {
                         {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
                       </div>
                     </div>
-
-                    {/* Core Content Body Text */}
                     <div className="space-y-1 my-5">
                       <h3 className="font-bold text-sm tracking-tight text-slate-800 group-hover:text-orange-600 transition-colors">
                         {layout.name}
@@ -412,14 +410,11 @@ function InvoiceCustomizer() {
                         {layout.description}
                       </p>
                     </div>
-
-                    {/* Operational Control Item Footer */}
                     <div className="border-t border-slate-100 pt-3 flex items-center justify-between w-full mt-auto">
                       <span className="text-[11px] font-medium text-slate-400 inline-flex items-center gap-1.5">
                         <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-orange-500 animate-pulse" : "bg-slate-300"}`} />
                         {isSelected ? "Active Layout" : "Idle State"}
                       </span>
-
                       <Button
                         size="sm"
                         type="button"
@@ -439,7 +434,6 @@ function InvoiceCustomizer() {
               })}
             </div>
 
-            {/* Active Diagnostic Status Strip matching Orange Theme */}
             <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="relative flex h-2 w-2">
@@ -447,7 +441,99 @@ function InvoiceCustomizer() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
                 </div>
                 <p className="text-sm text-orange-700 font-medium leading-none">
-                  Active compilation template: <span className="font-bold text-orange-900 uppercase font-mono">{invoiceLayouts.find(l => l.id === companyInfo.layout)?.name || companyInfo.layout}</span>
+                  Active A4 template: <span className="font-bold text-orange-900 uppercase font-mono">{activeA4Name}</span>
+                </p>
+              </div>
+              <span className="text-[10px] font-bold tracking-wider uppercase text-orange-600 bg-white border border-orange-200 px-2 py-0.5 rounded-md shadow-2xs">
+                System Live
+              </span>
+            </div>
+          </div>
+          
+          {/* ── Section 3: Output Documentation Blueprints (Thermal) ── */}
+          <div className="space-y-6 pt-8 border-t border-slate-200 bg-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div className="space-y-1">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Output Documentation Blueprints (Thermal)
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {invoiceLayoutsThermal.map((layout, index) => {
+                const isSelected = companyInfo.thermalLayout === layout.id;
+                return (
+                  <div
+                    key={layout.id}
+                    onClick={() => {
+                      if (saving) return;
+                      setCompanyInfo({ ...companyInfo, thermalLayout: layout.id });
+                    }}
+                    className={`${saving ? "pointer-events-none opacity-50" : ""} group relative flex flex-col justify-between rounded-xl border p-5 bg-white cursor-pointer transition-all duration-200 select-none ${isSelected
+                      ? "border-orange-500 shadow-sm ring-1 ring-orange-500 bg-orange-50/5"
+                      : "border-slate-300 hover:border-orange-400 hover:bg-slate-50/30"
+                      }`}
+                  >
+                    <div className="flex items-center justify-between gap-4 w-full">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded transition-colors ${isSelected
+                          ? "bg-orange-500 text-white"
+                          : "bg-slate-100 text-slate-500 group-hover:bg-slate-200/70"
+                          }`}>
+                          {(index + 1).toString().padStart(2, '0')}
+                        </span>
+                        <span className="text-[11px] font-bold tracking-tight text-slate-400 uppercase font-mono">
+                          {layout.id}
+                        </span>
+                      </div>
+                      <div className={`h-4 w-4 rounded-full border flex items-center justify-center transition-all ${isSelected
+                        ? "border-orange-500 bg-orange-500 text-white scale-105"
+                        : "border-slate-300 bg-white group-hover:border-slate-400"
+                        }`}>
+                        {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                      </div>
+                    </div>
+                    <div className="space-y-1 my-5">
+                      <h3 className="font-bold text-sm tracking-tight text-slate-800 group-hover:text-orange-600 transition-colors">
+                        {layout.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium leading-normal line-clamp-2">
+                        {layout.description}
+                      </p>
+                    </div>
+                    <div className="border-t border-slate-100 pt-3 flex items-center justify-between w-full mt-auto">
+                      <span className="text-[11px] font-medium text-slate-400 inline-flex items-center gap-1.5">
+                        <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-orange-500 animate-pulse" : "bg-slate-300"}`} />
+                        {isSelected ? "Active Layout" : "Idle State"}
+                      </span>
+                      <Button
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                        disabled={saving}
+                        className="h-8 px-3 text-xs font-bold border-slate-200 text-slate-600 bg-white hover:bg-slate-50 hover:text-orange-500 rounded-lg transition-all shadow-2xs flex items-center gap-1.5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActivePreviewLayout(layout.id);
+                        }}
+                      >
+                        <Eye size={12} className="stroke-[2.5]" /> Preview
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                </div>
+                <p className="text-sm text-orange-700 font-medium leading-none">
+                  Active Thermal template: <span className="font-bold text-orange-900 uppercase font-mono">{activeThermalName}</span>
                 </p>
               </div>
               <span className="text-[10px] font-bold tracking-wider uppercase text-orange-600 bg-white border border-orange-200 px-2 py-0.5 rounded-md shadow-2xs">
@@ -488,7 +574,7 @@ function InvoiceCustomizer() {
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div>
                 <DialogTitle className="text-slate-900 font-bold">
-                  {invoiceLayouts.find(l => l.id === activePreviewLayout)?.name} Preview
+                  {allLayouts.find(l => l.id === activePreviewLayout)?.name} Preview
                 </DialogTitle>
                 <DialogDescription className="text-slate-500 text-xs mt-0.5">
                   Real-time generated sandbox document vector stream.
