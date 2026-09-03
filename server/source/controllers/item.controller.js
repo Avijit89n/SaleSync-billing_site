@@ -169,26 +169,62 @@ const itemSearch = async (req, res) => {
     }
 };
 
-const deleteItem = async(req, res) => {
+const deleteItem = async (req, res) => {
     try {
-        const {id} = req.params
-        if(!id){
-            throw new ApiError("Item ID is required", 400)
+        const { id } = req.params;
+
+        if (!id) {
+            throw new ApiError("Item ID is required", 400);
         }
-        const item = await Item.findById(id)
-        if(!item) {
-            throw new ApiError("Failed to find the item or Invalid Item ID", 500)
+
+        const item = await Item.findById(id);
+
+        if (!item) {
+            throw new ApiError("Item not found", 404);
         }
-        await Item.findByIdAndDelete(id)
+
+        // Delete image from Cloudinary if the item has one
+        if (item.imagePublicId) {
+            try {
+                await cloudinaryDelete(item.imagePublicId);
+            } catch (cloudinaryError) {
+                console.error(
+                    "Failed to delete item image from Cloudinary:",
+                    cloudinaryError
+                );
+
+                throw new ApiError(
+                    "Failed to delete item image from Cloudinary",
+                    500,
+                    cloudinaryError
+                );
+            }
+        }
+
+        // Delete item from MongoDB
+        await Item.findByIdAndDelete(id);
 
         return res.status(200).json(
-            new apiResponse("Item Deleted successfully", 200, item)
-        )
+            new apiResponse(
+                "Item deleted successfully",
+                200,
+                item
+            )
+        );
     } catch (error) {
-        console.error("delete item error: ", error)
-        throw new ApiError("Failed to delete the item", 500, error)
+        console.error("Delete item error:", error);
+
+        if (error instanceof ApiError) {
+            throw error;
+        }
+
+        throw new ApiError(
+            "Failed to delete the item", 
+            500,
+            error
+        );
     }
-}
+};
 
 const getItemById = async (req, res) => {
     try {
@@ -225,7 +261,7 @@ const updateItem = async (req, res) => {
 
     try {
         const existingItem = await Item.findById(id);
-        
+
         if (!existingItem) {
             if (itemImage?.path && fs.existsSync(itemImage.path)) {
                 fs.unlinkSync(itemImage.path);
@@ -234,8 +270,8 @@ const updateItem = async (req, res) => {
         }
 
         let imageUrl = existingItem.image;
-        let imagePublicId = existingItem.imagePublicId; 
-        
+        let imagePublicId = existingItem.imagePublicId;
+
         // Scenario A: User uploaded a NEW image
         if (itemImage) {
             const uploadResult = await cloudinaryUpload(itemImage.path);
@@ -257,8 +293,8 @@ const updateItem = async (req, res) => {
                     console.error("Failed to delete old item image from Cloudinary:", cleanupError);
                 }
             }
-        } 
-        
+        }
+
         else if (!image) {
             if (existingItem.imagePublicId) {
                 try {
@@ -285,7 +321,7 @@ const updateItem = async (req, res) => {
 
         const updatedItem = await Item.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
         return res.status(200).json(
-            new apiResponse ("Item updated successfully", 200, updatedItem)
+            new apiResponse("Item updated successfully", 200, updatedItem)
         );
 
     } catch (error) {
