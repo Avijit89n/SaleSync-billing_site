@@ -109,6 +109,7 @@ function AddInvoice() {
   const [itemData, setItemData] = useState([{ ...initialItemData }]);
   const [customerSearchValue, setCustomerSearchValue] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
   const [taxRate, setTaxRate] = useState(0);
@@ -226,11 +227,9 @@ function AddInvoice() {
 
     setSelectedCustomer(instantClient);
 
-    toast.success(
-      isPhoneNumberSearch
-        ? `Record allocated with phone "${val}"`
-        : `Created "${val}"`
-    );
+    // Close the customer suggestions immediately after creating a new client.
+    setCustomerComboboxOpen(false);
+    dispatch(clearSearchedCustomers());
   };
 
   useEffect(() => {
@@ -456,6 +455,7 @@ function AddInvoice() {
   const resetForm = async () => {
     setSelectedCustomer(null);
     setCustomerSearchValue("");
+    setCustomerComboboxOpen(false);
     dispatch(clearSearchedCustomers());
     setNotes("");
     setTerms("");
@@ -812,7 +812,11 @@ function AddInvoice() {
                   Customer Name / Phone <span className="text-orange-500">*</span>
                 </FieldLabel>
 
-                <Combobox items={customerDropdownItems}>
+                <Combobox
+                  items={customerDropdownItems}
+                  open={customerComboboxOpen}
+                  onOpenChange={setCustomerComboboxOpen}
+                >
                   <ComboboxInput
                     placeholder="Search customer by name or phone..."
                     value={customerSearchValue || selectedCustomer?.displayName || ""}
@@ -868,6 +872,7 @@ function AddInvoice() {
                               onClick={() => {
                                 setSelectedCustomer(customer);
                                 setCustomerSearchValue(customer.displayName);
+                                setCustomerComboboxOpen(false);
                               }}
                               className="py-3 px-4 text-sm font-medium text-slate-800 data-[selected]:bg-slate-50 flex justify-between items-center cursor-pointer"
                             >
