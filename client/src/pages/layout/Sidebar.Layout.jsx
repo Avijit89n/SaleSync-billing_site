@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/other-ui/app-sidebar";
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -7,20 +8,33 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+
 import { Separator } from "@/components/ui/separator";
+
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+
 import { Outlet, useLocation, Link } from "react-router-dom";
 import React, { useEffect } from "react";
 
 const formatPathName = (path) => {
-  return path
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  if (path === "edit-customer") {
+    return "Customer";
+  } else if (path === "add-customer") {
+    return "Add Customer";
+  } else if (path === "customer") {
+    return "Customer";
+  } else if (path === "edit-item") {
+    return "All Items";
+  } else {
+    return path
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
 };
 
 function SidebarContent() {
@@ -49,6 +63,7 @@ function SidebarContent() {
 
             <Breadcrumb>
               <BreadcrumbList>
+                {/* Dashboard */}
                 <BreadcrumbItem className="hidden md:block">
                   <BreadcrumbLink asChild>
                     <Link to="/user/home">Dashboard</Link>
@@ -60,22 +75,41 @@ function SidebarContent() {
                 )}
 
                 {pathNames.map((path, index) => {
-                  const routeTo = `/${pathNames
-                    .slice(0, index + 1)
-                    .join("/")}`;
-
-                  const isLast =
-                    index === pathNames.length - 1;
-
                   if (path === "user") return null;
 
+                  const isLast = index === pathNames.length - 1;
+
+                  let routeTo;
+
+                  // Manually set routes
+                  if (path === "edit-customer") {
+                    routeTo = "/user/customer";
+                  } else if (path === "edit-item") {
+                    routeTo = "/user/all-items";
+                  } else {
+                    routeTo = `/${pathNames
+                      .slice(0, index + 1)
+                      .join("/")}`;
+                  }
+
                   return (
-                    <React.Fragment key={path}>
+                    <React.Fragment key={`${path}-${index}`}>
                       <BreadcrumbItem className="hidden md:block">
                         {isLast ? (
-                          <BreadcrumbPage>
-                            {formatPathName(path)}
-                          </BreadcrumbPage>
+                          path === "edit-customer" ||
+                          path === "add-customer" ||
+                          path === "edit-product" ||
+                          path === "add-product" ? (
+                            <BreadcrumbLink asChild>
+                              <Link to={routeTo}>
+                                {formatPathName(path)}
+                              </Link>
+                            </BreadcrumbLink>
+                          ) : (
+                            <BreadcrumbPage>
+                              {formatPathName(path)}
+                            </BreadcrumbPage>
+                          )
                         ) : (
                           <BreadcrumbLink asChild>
                             <Link to={routeTo}>
