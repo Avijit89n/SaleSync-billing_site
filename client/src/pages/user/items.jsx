@@ -557,7 +557,7 @@ const CustomTableRow = ({
           </span>
 
           <span className="text-[10px] text-slate-400 mt-1">
-            Product
+            {singleItem.description || "Product"}
           </span>
         </div>
       </TableCell>

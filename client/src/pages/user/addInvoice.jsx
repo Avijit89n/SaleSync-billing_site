@@ -931,17 +931,17 @@ function AddInvoice() {
                             <>
                               <Input
                                 autoFocus={!selectedCustomer.displayName}
-                                placeholder="Customer Name *"
+                                placeholder="Customer Name (Mandatory)"
                                 value={selectedCustomer.displayName || ""}
                                 onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, displayName: e.target.value }))}
                                 className={`bg-white ${!selectedCustomer.displayName ? 'border-orange-300 ring-2 ring-orange-500/10' : ''}`}
                               />
                               <Input
                                 autoFocus={!!selectedCustomer.displayName}
-                                placeholder="Phone number"
+                                placeholder="Phone number (Mandatory)"
                                 value={selectedCustomer.workingPhone || ""}
                                 onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, workingPhone: e.target.value }))}
-                                className="bg-white"
+                                className={`bg-white ${!selectedCustomer.workingPhone ? 'border-orange-300 ring-2 ring-orange-500/10' : ''}`}
                               />
                               <Input
                                 placeholder="Email address"
@@ -1124,6 +1124,7 @@ function AddInvoice() {
                         <div className="flex items-center justify-end">
                           <input
                             value={data.quantity ?? ""}
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => {
                               const value = e.target.value;
                               if (!isValidIntegerInput(value)) return;
@@ -1141,6 +1142,7 @@ function AddInvoice() {
                           {!data._id ? (
                             <input
                               type="text"
+                              onFocus={(e) => e.target.select()}
                               value={data.unit}
                               onChange={(e) => updateItem(index, "unit", e.target.value)}
                               placeholder="Unit"
@@ -1162,6 +1164,7 @@ function AddInvoice() {
                       <TableCell className="text-right py-3.5 align-middle">
                         <input
                           value={data.sellingPrice ?? ""}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
                             const value = e.target.value;
                             if (!isValidDecimalInput(value)) return;
@@ -1180,6 +1183,7 @@ function AddInvoice() {
                       <TableCell className="py-3.5 align-middle">
                         <div className="flex items-center max-w-[140px] mx-auto">
                           <input
+                            onFocus={(e) => e.target.select()}
                             value={data.discount ?? ""}
                             onChange={(e) => {
                               const value = e.target.value;
@@ -1266,6 +1270,7 @@ function AddInvoice() {
                       <label className={labelCls}>Qty</label>
                       <div className="flex items-center">
                         <input
+                          onFocus={(e) => e.target.select()}
                           value={data.quantity ?? ""}
                           onChange={(e) => {
                             const value = e.target.value;
@@ -1286,6 +1291,7 @@ function AddInvoice() {
                             type="text"
                             value={data.unit}
                             onChange={(e) => updateItem(index, "unit", e.target.value)}
+                            onFocus={(e) => e.target.select()}
                             placeholder="Unit"
                             className="w-14 h-11 px-1 bg-white border border-slate-300 rounded-r-lg text-[11px] font-semibold text-slate-600 uppercase text-center focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500 focus:z-10 shrink-0"
                             maxLength={5}
@@ -1301,6 +1307,7 @@ function AddInvoice() {
                       <label className={labelCls}>Price</label>
                       <input
                         value={data.sellingPrice ?? ""}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => {
                           const value = e.target.value;
                           if (!isValidDecimalInput(value)) return;
@@ -1321,6 +1328,7 @@ function AddInvoice() {
                       <div className="flex items-center">
                         <input
                           value={data.discount ?? ""}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
                             const value = e.target.value;
                             if (!isValidDecimalInput(value)) return;
@@ -1366,20 +1374,22 @@ function AddInvoice() {
 
           <Button
             onClick={() => {
-              setActiveRowIndex(null);
-              setCatalogSearch("");
-              dispatch(clearSearchedItems());
-
+              const newRowIndex = itemData.length;
               setItemData(prev => [
                 ...prev,
                 { ...initialItemData, _rowId: generateRowId() }
               ]);
+              setActiveRowIndex(newRowIndex);
+              setCatalogSearch("");
+              dispatch(clearSearchedItems());
+              setIsCatalogOpen(true);
             }}
             className="text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:border-slate-300 font-semibold text-xs h-10 px-4 rounded-lg transition-colors shadow-sm"
             type="button"
             variant="outline"
           >
-            <Plus size={14} className="mr-1.5 stroke-[2.5]" /> Add New Item Line
+            <Plus size={14} className="mr-1.5 stroke-[2.5]" />
+            Add New Item Line
           </Button>
         </div>
 
@@ -1419,6 +1429,7 @@ function AddInvoice() {
                       inputMode="decimal"
                       className="w-14 h-8 text-center border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-orange-500/15 focus:border-orange-400 focus:outline-none bg-white text-slate-900 font-semibold"
                       value={taxRate ?? ""}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => {
                         const value = e.target.value;
                         if (!isValidDecimalInput(value)) return;
@@ -1502,6 +1513,7 @@ function AddInvoice() {
                             <input
                               type="text"
                               inputMode="decimal"
+                              onFocus={(e) => e.target.select()}
                               value={paidAmount}
                               onChange={(e) => {
                                 const value = e.target.value;

@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
   amountColumn: { width: 54, textAlign: "right" },
   headerText: { fontSize: 6.6, fontWeight: "bold", textTransform: "uppercase" },
   itemName: { fontSize: 7.5, fontWeight: "bold", lineHeight: 1.2 },
-  itemDescription: { fontSize: 6.3, color: "#6b7280", marginTop: 1, lineHeight: 1.2 },
+  itemDiscountText: { fontSize: 6.3, color: "#15803d", marginTop: 2, lineHeight: 1.2 },
   itemText: { fontSize: 7 },
   totals: { marginTop: 2, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#111827" },
   totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2.5 },
@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
   paymentRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2.5 },
   paymentLabel: { fontSize: 7, color: "#4b5563" },
   paymentValue: { fontSize: 7.3, fontWeight: "bold" },
-  balanceValue: { fontSize: 8, fontWeight: "bold", color: "#dc2626" },
+  balanceValue: { fontSize: 10, fontWeight: "bold", color: "#dc2626" },
   historySection: { marginTop: 5, paddingTop: 5, borderTopWidth: 0.5, borderTopColor: "#d1d5db" },
   historyRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 },
   historyText: { fontSize: 6.2, color: "#6b7280", flex: 1, paddingRight: 5 },
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   signatureLine: { width: 110, borderTopWidth: 1, borderTopColor: "#111827" },
   signatureName: { fontSize: 6.8, fontWeight: "bold", marginTop: 3, textAlign: "center" },
   signatureSub: { fontSize: 6, color: "#6b7280", marginTop: 1, textAlign: "center" },
-  thankYou: { alignItems: "center", marginTop: 15, paddingTop: 7},
+  thankYou: { alignItems: "center", marginTop: 15, paddingTop: 7 },
   thankYouText: { fontSize: 7.5, fontWeight: "bold", textAlign: "center" },
   thankYouSub: { fontSize: 6.3, color: "#6b7280", marginTop: 2, textAlign: "center" },
   footer: { alignItems: "center", marginTop: 9, paddingTop: 6, borderTopWidth: 0.7, borderTopColor: "#9ca3af" },
@@ -77,7 +77,7 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
   const balance = balanceAmount !== undefined ? Math.max(Number(balanceAmount) || 0, 0) : Math.max(total - paid, 0);
   const status = paymentStatus || (total <= 0 ? "Unpaid" : balance <= 0 ? "Paid" : paid > 0 ? "Partially Paid" : "Unpaid");
 
-  const money = (value) => `₹${(Number(value) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = (value) => `Rs. ${(Number(value) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const formatDate = (value) => {
     if (!value) return "N/A";
@@ -92,11 +92,13 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
 
   const companyHeaderHeight = 82 + (companyLogo ? 52 : 0) + (companyInfo?.address ? 12 : 0) + (companyInfo?.phone ? 10 : 0) + (companyInfo?.email ? 10 : 0) + (companyInfo?.gstin ? 10 : 0);
   const customerHeight = 34 + (selectedCustomer?.companyName ? 10 : 0) + (selectedCustomer?.workingPhone || selectedCustomer?.phone ? 10 : 0) + (selectedCustomer?.email ? 10 : 0) + Math.max(1, estimateLines(customerAddress, 42)) * 8;
+  
   const itemHeight = items.reduce((height, item) => {
     if (!item) return height;
     const name = item.itemName || item.name || "Unnamed Item";
-    const description = item.itemDescription || item.description || "";
-    return height + 11 + Math.max(1, estimateLines(name, 27) + estimateLines(description, 31)) * 9 + 8;
+    const itemDiscount = Number(item.itemDiscountAmount ?? item.discountAmount ?? 0) || 0;
+    const extraLinesForDiscount = itemDiscount > 0 ? 1 : 0;
+    return height + 11 + Math.max(1, estimateLines(name, 27) + extraLinesForDiscount) * 9 + 8;
   }, 0);
   
   const paymentHeight = 58 + (paymentList.length > 0 ? 19 + paymentList.length * 12 : 0);
@@ -163,19 +165,21 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
         {items.map((item, index) => {
           if (!item) return null;
           const quantity = Number(item.quantity) || 0;
+          const unit = item?.itemUnit || "";
           const rate = Number(item.itemSellingPrice ?? item.sellingPrice) || 0;
           const discount = Number(item.itemDiscountAmount ?? item.discountAmount ?? 0) || 0;
           const amount = Math.max(quantity * rate - discount, 0);
           const name = item.itemName || item.name || "Unnamed Item";
-          const description = item.itemDescription || item.description;
 
           return (
             <View key={item._id || index} style={styles.itemRow} wrap={false}>
               <View style={styles.itemColumn}>
-                <Text style={styles.itemName}>{name}</Text>
-                {description && <Text style={styles.itemDescription}>{description}</Text>}
+                <Text style={styles.itemName}>{name}{discount > 0 ? "*" : ""}</Text>
+                {discount > 0 && (
+                  <Text style={styles.itemDiscountText}>{money(discount)} off</Text>
+                )}
               </View>
-              <Text style={[styles.qtyColumn, styles.itemText]}>{quantity}</Text>
+              <Text style={[styles.qtyColumn, styles.itemText]}>{quantity}{unit}</Text>
               <Text style={[styles.rateColumn, styles.itemText]}>{money(rate)}</Text>
               <Text style={[styles.amountColumn, styles.itemText, { fontWeight: "bold" }]}>{money(amount)}</Text>
             </View>
@@ -189,12 +193,12 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
           </View>
           {Number(totalDiscount) > 0 && (
             <View style={styles.totalRow}>
-              <Text style={styles.discountLabel}>Discount</Text>
-              <Text style={styles.discountValue}>-{money(totalDiscount)}</Text>
+              <Text style={styles.discountLabel}>Total Discount</Text>
+              <Text style={styles.discountValue}>- {money(totalDiscount)}</Text>
             </View>
           )}
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>GST ({taxRate || 0}%)</Text>
+            <Text style={styles.totalLabel}>TAX ({taxRate || 0}%)</Text>
             <Text style={styles.totalValue}>{money(taxedAmount)}</Text>
           </View>
           <View style={styles.grandTotal}>
@@ -209,7 +213,7 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
             <Text style={styles.paymentLabel}>Paid</Text>
             <Text style={styles.paymentValue}>{money(paid)}</Text>
           </View>
-          <View style={styles.paymentRow}>
+          <View style={[styles.paymentRow, { alignItems: "center", paddingVertical: 4 }]}>
             <Text style={styles.paymentLabel}>Balance Due</Text>
             <Text style={styles.balanceValue}>{money(balance)}</Text>
           </View>

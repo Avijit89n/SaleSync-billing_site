@@ -35,12 +35,9 @@ export const addInvoiceReq = createAsyncThunk(
         try {
             const res = await api.post("/invoice/add-invoice", data);
             const invoiceData = res.data?.data
-            const customerData = invoiceData.customer
-            const isNewCustomerFlag = invoiceData.isNewCustomerFlag
-            if(isNewCustomerFlag && customerData){
-                thunkAPI.dispatch(addCustomerManually(invoiceData))
-            }
-            return res.data?.data;
+            console.log("invoiceData", invoiceData)
+            thunkAPI.dispatch(addCustomerManually(invoiceData))
+            return res.data?.data; 
         } catch (error) {
             return thunkAPI.rejectWithValue(
                 error.response?.data || "Failed to add invoice"

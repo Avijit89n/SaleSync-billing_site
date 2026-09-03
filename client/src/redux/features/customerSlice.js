@@ -118,9 +118,23 @@ const customerSlice = createSlice({
             state.searchLoading = false;
         },
         addCustomerManually: (state, action) => {
-            if (action.payload?.isNewCustomerFlag)
-                state.customers = [action.payload?.customer, ...state.customers]
-        }
+            if (action.payload?.isNewCustomerFlag) {
+                state.customers = [
+                    action.payload.customer,
+                    ...state.customers
+                ];
+            }
+
+            state.customers = state.customers.map((customer) => {
+
+                if (customer?._id === action.payload?.customer?._id) {
+                    customer.totalBills = (customer.totalBills || 0) + 1;
+                    customer.totalSales =(customer.totalSales || 0) + (action.payload?.data?.grandTotal || 0);
+                    customer.pendingAmount =(customer.pendingAmount || 0) + (action.payload?.data?.balanceAmount || 0);
+                }
+                return customer;
+            });
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -146,12 +160,10 @@ const customerSlice = createSlice({
             .addCase(getAllCustomerReq.fulfilled, (state, action) => {
                 state.customerLoading = false;
 
-                // 1. Filter out duplicates
                 const newCustomers = action.payload.customers.filter(
                     (newCust) => !state.customers.some((existing) => existing._id === newCust._id)
                 );
 
-                // 2. Append only unique records
                 state.customers = [...state.customers, ...newCustomers];
                 state.isEnd = action.payload.isEnd;
                 state.nextCursor = action.payload.nextCursor;
