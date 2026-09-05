@@ -32,6 +32,7 @@ import Loader1 from "./components/loaders/loader1.jsx"
 import EditCustomer from "./pages/user/editCustomer.jsx"
 import EditItem from "./pages/user/editItem.jsx"
 import CheckInvoice from "./pages/user/checkInvoice.jsx"
+import CustomerInformation from "./pages/user/customerInformation.jsx"
 
 function App() {
   const dispatch = useDispatch();
@@ -94,6 +95,7 @@ function App() {
         <Route path="customer" element={<Customer />} />
         <Route path="add-customer" element={<AddCustomer />} />
         <Route path="edit-customer/:id" element={<EditCustomer />} />
+        <Route path="customer-information/:id" element={<CustomerInformation />} />
         <Route path="check-invoice/:id" element={<CheckInvoice />}/>
         <Route path="edit-item/:id" element={<EditItem />} />
         <Route path="all-items" element={<Items />} />

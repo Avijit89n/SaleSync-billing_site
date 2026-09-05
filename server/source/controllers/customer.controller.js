@@ -403,11 +403,70 @@ const deleteCustomer = async (req, res) => {
 };
 
 
+const getCustomerInvoices = async (req, res) => {
+
+    const { id } = req.params;
+    if (!id) {
+        throw new apiError("Customer ID is required", 400);
+    }
+    try {
+        const customer = await Customer.findById(id);
+        if (!customer) {
+            throw new apiError("Customer not found", 404);
+        }
+
+        const invoices = await Invoice.find({ customerID: id }).sort({ invoiceDate: -1, createdAt: -1 });
+
+        let totalBills = 0;
+        let totalSales = 0;
+        let totalPaid = 0;
+        let pendingAmount = 0;
+        let overdueAmount = 0;
+
+        const currentDate = new Date();
+
+        invoices.forEach((invoice) => {
+            totalBills += 1;
+            totalSales += Number(invoice.grandTotal || 0);
+            totalPaid += Number(invoice.paidAmount || 0);
+            pendingAmount += Number(invoice.balanceAmount || 0);
+            if (invoice.status !== "Cancel" && Number(invoice.balanceAmount || 0) > 0 && invoice.dueDate && new Date(invoice.dueDate) < currentDate) {
+                overdueAmount += Number(invoice.balanceAmount || 0);
+            }
+        });
+
+        return res.status(200).json(
+            new apiResponse("Customer invoices fetched successfully", 200, {
+                customer,
+                invoices,
+                summary: {
+                    totalBills,
+                    totalSales,
+                    totalPaid,
+                    pendingAmount,
+                    overdueAmount
+                }
+            }
+            )
+        );
+
+    } catch (error) {
+        if (error instanceof apiError) {
+            throw error;
+        }
+
+        console.error("Get customer invoices error:", error);
+        throw new apiError("Failed to fetch customer invoices", 500, error);
+    }
+};
+
+
 export {
     addCustomer,
     getAllCustomers,
     customerSearch,
     getCustomerById,
     updateCustomer,
-    deleteCustomer
+    deleteCustomer,
+    getCustomerInvoices
 }

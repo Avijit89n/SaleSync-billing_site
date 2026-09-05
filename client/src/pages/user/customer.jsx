@@ -54,7 +54,6 @@ import {
 
 import { useDispatch, useSelector } from "react-redux";
 import InfiniteScroll from "react-infinite-scroll-component";
-import Loader2 from "@/components/loaders/loader2";
 import { toast } from "sonner";
 
 /* -------------------------------------------------------------------------- */
@@ -356,7 +355,7 @@ const CustomTableRow = ({
         hover:shadow-[inset_3px_0_0_0_#f97316]
       "
       onClick={() => {
-        navigate(`/user/edit-customer/${singleItem._id}`);
+        navigate(`/user/customer-information/${singleItem._id}`);
       }}
     >
       {/* Name */}

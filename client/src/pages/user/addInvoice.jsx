@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Trash2, FilePlus2, UserCheck, AlertCircle, MapPin, Mail, Search, ImageIcon, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import InfiniteScroll from "react-infinite-scroll-component";
@@ -138,6 +138,8 @@ function AddInvoice() {
   const [activeRowIndex, setActiveRowIndex] = useState(null);
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const customerId = searchParams.get('customerId');
   const dispatch = useDispatch();
 
   const customerAbortRef = useRef(null);
@@ -187,6 +189,24 @@ function AddInvoice() {
     () => looksLikePhoneNumber(customerSearchValue),
     [customerSearchValue]
   );
+
+  // Preselect the customer when Add Invoice is opened with ?customerId=...
+  // The customer is taken directly from the Redux customer slice, so no
+  // additional customer API request is required when the record is already loaded.
+  useEffect(() => {
+    if (!customerId || !allcustomers?.length) return;
+
+    const customerFromSlice = allcustomers.find(
+      (customer) => customer?._id === customerId
+    );
+
+    if (!customerFromSlice) return;
+
+    setSelectedCustomer(customerFromSlice);
+    setCustomerSearchValue(customerFromSlice?.displayName || "");
+    setCustomerComboboxOpen(false);
+    dispatch(clearSearchedCustomers());
+  }, [customerId, allcustomers, dispatch]);
 
   const handleInstantClientCreate = (searchValue) => {
     const val = searchValue.trim();
