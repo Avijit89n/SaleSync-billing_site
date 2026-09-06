@@ -11,7 +11,7 @@ const transporter = nodemailer.createTransport({
 
 export const sendEmail = async (to, token) => {
 
-    const varificationURL = `${process.env.CLIENT_URL}/auth/email-verify?token=${token}&email=${to}`
+    const varificationURL = `${process.env.CLIENT_URL_2}/auth/email-verify?token=${token}&email=${to}`
 
     const info = await transporter.sendMail({
         from: `"SaleSync" <${process.env.ADMIN_EMAIL}>`,
