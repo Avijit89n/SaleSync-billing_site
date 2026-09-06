@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Trash2, Upload, ZoomIn, FilePenLine, ArrowLeftToLine } from 'lucide-react';
+import { Trash2, Upload, ZoomIn, ClipboardPen  } from 'lucide-react';
 import Loader from '../../components/loaders/loader2';
 
 // Custom UI Imports
@@ -136,9 +136,8 @@ function EditItem() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-5 mb-12 gap-4">
             <div className="space-y-2">
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <button type='button' disabled={isLoading || itemLoading} onClick={() => navigate(-1)} className="h-9 p-2 w-9 flex justify-center items-center rounded-lg bg-orange-50 border-orange-100 border text-slate-600 shadow-none hover:border-orange-300 hover:bg-orange-100 hover:text-orange-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <ArrowLeftToLine className="text-orange-500" size={28} />
-                </button> Edit Item Details
+                <ClipboardPen className="text-orange-500" size={28} />
+                Edit Item Details
               </h1>
               <p className="text-sm text-gray-500">Update item parameters, visual assets, and valuation metrics.</p>
             </div>

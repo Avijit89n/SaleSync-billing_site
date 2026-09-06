@@ -1,5 +1,8 @@
-import { AppSidebar } from "@/components/other-ui/app-sidebar";
+import React, { useEffect } from "react";
+import { Outlet, useLocation, Link, useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
+import { AppSidebar } from "@/components/other-ui/app-sidebar";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,18 +11,14 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-
 import { Separator } from "@/components/ui/separator";
-
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-
-import { Outlet, useLocation, Link } from "react-router-dom";
-import React, { useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 const formatPathName = (path) => {
   if (path === "edit-customer") {
@@ -30,6 +29,10 @@ const formatPathName = (path) => {
     return "Customer";
   } else if (path === "edit-item") {
     return "All Items";
+  } else if (path === "customer-information") {
+    return "Customer";
+  } else if (path === "check-invoice") {
+    return "All Invoices";
   } else {
     return path
       .replace(/-/g, " ")
@@ -39,6 +42,7 @@ const formatPathName = (path) => {
 
 function SidebarContent() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { setOpenMobile } = useSidebar();
 
   const pathNames = pathname.split("/").filter((path) => path);
@@ -52,13 +56,27 @@ function SidebarContent() {
       <AppSidebar />
 
       <SidebarInset className="min-w-0">
-        <header className="flex h-16 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4">
+        <header className="flex h-16 items-center justify-between px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2">
+            
             <SidebarTrigger className="-ml-1" />
 
             <Separator
               orientation="vertical"
-              className="mr-2 data-[orientation=vertical]:h-4"
+              className="h-4 data-[orientation=vertical]:h-4"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className={"size-7"}
+              onClick={() => navigate(-1)}
+              >
+              <ArrowLeft />
+            </Button>
+
+            <Separator
+              orientation="vertical"
+              className="mr-2 h-4 data-[orientation=vertical]:h-4"
             />
 
             <Breadcrumb>
@@ -78,18 +96,17 @@ function SidebarContent() {
                   if (path === "user") return null;
 
                   const isLast = index === pathNames.length - 1;
-
                   let routeTo;
 
                   // Manually set routes
-                  if (path === "edit-customer") {
+                  if (path === "edit-customer" || path === "customer-information") {
                     routeTo = "/user/customer";
                   } else if (path === "edit-item") {
                     routeTo = "/user/all-items";
+                  } else if (path === "check-invoice") {
+                    routeTo = "/user/all-invoices";
                   } else {
-                    routeTo = `/${pathNames
-                      .slice(0, index + 1)
-                      .join("/")}`;
+                    routeTo = `/${pathNames.slice(0, index + 1).join("/")}`;
                   }
 
                   return (
@@ -97,24 +114,18 @@ function SidebarContent() {
                       <BreadcrumbItem className="hidden md:block">
                         {isLast ? (
                           path === "edit-customer" ||
-                          path === "add-customer" ||
-                          path === "edit-product" ||
-                          path === "add-product" ? (
+                            path === "add-customer" ||
+                            path === "edit-product" ||
+                            path === "add-product" ? (
                             <BreadcrumbLink asChild>
-                              <Link to={routeTo}>
-                                {formatPathName(path)}
-                              </Link>
+                              <Link to={routeTo}>{formatPathName(path)}</Link>
                             </BreadcrumbLink>
                           ) : (
-                            <BreadcrumbPage>
-                              {formatPathName(path)}
-                            </BreadcrumbPage>
+                            <BreadcrumbPage>{formatPathName(path)}</BreadcrumbPage>
                           )
                         ) : (
                           <BreadcrumbLink asChild>
-                            <Link to={routeTo}>
-                              {formatPathName(path)}
-                            </Link>
+                            <Link to={routeTo}>{formatPathName(path)}</Link>
                           </BreadcrumbLink>
                         )}
                       </BreadcrumbItem>
@@ -128,6 +139,7 @@ function SidebarContent() {
               </BreadcrumbList>
             </Breadcrumb>
           </div>
+
         </header>
 
         <div className="flex flex-1 flex-col gap-4">
@@ -140,7 +152,7 @@ function SidebarContent() {
 
 export default function SidebarLayout() {
   return (
-    <SidebarProvider className="opacity-0 animate-fade-in-scale transition-all duration-500">
+    <SidebarProvider className="animate-fade-in-scale opacity-0 transition-all duration-500">
       <SidebarContent />
     </SidebarProvider>
   );

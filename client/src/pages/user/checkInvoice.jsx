@@ -14,7 +14,8 @@ import {
   Wallet,
   CheckCircle2,
   CircleDollarSign,
-  ArrowLeftToLine
+  ArrowLeftToLine,
+  FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/axios/interceptor';
@@ -459,12 +460,7 @@ export default function CheckInvoice() {
           <div className="flex w-full items-center justify-between flex-wrap gap-4">
             <div className="space-y-2">
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <button
-                  onClick={() => navigate(-1)}
-                  className="h-9 p-2 w-9 flex justify-center items-center rounded-lg bg-orange-50 border-orange-100 border text-slate-600 shadow-none hover:border-orange-300 hover:bg-orange-100 hover:text-orange-600"
-                >
-                  <ArrowLeftToLine className="text-orange-500" size={28} />
-                </button>
+                <FileText className="text-orange-500" size={28} />
                 {invoiceData.invoiceNumber}
                 <StatusBadge status={invoiceData.status} dueDate={invoiceData.dueDate} />
               </h1>

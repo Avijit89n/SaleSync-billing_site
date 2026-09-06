@@ -505,7 +505,7 @@ export default function CustomerInformation() {
       <div className="mb-9 flex flex-col items-start justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-center">
         <div className="min-w-0 space-y-2">
           <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold text-gray-900">
-            <Users className="shrink-0 text-orange-500" size={28} />
+            <User className="shrink-0 text-orange-500" size={28} />
             <span className="truncate">Customer Details</span>
           </h1>
           <p className="break-words text-sm text-gray-500">
