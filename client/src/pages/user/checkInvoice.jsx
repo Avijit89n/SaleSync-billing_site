@@ -186,17 +186,16 @@ export default function CheckInvoice() {
     try {
       setLoading(true);
       const res = await api.get(`/invoice/get-invoice/${id}`);
-      console.log(res.data.data);
 
       if (res.data?.success) {
         setInvoiceData(res.data.data);
       } else {
         toast.error('Failed to load invoice details');
-        navigate('/user/invoices');
+        navigate('/user/all-invoices');
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to load invoice');
-      navigate('/user/invoices');
+      navigate('/user/all-invoices');
     } finally {
       setLoading(false);
     }
