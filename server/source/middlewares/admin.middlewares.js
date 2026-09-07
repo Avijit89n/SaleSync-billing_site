@@ -1,19 +1,5 @@
 import apiError from "../utils/apiError.js";
 
-/*
-|--------------------------------------------------------------------------
-| Require Admin
-|--------------------------------------------------------------------------
-|
-| Allows:
-|   - Admin
-|   - Superadmin
-|
-| Blocks:
-|   - Unauthenticated users
-|   - Any other role
-|
-*/
 
 const requireAdmin = (req, res, next) => {
     const user = req.userInfo;
