@@ -13,13 +13,10 @@ import Reports from "./pages/user/reports.jsx"
 import Expenses from "./pages/user/expenses.jsx"
 import Account from "./pages/profile/account.jsx"
 import Billing from "./pages/profile/billing.jsx"
+import Approval from "./pages/profile/approval.jsx"
 import Notification from "./pages/profile/notification.jsx"
 import AuthLayout from "./pages/layout/Auth.Layout.jsx"
-import { LoginForm } from "./components/other-ui/login-form.jsx"
-import { RegisterForm } from "./components/other-ui/register-form.jsx"
-import OTPForm from "./components/other-ui/otp-form.jsx"
 import AddInvoice from "./pages/user/addInvoice.jsx"
-import EmailVerified from "./components/other-ui/email-verified.jsx"
 import Direction from "./pages/layout/direction.Layout.jsx"
 import { useEffect, useState } from "react" // <-- Imported useState
 import { useDispatch } from "react-redux"
@@ -33,6 +30,9 @@ import EditCustomer from "./pages/user/editCustomer.jsx"
 import EditItem from "./pages/user/editItem.jsx"
 import CheckInvoice from "./pages/user/checkInvoice.jsx"
 import CustomerInformation from "./pages/user/customerInformation.jsx"
+import { Login } from "./pages/authentication/login.jsx"
+import { Register } from "./pages/authentication/register.jsx"
+import OTP from "./pages/authentication/otp.jsx"
 
 function App() {
   const dispatch = useDispatch();
@@ -78,10 +78,9 @@ function App() {
           </Direction>
         }
       >
-        <Route path="login" element={<LoginForm />} />
-        <Route path="register" element={<RegisterForm />} />
-        <Route path="verification" element={<OTPForm />} />
-        <Route path="email-verify" element={<EmailVerified />} />
+        <Route path="login" element={<Login />} />
+        <Route path="register" element={<Register />} />
+        <Route path="verification" element={<OTP />} />
       </Route>
       <Route
         path="/user/"
@@ -109,6 +108,7 @@ function App() {
         <Route path="expenses" element={<Expenses />} />
         <Route path="account" element={<Account />} />
         <Route path="billing" element={<Billing />} />
+        <Route path="approvals" element={<Approval />} />
         <Route path="notifications" element={<Notification />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />

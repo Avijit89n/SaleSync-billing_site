@@ -2,9 +2,11 @@ import {
   BadgeCheck,
   Bell,
   ChevronsUpDown,
+  CircleCheck,
   CreditCard,
   LogOut,
-  Sparkles,
+  Sparkles, 
+  User
 } from "lucide-react"
 
 import {
@@ -92,19 +94,25 @@ export function SideUser({ user }) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <NavLink to="user/account">
-                  <BadgeCheck />
+                <NavLink to="account">
+                  <User />
                   Account
                 </NavLink>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <NavLink to="user/billing">
+                <NavLink to="billing">
                   <CreditCard />
                   Billing
                 </NavLink>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <NavLink to="user/notifications">
+                <NavLink to="approvals">
+                  <CircleCheck />
+                  Approvals
+                </NavLink>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <NavLink to="notifications">
                   <Bell />
                   Notifications
                 </NavLink>

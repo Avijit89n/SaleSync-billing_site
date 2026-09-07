@@ -1,98 +1,116 @@
 import mongoose from "mongoose";
-import bcrypt from 'bcrypt';
-import apiError from '../utils/apiError.js'
+import bcrypt from "bcrypt";
+import apiError from "../utils/apiError.js";
 import jwt from "jsonwebtoken";
-import crypto from "crypto";
 
-const userSchema = new mongoose.Schema({
-    fullName: {
-        type: String,
-        required: true,
+const userSchema = new mongoose.Schema(
+    {
+        fullName: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+        avatar: {
+            type: String,
+            default: null,
+        },
+        email: {
+            type: String,
+            unique: true,
+            required: true,
+            trim: true,
+            lowercase: true,
+        },
+        password: {
+            type: String,
+            required: true,
+        },
+        role: {
+            type: String,
+            enum: ["superadmin", "admin"],
+            default: "admin",
+        },
+        refreshToken: {
+            type: String,
+            default: null,
+        },
+        rateLimit: {
+            type: Number,
+            default: 0,
+        },
+        isVerified: {
+            type: Boolean,
+            default: false,
+        },
+        verificationOTP: {
+            type: String,
+            default: null,
+        },
+        verificationOTPExpiry: {
+            type: Date,
+            default: null,
+        },
+        approvalStatus: {
+            type: String,
+            enum: ["pending", "approved", "rejected"],
+            default: "pending",
+        },
+        registrationExpiry: {
+            type: Date,
+            default: () => new Date(Date.now() + 2 * 60 * 60 * 1000),
+            index: {
+                expireAfterSeconds: 0,
+            },
+        },
     },
-    avatar: {
-        type: String
-    },
-    email: {
-        type: String,
-        unique: true,
-        required: true,
-        trim: true,
-        lowercase: true,
-    },
-    password: {
-        type: String,
-        required: true,
-    },
-    refreshToken: {
-        type: String,
-    },
-    rateLimit: {
-        type: Number,
-        default: 0
-    },
-    varifyChecker: {
-        type: Boolean,
-        default: false
-    },
-    isVerified: {
-        type: Boolean,
-        default: false
-    },
-    verificationToken: {
-        type: String,
-        default: null
-    },
-    verificationTokenExpiry: {
-        type: Date,
-        expires: 0
+    {
+        timestamps: true,
     }
-}, { timestamps: true })
+);
 
 userSchema.pre("save", async function () {
     try {
-        if (!this.isModified("password")) return next();
+        if (!this.isModified("password")) {
+            return;
+        }
 
         this.password = await bcrypt.hash(this.password, 10);
-        console.log('Successfully hashed your password');
+        console.log("Successfully hashed your password");
     } catch (error) {
-        new apiError("Password Hashing failed", 500, error);
+        throw new apiError(
+            "Password Hashing failed",
+            500,
+            error
+        );
     }
 });
 
-userSchema.methods.generateVerificationToken = () => {
-  try {
-    const token = crypto.randomBytes(32).toString("hex") // plain token
-  
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex")
-  
-    return { token, hashedToken }       
-  } catch (error) {
-    throw new apiError("Failed to generate email verification token", 500, error);
-  }
-}
-
-userSchema.methods.compareVerificationToken = async function (token) {
-    try {
-        const hashedToken = crypto
-            .createHash("sha256")
-            .update(token)
-            .digest("hex")
-        return this.verificationToken === hashedToken;
-    } catch (error) {
-        throw new apiError("Failed to compare verification token", 500, error);
-    }
-}
-
 userSchema.methods.comparePassword = async function (password) {
     try {
-        return await bcrypt.compare(password, this.password);
+        return await bcrypt.compare(
+            password,
+            this.password
+        );
     } catch (error) {
-        throw new apiError("Failed to compare password", 500, error);
+        throw new apiError(
+            "Failed to compare password",
+            500,
+            error
+        );
     }
-}
+};
+
+userSchema.methods.compareVerificationOTP = function (otp) {
+    try {
+        return this.verificationOTP === otp;
+    } catch (error) {
+        throw new apiError(
+            "Failed to compare verification OTP",
+            500,
+            error
+        );
+    }
+};
 
 userSchema.methods.generateAccessToken = function () {
     return jwt.sign(
@@ -100,18 +118,19 @@ userSchema.methods.generateAccessToken = function () {
             _id: this._id,
             email: this.email,
             fullName: this.fullName,
+            role: this.role,
             isVerified: this.isVerified,
+            approvalStatus: this.approvalStatus,
             createdAt: this.createdAt,
             updatedAt: this.updatedAt,
-            varifyChecker: this.varifyChecker,
-            rateLimit: this.rateLimit
+            rateLimit: this.rateLimit,
         },
         process.env.ACCESS_TOKEN_SECRET,
         {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+            expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
         }
-    )
-}
+    );
+};
 
 userSchema.methods.generateRefreshToken = function () {
     return jwt.sign(
@@ -120,9 +139,9 @@ userSchema.methods.generateRefreshToken = function () {
         },
         process.env.REFRESH_TOKEN_SECRET,
         {
-            expiresIn: process.env.REFRESH_TOKEN_EXPIRY
+            expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
         }
-    )
-}
+    );
+};
 
-export const User = mongoose.model('User', userSchema);
+export const User = mongoose.model("User", userSchema);
