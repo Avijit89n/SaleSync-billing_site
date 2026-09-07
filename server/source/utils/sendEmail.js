@@ -11,41 +11,20 @@ const __dirname = path.dirname(__filename);
 // GOOGLE CREDENTIALS
 // ======================================================
 
-const credentialsPath = path.resolve(
-    __dirname,
-    "../../credentials.json"
-);
 
-const tokenPath = path.resolve(
-    __dirname,
-    "../../token.json"
-);
+// const { client_id, client_secret } = credentials.web;
+const client_id = process.env.GMAIL_CLIENT_ID;
+const client_secret = process.env.GMAIL_CLIENT_SECRET;
+const gmail_refresh_token = process.env.GMAIL_REFRESH_TOKEN;
 
-const credentials = JSON.parse(
-    fs.readFileSync(credentialsPath, "utf8")
-);
-
-const { client_id, client_secret } = credentials.web;
-
-const token = JSON.parse(
-    fs.readFileSync(tokenPath, "utf8")
-);
 
 // ======================================================
 // GMAIL AUTHENTICATION
 // ======================================================
 
-const auth = new google.auth.OAuth2(
-    client_id,
-    client_secret
-);
-
-auth.setCredentials(token);
-
-const gmail = google.gmail({
-    version: "v1",
-    auth,
-});
+const auth = new google.auth.OAuth2(client_id, client_secret);
+auth.setCredentials({ refresh_token: gmail_refresh_token });
+const gmail = google.gmail({ version: "v1", auth, });
 
 // ======================================================
 // BASE64URL ENCODER
@@ -59,17 +38,9 @@ const encodeMessage = (message) => {
         .replace(/=+$/, "");
 };
 
-// ======================================================
-// EMAIL VALIDATION
-// ======================================================
-
 const isValidEmail = (email) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
-
-// ======================================================
-// SEND VERIFICATION EMAIL
-// ======================================================
 
 export const sendEmail = async (to, otp) => {
     try {
