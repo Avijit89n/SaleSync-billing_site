@@ -1,390 +1,397 @@
-import nodemailer from "nodemailer";
+import fs from "fs";
+import path from "path";
+import crypto from "crypto";
+import { google } from "googleapis";
+import { fileURLToPath } from "url";
 
-// =====================================================
-// ENVIRONMENT CHECK
-// =====================================================
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-console.log("========================================");
-console.log("SaleSync Email Configuration");
-console.log("EMAIL:", process.env.ADMIN_EMAIL);
-console.log(
-    "EMAIL PASSWORD EXISTS:",
-    !!process.env.ADMIN_EMAIL_PASS
+// ======================================================
+// GOOGLE CREDENTIALS
+// ======================================================
+
+const credentialsPath = path.resolve(
+    __dirname,
+    "../../credentials.json"
 );
-console.log(
-    "EMAIL PASSWORD LENGTH:",
-    process.env.ADMIN_EMAIL_PASS?.length
+
+const tokenPath = path.resolve(
+    __dirname,
+    "../../token.json"
 );
-console.log("========================================");
 
-// =====================================================
-// GMAIL SMTP
-// =====================================================
+const credentials = JSON.parse(
+    fs.readFileSync(credentialsPath, "utf8")
+);
 
-const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-        user: process.env.ADMIN_EMAIL,
-        pass: process.env.ADMIN_EMAIL_PASS,
-    },
+const { client_id, client_secret } = credentials.web;
+
+const token = JSON.parse(
+    fs.readFileSync(tokenPath, "utf8")
+);
+
+// ======================================================
+// GMAIL AUTHENTICATION
+// ======================================================
+
+const auth = new google.auth.OAuth2(
+    client_id,
+    client_secret
+);
+
+auth.setCredentials(token);
+
+const gmail = google.gmail({
+    version: "v1",
+    auth,
 });
 
-// =====================================================
-// SMTP CONNECTION TEST
-// =====================================================
+// ======================================================
+// BASE64URL ENCODER
+// ======================================================
 
-transporter.verify((error) => {
-    if (error) {
-        console.error("========================================");
-        console.error("❌ SMTP CONNECTION FAILED");
-        console.error("code:", error.code);
-        console.error("command:", error.command);
-        console.error("response:", error.response);
-        console.error("message:", error.message);
-        console.error("========================================");
-    } else {
-        console.log("========================================");
-        console.log("✅ SMTP CONNECTION SUCCESSFUL");
-        console.log("========================================");
-    }
-});
+const encodeMessage = (message) => {
+    return Buffer.from(message, "utf8")
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+};
 
-// =====================================================
-// SEND EMAIL
-// =====================================================
+// ======================================================
+// EMAIL VALIDATION
+// ======================================================
+
+const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+// ======================================================
+// SEND VERIFICATION EMAIL
+// ======================================================
 
 export const sendEmail = async (to, otp) => {
     try {
-        const info = await transporter.sendMail({
-            from:
-                '"SaleSync" <' +
-                process.env.ADMIN_EMAIL +
-                ">",
+        if (!to || !isValidEmail(to)) {
+            throw new Error("Invalid recipient email address");
+        }
 
-            to: to,
+        if (!otp) {
+            throw new Error("OTP is required");
+        }
 
-            subject: "Your SaleSync verification code",
+        const senderEmail = "salesync.official@gmail.com";
 
-            html: `
+        // Unique ID for every email
+        const messageId = `<${crypto.randomUUID()}@gmail.com>`;
+
+        // ==================================================
+        // PLAIN TEXT VERSION
+        // ==================================================
+
+        const text = `
+Verify your SaleSync email address
+
+Your verification code is:
+
+${otp}
+
+This code expires in 10 minutes.
+
+If you did not create a SaleSync account, you can ignore this email.
+
+SaleSync
+        `.trim();
+
+        // ==================================================
+        // HTML VERSION
+        // ==================================================
+
+        const html = `
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
-
-<title>SaleSync Verification Code</title>
-
-<style>
-
-html,
-body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-}
-
-body,
-td,
-th {
-    font-family:
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        Roboto,
-        Helvetica,
-        Arial,
-        sans-serif;
-
-    color: #18181B;
-    line-height: 1.6;
-}
-
-.wrapper {
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    background-color: #F4F4F5;
-    padding: 40px 12px;
-    overflow-x: hidden;
-}
-
-.main-card {
-    width: 100%;
-    max-width: 480px;
-    margin: 0 auto;
-    box-sizing: border-box;
-    background-color: #ffffff;
-    border-radius: 8px;
-
-    box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.1),
-        0 1px 2px rgba(0, 0, 0, 0.06);
-
-    overflow: hidden;
-}
-
-.header {
-    padding: 32px 32px 0;
-    text-align: center;
-    box-sizing: border-box;
-}
-
-.brand-name {
-    font-size: 26px;
-    font-weight: 800;
-    color: #ff6f00;
-    letter-spacing: -0.5px;
-    margin: 0;
-}
-
-.tagline {
-    font-size: 13px;
-    color: #71717A;
-    font-weight: 500;
-    margin-top: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.content {
-    padding: 32px;
-    box-sizing: border-box;
-}
-
-.h1-title {
-    font-size: 20px;
-    font-weight: 600;
-    margin: 0 0 16px;
-    text-align: center;
-}
-
-.text-body {
-    font-size: 15px;
-    color: #3F3F46;
-    margin-bottom: 24px;
-    text-align: center;
-}
-
-.otp-container {
-    width: 100%;
-    max-width: 100%;
-    text-align: center;
-    margin: 32px 0;
-    box-sizing: border-box;
-    overflow: hidden;
-}
-
-.otp-box {
-    display: inline-block;
-    max-width: 100%;
-    box-sizing: border-box;
-    background-color: #FFF7ED;
-    border: 1px solid #FED7AA;
-    border-radius: 10px;
-    padding: 18px 28px;
-}
-
-.otp {
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: 8px;
-    color: #EA580C;
-    line-height: 1;
-
-    font-family:
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        Roboto,
-        Helvetica,
-        Arial,
-        sans-serif;
-
-    white-space: nowrap;
-}
-
-.expiry {
-    text-align: center;
-    font-size: 13px;
-    color: #71717A;
-    margin-top: 24px;
-}
-
-.divider {
-    height: 1px;
-    background-color: #E4E4E7;
-    margin: 24px 0;
-    border: none;
-}
-
-.footer {
-    width: 100%;
-    box-sizing: border-box;
-    background-color: #F4F4F5;
-    padding: 24px;
-    text-align: center;
-    font-size: 12px;
-    color: #A1A1AA;
-}
-
-@media only screen and (max-width: 520px) {
-
-    html,
-    body {
-        width: 100%;
-        max-width: 100%;
-        overflow-x: hidden;
-    }
-
-    .wrapper {
-        width: 100%;
-        max-width: 100%;
-        padding: 20px 12px;
-        box-sizing: border-box;
-        overflow-x: hidden;
-    }
-
-    .main-card {
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
-    }
-
-    .header {
-        padding: 28px 20px 0;
-    }
-
-    .content {
-        padding: 24px 20px;
-    }
-
-    .otp-container {
-        width: 100%;
-        max-width: 100%;
-        overflow: hidden;
-    }
-
-    .otp-box {
-        max-width: 100%;
-        padding: 16px 20px;
-    }
-
-    .otp {
-        font-size: 28px;
-        letter-spacing: 6px;
-    }
-
-    .footer {
-        width: 100%;
-        box-sizing: border-box;
-    }
-}
-
-</style>
-
+    <title>SaleSync Verification Code</title>
 </head>
 
-<body>
+<body
+    style="
+        margin:0;
+        padding:0;
+        background:#f4f4f5;
+        font-family:Arial,Helvetica,sans-serif;
+        color:#18181b;
+    "
+>
 
-<div class="wrapper">
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="background:#f4f4f5;"
+>
 
-<div class="main-card">
+<tr>
+<td
+    align="center"
+    style="padding:40px 16px;"
+>
 
-<div class="header">
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="
+        max-width:480px;
+        background:#ffffff;
+        border:1px solid #e4e4e7;
+        border-radius:10px;
+    "
+>
 
-<div class="brand-name">
+<!-- HEADER -->
+
+<tr>
+<td
+    align="center"
+    style="padding:30px 24px 10px;"
+>
+
+<div
+    style="
+        font-size:25px;
+        font-weight:bold;
+        color:#ea580c;
+    "
+>
     SaleSync
 </div>
 
-<div class="tagline">
-    Sync sales. Simplify billing.
-</div>
+</td>
+</tr>
 
-</div>
+<!-- CONTENT -->
 
-<div class="content">
+<tr>
+<td
+    style="
+        padding:20px 32px 32px;
+    "
+>
 
-<hr class="divider">
-
-<h1 class="h1-title">
+<h1
+    style="
+        margin:0 0 18px;
+        font-size:21px;
+        line-height:1.4;
+        font-weight:600;
+        text-align:center;
+        color:#18181b;
+    "
+>
     Verify your email address
 </h1>
 
-<p class="text-body">
-    You recently registered for a SaleSync account.
-    Use the verification code below to verify your email address
-    and secure your account.
+<p
+    style="
+        margin:0 0 24px;
+        font-size:15px;
+        line-height:1.6;
+        color:#52525b;
+        text-align:center;
+    "
+>
+    Enter the verification code below to complete
+    your SaleSync registration.
 </p>
 
-<div class="otp-container">
+<!-- OTP -->
 
-<div class="otp-box">
+<table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+>
 
-<div class="otp">
+<tr>
+<td align="center">
+
+<div
+    style="
+        display:inline-block;
+        padding:18px 26px;
+        background:#fff7ed;
+        border:1px solid #fed7aa;
+        border-radius:8px;
+    "
+>
+
+<span
+    style="
+        font-size:30px;
+        line-height:1;
+        font-weight:bold;
+        letter-spacing:7px;
+        color:#ea580c;
+    "
+>
     ${otp}
-</div>
+</span>
 
 </div>
 
-</div>
+</td>
+</tr>
 
-<p class="expiry">
-    This verification code expires in
-    <strong>10 minutes</strong>.
-</p>
-
-<hr class="divider">
+</table>
 
 <p
-    class="text-body"
-    style="font-size:13px;margin-bottom:0;color:#71717A;"
+    style="
+        margin:22px 0 0;
+        font-size:13px;
+        line-height:1.5;
+        color:#71717a;
+        text-align:center;
+    "
 >
-    If you didn't create a SaleSync account,
+    This code expires in <strong>10 minutes</strong>.
+</p>
+
+<hr
+    style="
+        margin:28px 0;
+        border:0;
+        border-top:1px solid #e4e4e7;
+    "
+>
+
+<p
+    style="
+        margin:0;
+        font-size:13px;
+        line-height:1.6;
+        color:#71717a;
+        text-align:center;
+    "
+>
+    If you did not create a SaleSync account,
     you can safely ignore this email.
 </p>
 
-</div>
+</td>
+</tr>
 
-<div class="footer">
-    &copy; ${new Date().getFullYear()}
-    SaleSync Inc. All rights reserved.
-</div>
+<!-- FOOTER -->
 
-</div>
+<tr>
+<td
+    align="center"
+    style="
+        padding:20px 24px;
+        background:#fafafa;
+        border-top:1px solid #f4f4f5;
+        border-radius:0 0 10px 10px;
+    "
+>
 
-</div>
+<p
+    style="
+        margin:0;
+        font-size:12px;
+        line-height:1.5;
+        color:#a1a1aa;
+    "
+>
+    This is an automated message from SaleSync.
+</p>
+
+</td>
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+</table>
 
 </body>
-
 </html>
-            `,
+        `.trim();
+
+        // ==================================================
+        // MULTIPART MIME EMAIL
+        // ==================================================
+
+        const boundary = `SaleSyncBoundary_${crypto.randomUUID()}`;
+
+        const message = [
+            `From: SaleSync <${senderEmail}>`,
+            `To: ${to}`,
+            `Reply-To: ${senderEmail}`,
+            `Subject: Your SaleSync verification code`,
+            `Date: ${new Date().toUTCString()}`,
+            `Message-ID: ${messageId}`,
+            `MIME-Version: 1.0`,
+            `Auto-Submitted: auto-generated`,
+            `Content-Type: multipart/alternative; boundary="${boundary}"`,
+            "",
+            `--${boundary}`,
+            `Content-Type: text/plain; charset="UTF-8"`,
+            `Content-Transfer-Encoding: 8bit`,
+            "",
+            text,
+            "",
+            `--${boundary}`,
+            `Content-Type: text/html; charset="UTF-8"`,
+            `Content-Transfer-Encoding: 8bit`,
+            "",
+            html,
+            "",
+            `--${boundary}--`,
+        ].join("\r\n");
+
+        // ==================================================
+        // SEND THROUGH GMAIL API
+        // ==================================================
+
+        const response = await gmail.users.messages.send({
+            userId: "me",
+            requestBody: {
+                raw: encodeMessage(message),
+            },
         });
 
-        console.log(
-            "✅ Verification OTP email sent:",
-            info.messageId
-        );
+        console.log("========================================");
+        console.log("✅ SALESync OTP EMAIL SENT");
+        console.log("========================================");
+        console.log("Recipient:", to);
+        console.log("Message ID:", response.data.id);
+        console.log("========================================");
 
-        return info;
+        return response.data;
 
     } catch (error) {
 
         console.error("========================================");
-        console.error("❌ EMAIL SENDING FAILED");
-        console.error("code:", error.code);
-        console.error("command:", error.command);
-        console.error("response:", error.response);
-        console.error("responseCode:", error.responseCode);
-        console.error("message:", error.message);
+        console.error("❌ GMAIL API EMAIL ERROR");
+        console.error("========================================");
+
+        console.error(
+            error.response?.data || error.message
+        );
+
         console.error("========================================");
 
         throw error;
