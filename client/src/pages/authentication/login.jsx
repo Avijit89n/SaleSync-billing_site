@@ -38,6 +38,12 @@ export function Login({ className, ...props }) {
                     return res?.message || "Login successful"
                 },
                 error: (err) => {
+                    if (err?.message === "Please verify your email before logging In")
+                        navigate("/auth/verification", {
+                            state: {
+                                email: loginData.email,
+                            },
+                        });
                     return err?.message || "Something went wrong"
                 },
             }

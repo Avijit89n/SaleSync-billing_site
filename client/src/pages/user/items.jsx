@@ -48,7 +48,6 @@ import {
 } from "@/redux/features/itemSlice.js";
 
 import InfiniteScroll from "react-infinite-scroll-component";
-import Loader2 from "@/components/loaders/loader2";
 import { toast } from "sonner";
 
 /* -------------------------------------------------------------------------- */

@@ -45,6 +45,12 @@ export function Register({ className, ...props }) {
                 },
             });
         } catch (err) {
+            if (err?.message === "Email already exists but is not verified. Please verify your email.")
+                navigate("/auth/verification", {
+                    state: {
+                        email: registerData.email,
+                    },
+                });
             toast.error(
                 err?.message || "Something went wrong"
             );

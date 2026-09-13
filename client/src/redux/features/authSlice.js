@@ -5,10 +5,7 @@ const initialState = {
   user: null,
   isAuthenticated: false,
   loading: false,
-  error: null,
-  accountUsers: [],
-  pendingRequests: [],
-  accountStats: null,
+  error: null
 };
 
 export const userLoginReq = createAsyncThunk(
@@ -16,18 +13,6 @@ export const userLoginReq = createAsyncThunk(
   async (data, thunkAPI) => {
     try {
       const res = await api.post("/auth/login", data);
-      return res.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data || "Failed to login");
-    }
-  }
-);
-
-export const directLoginReq = createAsyncThunk(
-  "auth/direct-login",
-  async (data, thunkAPI) => {
-    try {
-      const res = await api.post("/auth/direct-login", data);
       return res.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response?.data || "Failed to login");
@@ -83,91 +68,6 @@ export const userLogoutReq = createAsyncThunk(
   }
 );
 
-export const getCurrentAccountReq = createAsyncThunk(
-  "auth/get-current-account",
-  async (_, thunkAPI) => {
-    try {
-      const res = await api.get("/auth/account/me");
-      return res.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data || "Failed to fetch account");
-    }
-  }
-);
-
-export const getAccountUsersReq = createAsyncThunk(
-  "auth/get-account-users",
-  async (_, thunkAPI) => {
-    try {
-      const res = await api.get("/auth/account/users");
-      return res.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data || "Failed to fetch users");
-    }
-  }
-);
-
-export const getAccountStatsReq = createAsyncThunk(
-  "auth/get-account-stats",
-  async (_, thunkAPI) => {
-    try {
-      const res = await api.get("/auth/account/stats");
-      return res.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data || "Failed to fetch account statistics");
-    }
-  }
-);
-
-export const getPendingRequestsReq = createAsyncThunk(
-  "auth/get-pending-requests",
-  async (_, thunkAPI) => {
-    try {
-      const res = await api.get("/auth/account/approval/pending");
-      return res.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data || "Failed to fetch pending requests");
-    }
-  }
-);
-
-export const approveAdminRequestReq = createAsyncThunk(
-  "auth/approve-admin",
-  async (id, thunkAPI) => {
-    try {
-      const res = await api.get(`/auth/account/approval/${id}/approve`);
-      console.log("Approve Admin Response:", res.data);
-      return res.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data || "Failed to approve admin");
-    }
-  }
-);
-
-export const rejectAdminRequestReq = createAsyncThunk(
-  "auth/reject-admin",
-  async (id, thunkAPI) => {
-    try {
-      const res = await api.get(`/auth/account/approval/${id}/reject`);
-      return res.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data || "Failed to reject admin");
-    }
-  }
-);
-
-export const deleteAdminReq = createAsyncThunk(
-  "auth/delete-admin",
-  async (id, thunkAPI) => {
-    try {
-      const res = await api.delete(`/auth/account/users/${id}`);
-      return res.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.response?.data || "Failed to delete admin");
-    }
-  }
-);
-
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -183,9 +83,6 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.loading = false;
       state.error = null;
-      state.accountUsers = [];
-      state.pendingRequests = [];
-      state.accountStats = null;
     },
     clearAuthError: (state) => {
       state.error = null;
@@ -255,18 +152,12 @@ const authSlice = createSlice({
         state.user = null;
         state.isAuthenticated = false;
         state.error = null;
-        state.accountUsers = [];
-        state.pendingRequests = [];
-        state.accountStats = null;
       })
       .addCase(userLogoutReq.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
         state.user = null;
         state.isAuthenticated = false;
-        state.accountUsers = [];
-        state.pendingRequests = [];
-        state.accountStats = null;
       })
 
       .addCase(checkUserAuthReq.pending, (state) => {
@@ -285,147 +176,6 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.error = action.payload;
       })
-
-      .addCase(directLoginReq.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(directLoginReq.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload?.data?.user || action.payload?.user || null;
-        state.isAuthenticated = true;
-        state.error = null;
-      })
-      .addCase(directLoginReq.rejected, (state, action) => {
-        state.loading = false;
-        state.user = null;
-        state.isAuthenticated = false;
-        state.error = action.payload;
-      })
-
-      .addCase(getCurrentAccountReq.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getCurrentAccountReq.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload?.data?.user || action.payload?.user || state.user;
-        state.error = null;
-      })
-      .addCase(getCurrentAccountReq.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-
-      .addCase(getAccountUsersReq.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getAccountUsersReq.fulfilled, (state, action) => {
-        state.loading = false;
-        state.accountUsers = action.payload?.data?.users || action.payload?.users || [];
-        state.error = null;
-      })
-      .addCase(getAccountUsersReq.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-
-      .addCase(getAccountStatsReq.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getAccountStatsReq.fulfilled, (state, action) => {
-        state.loading = false;
-        state.accountStats = action.payload?.data?.stats || action.payload?.stats || null;
-        state.error = null;
-      })
-      .addCase(getAccountStatsReq.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-
-      .addCase(getPendingRequestsReq.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getPendingRequestsReq.fulfilled, (state, action) => {
-        state.loading = false;
-        state.pendingRequests = action.payload?.data?.users || action.payload?.users || [];
-        state.error = null;
-      })
-      .addCase(getPendingRequestsReq.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-
-      .addCase(approveAdminRequestReq.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(approveAdminRequestReq.fulfilled, (state, action) => {
-        state.loading = false;
-        const approvedUser = action.payload?.data?.user || action.payload?.user;
-
-        if (approvedUser) {
-          state.pendingRequests = state.pendingRequests.filter(
-            (user) => String(user._id) !== String(approvedUser._id)
-          );
-
-          const alreadyExists = state.accountUsers.some(
-            (user) => String(user._id) === String(approvedUser._id)
-          );
-
-          if (!alreadyExists) {
-            state.accountUsers.push(approvedUser);
-          }
-        }
-        state.error = null;
-      })
-      .addCase(approveAdminRequestReq.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-
-      .addCase(rejectAdminRequestReq.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(rejectAdminRequestReq.fulfilled, (state, action) => {
-        state.loading = false;
-        const rejectedUser = action.payload?.data?.user || action.payload?.user;
-
-        if (rejectedUser) {
-          state.pendingRequests = state.pendingRequests.filter(
-            (user) => String(user._id) !== String(rejectedUser._id)
-          );
-        }
-        state.error = null;
-      })
-      .addCase(rejectAdminRequestReq.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-
-      .addCase(deleteAdminReq.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(deleteAdminReq.fulfilled, (state, action) => {
-        state.loading = false;
-        const deletedUser = action.payload?.data?.user || action.payload?.user;
-
-        if (deletedUser) {
-          state.accountUsers = state.accountUsers.filter(
-            (user) => String(user._id) !== String(deletedUser._id)
-          );
-        }
-        state.error = null;
-      })
-      .addCase(deleteAdminReq.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
   },
 });
 
