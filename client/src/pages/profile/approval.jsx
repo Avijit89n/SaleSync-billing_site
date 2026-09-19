@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   Mail,
   CalendarDays,
+  Loader2 as LucideLoader,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import api from "@/axios/interceptor.js";
@@ -14,9 +15,6 @@ import Loader2 from "@/components/loaders/loader2";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 
 export default function PendingRequests() {
@@ -70,6 +68,11 @@ export default function PendingRequests() {
     try {
       await api.post('/auth/approve-reject-req', { id, action });
       setPending((current) => current.filter((item) => item._id !== id));
+      if (action === "Reject") {
+        toast.success("Request rejected successfully");
+      } else {
+        toast.success("Request approved successfully");
+      }
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to perform action. Please try Again");
     } finally {
@@ -93,7 +96,7 @@ export default function PendingRequests() {
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
             <Clock3 className="text-orange-500" size={28} />
             Pending Requests
-            <Badge variant="secondary">
+            <Badge variant="secondary" className="ml-2">
               {pending?.length} {pending.length === 1 ? "Request" : "Requests"}
             </Badge>
           </h1>
@@ -129,7 +132,6 @@ export default function PendingRequests() {
                       {String(index + 1).padStart(2, "0")}
                     </span>
                   </div>
-
                   <div className="relative shrink-0">
                     <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-slate-100 text-sm font-bold text-slate-600 sm:h-14 sm:w-14 sm:rounded-[18px]">
                       {getInitials(request.fullName)}
@@ -138,7 +140,6 @@ export default function PendingRequests() {
                       <Clock3 className="h-2.5 w-2.5 text-white" />
                     </div>
                   </div>
-
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate text-sm font-bold text-slate-900 sm:text-base">
@@ -165,7 +166,6 @@ export default function PendingRequests() {
                     </div>
                   </div>
                 </div>
-
                 <div className="flex shrink-0 flex-col gap-4 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between xl:border-0 xl:pt-0">
                   <div className="flex items-center gap-5 sm:gap-6">
                     <div className="min-w-0">
@@ -179,9 +179,7 @@ export default function PendingRequests() {
                         </span>
                       </div>
                     </div>
-
                     <div className="hidden h-8 w-px shrink-0 bg-slate-100 sm:block" />
-
                     <div className="min-w-0">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
                         Status
@@ -194,13 +192,12 @@ export default function PendingRequests() {
                       </div>
                     </div>
                   </div>
-
                   <div className="mt-2 flex items-center gap-2 sm:mt-0 xl:ml-4">
                     <button
                       disabled={buttonLoading}
                       onClick={() => {
-                        setOpen(true);
                         setUserID(request?._id);
+                        setOpen(true);
                       }}
                       className="flex h-10 w-full min-w-[90px] flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-500 transition-all hover:border-red-100 hover:bg-red-50 hover:text-red-500 disabled:pointer-events-none disabled:opacity-50 sm:w-auto xl:flex-none"
                     >
@@ -212,7 +209,11 @@ export default function PendingRequests() {
                       onClick={() => approveRequest(request?._id, "Approve")}
                       className="flex h-10 w-full min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 text-xs font-semibold text-white transition-all hover:bg-orange-600 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 sm:w-auto xl:flex-none"
                     >
-                      <Check className="h-4 w-4 shrink-0" />
+                      {buttonLoading && !open ? (
+                        <LucideLoader className="h-4 w-4 animate-spin shrink-0" />
+                      ) : (
+                        <Check className="h-4 w-4 shrink-0" />
+                      )}
                       <span>Approve</span>
                     </button>
                   </div>
@@ -233,31 +234,45 @@ export default function PendingRequests() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-900">
-              Reject Request
-            </DialogTitle>
-            <DialogDescription className="mt-2 text-sm text-slate-500">
-              Are you sure you want to reject this access request? This action cannot be undone and will permanently remove it from the pending list.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="mt-6 flex items-center justify-end gap-3">
-            <button
-              onClick={() => setOpen(false)}
-              disabled={buttonLoading}
-              className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => approveRequest(userID, "Reject")}
-              disabled={buttonLoading}
-              className="rounded-xl bg-red-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-600 disabled:pointer-events-none disabled:opacity-70"
-            >
-              Confirm Reject
-            </button>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-[26px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,0.20)] sm:rounded-[32px]">
+          <div className="h-24 w-full bg-gradient-to-br from-red-100/60 via-slate-50 to-slate-100/50" />
+          <div className="px-6 pb-6 pt-0 sm:px-8 sm:pb-8">
+            <div className="-mt-10 mb-5 flex justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-red-50 text-red-600 shadow-sm">
+                <X size={32} strokeWidth={2} />
+              </div>
+            </div>
+            <div className="text-center text-slate-950">
+              <h2 className="text-lg font-bold tracking-tight">Reject Request?</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                Are you sure you want to reject this access request? This action cannot be undone and will permanently remove it from the pending list.
+              </p>
+            </div>
+            <div className="mt-8 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={buttonLoading}
+                onClick={() => setOpen(false)}
+                className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={buttonLoading}
+                onClick={() => approveRequest(userID, "Reject")}
+                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-600 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-70"
+              >
+                {buttonLoading ? (
+                  <>
+                    <LucideLoader size={16} className="animate-spin" />
+                    Rejecting...
+                  </>
+                ) : (
+                  "Confirm Reject"
+                )}
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -6,7 +6,8 @@ import {
     userVerification,
     checkUser,
     getAllPendingReq,
-    approveReq
+    approveReq,
+    getAllUser
 } from "../controllers/user.controller.js";
 import upload from "../middlewares/multer.middlewares.js";
 import verifyToken from "../middlewares/verifyToken.middlewares.js";
@@ -23,5 +24,7 @@ router.route("/logout").get(verifyToken, tokensVerification, userLogout);
 router.route("/check-user-auth").get(verifyToken, tokensVerification, checkUser);
 router.route("/get-all-request").get(verifyToken, tokensVerification, getAllPendingReq);
 router.route("/approve-reject-req").post(verifyToken, tokensVerification, approveReq);
+router.route("/get-all-user").get(verifyToken, tokensVerification, getAllUser);
+
 
 export default router;

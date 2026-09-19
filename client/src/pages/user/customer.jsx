@@ -11,29 +11,19 @@ import {
   IndianRupee,
   X,
   Loader2 as LucideLoader,
-  RefreshCw,
 } from "lucide-react";
-
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
-
 import { Button } from "@/components/ui/button";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
 import { Input } from "@/components/ui/input";
-
 import {
   Table,
   TableBody,
@@ -42,16 +32,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
 import { useNavigate } from "react-router-dom";
-
 import {
   clearSearchedCustomers,
   customerSearchReq,
   getAllCustomerReq,
   deleteCustomerReq,
 } from "@/redux/features/customerSlice";
-
 import { useDispatch, useSelector } from "react-redux";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { toast } from "sonner";
@@ -73,33 +60,27 @@ const TableSkeletonRow = ({ index }) => {
           <div className="h-3 w-20 rounded-md bg-slate-100" />
         </div>
       </TableCell>
-
       <TableCell className="px-4 py-4">
         <div className="mx-auto h-4 w-28 rounded-md bg-slate-200" />
       </TableCell>
-
       <TableCell className="px-4 py-4">
         <div className="mx-auto h-4 w-40 rounded-md bg-slate-200" />
       </TableCell>
-
       <TableCell className="px-4 py-4">
         <div className="mx-auto h-7 w-10 rounded-md bg-slate-200" />
       </TableCell>
-
       <TableCell className="px-4 py-4">
         <div className="flex flex-col items-center gap-2">
           <div className="h-4 w-24 rounded-md bg-slate-200" />
           <div className="h-2.5 w-14 rounded-md bg-slate-100" />
         </div>
       </TableCell>
-
       <TableCell className="px-4 py-4">
         <div className="flex flex-col items-center gap-2">
           <div className="h-4 w-24 rounded-md bg-slate-200" />
           <div className="h-2.5 w-16 rounded-md bg-slate-100" />
         </div>
       </TableCell>
-
       <TableCell className="px-3 py-4">
         <div className="mx-auto h-8 w-8 rounded-md bg-slate-200" />
       </TableCell>
@@ -117,7 +98,6 @@ const MobileSkeletonCard = ({ index }) => {
         </div>
         <div className="h-8 w-8 rounded-md bg-slate-100" />
       </div>
-
       <div className="mt-5 space-y-3">
         <div className="flex items-center gap-2">
           <div className="h-4 w-4 rounded-full bg-slate-200" />
@@ -128,7 +108,6 @@ const MobileSkeletonCard = ({ index }) => {
           <div className="h-4 w-40 rounded-md bg-slate-100" />
         </div>
       </div>
-
       <div className="mt-5 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4">
         <div className="rounded-lg bg-slate-100 px-2 py-3">
           <div className="mx-auto h-2.5 w-10 rounded bg-slate-200" />
@@ -162,7 +141,6 @@ const DesktopTableSkeleton = () => {
             <TableHead className="min-w-[70px] w-[70px] px-3 text-center" />
           </TableRow>
         </TableHeader>
-
         <TableBody>
           {Array.from({ length: 6 }).map((_, index) => (
             <TableSkeletonRow index={index} key={index} />
@@ -209,16 +187,12 @@ const EmptyState = ({ isSearching, searchQuery, onAddCustomer }) => {
         Your customer list is empty. Add your first customer to start managing their billing information.
       </p>
       <Button onClick={onAddCustomer} className="mt-5 bg-orange-500 shadow-sm hover:bg-orange-600">
-        <Plus size={17} />
+        <Plus size={17} className="mr-1" />
         Add Customer
       </Button>
     </div>
   );
 };
-
-/* -------------------------------------------------------------------------- */
-/* Customer Actions                                                           */
-/* -------------------------------------------------------------------------- */
 
 const CustomerActions = ({ singleItem, navigate, setDialogOpen, setCustomerName }) => {
   return (
@@ -228,13 +202,12 @@ const CustomerActions = ({ singleItem, navigate, setDialogOpen, setCustomerName 
           <MoreHorizontal size={17} />
         </Button>
       </DropdownMenuTrigger>
-
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => navigate(`/user/edit-customer/${singleItem?._id}`)}>
           Edit
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="text-red-600 focus:text-red-600"
+          className="text-red-600 focus:text-red-600 focus:bg-red-50"
           onClick={() => {
             setCustomerName(singleItem);
             setDialogOpen(true);
@@ -247,10 +220,6 @@ const CustomerActions = ({ singleItem, navigate, setDialogOpen, setCustomerName 
   );
 };
 
-/* -------------------------------------------------------------------------- */
-/* Desktop Row                                                                */
-/* -------------------------------------------------------------------------- */
-
 const CustomTableRow = ({ singleItem, navigate, setDialogOpen, setCustomerName }) => {
   const pendingAmount = Number(singleItem?.pendingAmount || 0);
 
@@ -259,7 +228,6 @@ const CustomTableRow = ({ singleItem, navigate, setDialogOpen, setCustomerName }
       className="group cursor-pointer border-b border-slate-100 transition-all duration-200 hover:bg-orange-50/40 hover:shadow-[inset_3px_0_0_0_#f97316]"
       onClick={() => navigate(`/user/customer-information/${singleItem._id}`)}
     >
-      {/* Name */}
       <TableCell className="px-4 py-4 text-center align-middle" title={singleItem.displayName}>
         <div className="flex min-w-0 w-full flex-col items-center justify-center">
           <span className="max-w-full break-words text-center font-semibold leading-5 text-slate-800 transition-colors whitespace-normal group-hover:text-orange-600">
@@ -275,27 +243,19 @@ const CustomTableRow = ({ singleItem, navigate, setDialogOpen, setCustomerName }
           )}
         </div>
       </TableCell>
-
-      {/* Phone */}
       <TableCell className="px-4 py-4 text-center align-middle" title={singleItem.workingPhone}>
         <span className="whitespace-nowrap font-medium text-blue-600">{singleItem.workingPhone}</span>
       </TableCell>
-
-      {/* Email */}
       <TableCell className="px-4 py-4 text-center align-middle" title={singleItem.email || "No email"}>
         <span className="break-words text-sm leading-5 text-slate-500 whitespace-normal">
           {singleItem.email || "—"}
         </span>
       </TableCell>
-
-      {/* Bills */}
       <TableCell className="px-4 py-4 text-center align-middle">
         <span className="inline-flex h-7 min-w-[36px] items-center justify-center rounded-md bg-orange-50 px-2 text-sm font-semibold text-orange-600">
           {singleItem?.totalBills || 0}
         </span>
       </TableCell>
-
-      {/* Sales */}
       <TableCell className="px-4 py-4 text-center align-middle">
         <div className="flex flex-col items-center">
           <span className="whitespace-nowrap font-semibold text-slate-800">
@@ -304,8 +264,6 @@ const CustomTableRow = ({ singleItem, navigate, setDialogOpen, setCustomerName }
           <span className="mt-0.5 text-[10px] text-slate-400">Total billed</span>
         </div>
       </TableCell>
-
-      {/* Pending */}
       <TableCell className="px-4 py-4 text-center align-middle">
         <div className="flex flex-col items-center">
           <span className={`whitespace-nowrap font-semibold ${pendingAmount > 0 ? "text-red-600" : "text-emerald-600"}`}>
@@ -316,8 +274,6 @@ const CustomTableRow = ({ singleItem, navigate, setDialogOpen, setCustomerName }
           </span>
         </div>
       </TableCell>
-
-      {/* Actions */}
       <TableCell onClick={(e) => e.stopPropagation()} className="px-3 py-4 text-center align-middle">
         <CustomerActions
           singleItem={singleItem}
@@ -330,10 +286,6 @@ const CustomTableRow = ({ singleItem, navigate, setDialogOpen, setCustomerName }
   );
 };
 
-/* -------------------------------------------------------------------------- */
-/* Mobile Card                                                                */
-/* -------------------------------------------------------------------------- */
-
 const MobileCustomerCard = ({ singleItem, navigate, setDialogOpen, setCustomerName }) => {
   const pendingAmount = Number(singleItem?.pendingAmount || 0);
 
@@ -342,7 +294,6 @@ const MobileCustomerCard = ({ singleItem, navigate, setDialogOpen, setCustomerNa
       className="group cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:border-orange-200 hover:shadow-md"
       onClick={() => navigate(`/user/customer-information/${singleItem._id}`)}
     >
-      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="break-words text-[15px] font-semibold leading-5 text-slate-800 whitespace-normal">
@@ -363,8 +314,6 @@ const MobileCustomerCard = ({ singleItem, navigate, setDialogOpen, setCustomerNa
           />
         </div>
       </div>
-
-      {/* Contact */}
       <div className="mt-4 grid grid-cols-1 gap-2">
         <div className="flex min-w-0 items-center gap-2 text-sm">
           <Phone size={14} className="shrink-0 text-blue-500" />
@@ -377,10 +326,7 @@ const MobileCustomerCard = ({ singleItem, navigate, setDialogOpen, setCustomerNa
           </span>
         </div>
       </div>
-
-      {/* Stats */}
       <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4">
-        {/* Bills */}
         <div className="rounded-lg bg-slate-50 px-2 py-2.5 text-center">
           <div className="mb-1 flex items-center justify-center gap-1 text-slate-400">
             <Receipt size={12} />
@@ -388,8 +334,6 @@ const MobileCustomerCard = ({ singleItem, navigate, setDialogOpen, setCustomerNa
           </div>
           <p className="text-sm font-semibold text-slate-800">{singleItem?.totalBills || 0}</p>
         </div>
-
-        {/* Sales */}
         <div className="rounded-lg bg-orange-50/70 px-2 py-2.5 text-center">
           <div className="mb-1 flex items-center justify-center gap-1 text-orange-500">
             <IndianRupee size={12} />
@@ -397,8 +341,6 @@ const MobileCustomerCard = ({ singleItem, navigate, setDialogOpen, setCustomerNa
           </div>
           <p className="truncate text-sm font-semibold text-slate-800">{formatCurrency(singleItem?.totalSales)}</p>
         </div>
-
-        {/* Pending */}
         <div className={`rounded-lg px-2 py-2.5 text-center ${pendingAmount > 0 ? "bg-red-50" : "bg-emerald-50"}`}>
           <div className={`mb-1 flex items-center justify-center gap-1 ${pendingAmount > 0 ? "text-red-500" : "text-emerald-500"}`}>
             <IndianRupee size={12} />
@@ -413,16 +355,13 @@ const MobileCustomerCard = ({ singleItem, navigate, setDialogOpen, setCustomerNa
   );
 };
 
-
 export default function Customer() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDebouncing, setIsDebouncing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
-
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
   const initialFetchStarted = useRef(false);
 
   const {
@@ -437,49 +376,38 @@ export default function Customer() {
     searchNextCursor,
   } = useSelector((state) => state.customer);
 
-
   const fetchCustomers = async (limit = 10, cursor = undefined) => {
     if (customerLoading) return;
-
     try {
       await dispatch(getAllCustomerReq({ limit, lastCreatedAt: cursor })).unwrap();
     } catch (error) {
       toast.error(error?.message || "Unable to load customers");
     }
   };
-  
 
   const handleDeleting = async (e, id) => {
     e.preventDefault();
-
     if (!id || deleteLoading) return;
-
     try {
       await dispatch(deleteCustomerReq(id)).unwrap();
       toast.success("Customer deleted successfully");
-
       setDialogOpen(false);
       setCustomerName("");
     } catch (error) {
       toast.error(error?.message || `Failed to delete customer ${customerName?.displayName || ""}`);
     }
   };
-  
 
   useEffect(() => {
     if (initialFetchStarted.current) return;
-
     initialFetchStarted.current = true;
-
     if (customers.length === 0) {
       fetchCustomers(10);
     }
   }, []);
-  
 
   useEffect(() => {
     const trimmedQuery = searchQuery.trim();
-
     if (trimmedQuery.length < 2) {
       dispatch(clearSearchedCustomers());
       setIsDebouncing(false);
@@ -491,15 +419,9 @@ export default function Customer() {
 
     const timer = setTimeout(() => {
       setIsDebouncing(false);
-
-      requestPromise = dispatch(
-        customerSearchReq({ search: trimmedQuery, limit: 10, cursor: null })
-      );
-
+      requestPromise = dispatch(customerSearchReq({ search: trimmedQuery, limit: 10, cursor: null }));
       requestPromise.unwrap().catch((err) => {
-        if (err?.name === "AbortError" || err === "Request canceled") {
-          return;
-        }
+        if (err?.name === "AbortError" || err === "Request canceled") return;
         toast.error(err?.message || "Unable to search customers");
       });
     }, 350);
@@ -511,21 +433,13 @@ export default function Customer() {
       }
     };
   }, [searchQuery, dispatch]);
-  
 
   const searchPagination = async (limit = 10, cursor) => {
-    if (searchQuery.trim().length < 2 || searchLoading || !cursor) {
-      return;
-    }
-
+    if (searchQuery.trim().length < 2 || searchLoading || !cursor) return;
     try {
-      await dispatch(
-        customerSearchReq({ search: searchQuery.trim(), limit, cursor })
-      ).unwrap();
+      await dispatch(customerSearchReq({ search: searchQuery.trim(), limit, cursor })).unwrap();
     } catch (error) {
-      if (error?.name === "AbortError" || error === "Request canceled") {
-        return;
-      }
+      if (error?.name === "AbortError" || error === "Request canceled") return;
       toast.error(error?.message || "Unable to load more customers");
     }
   };
@@ -537,16 +451,17 @@ export default function Customer() {
   const isLoading = isInitialLoading || isInitialSearchLoading;
   const showEmptyState = !isLoading && !customerLoading && !searchLoading && displayedCustomers.length === 0;
 
-
   const handleClearSearch = () => {
     setSearchQuery("");
     dispatch(clearSearchedCustomers());
   };
 
+  function isSearchActive(searchQuery, isDebouncing, searchLoading) {
+    return searchQuery.trim().length >= 2 && (isDebouncing || searchLoading);
+  }
 
   return (
     <div className="animate-fade-in-scale px-4 py-4 opacity-0 transition-all duration-500 sm:px-6 md:px-12 md:py-6">
-
       <div className="mb-7 flex flex-col items-start justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-center">
         <div className="space-y-2">
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
@@ -560,7 +475,6 @@ export default function Customer() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 py-4 sm:flex-nowrap">
-        {/* Search */}
         <div className="relative w-full max-w-sm">
           <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <Input
@@ -585,12 +499,11 @@ export default function Customer() {
           )}
         </div>
 
-        {/* Add */}
         <Button
           onClick={() => navigate("/user/add-customer")}
           className="shrink-0 bg-orange-500 shadow-sm transition-all hover:bg-orange-600 active:scale-[0.98]"
         >
-          <Plus size={18} />
+          <Plus size={18} className="mr-1" />
           Add Customer
         </Button>
       </div>
@@ -627,24 +540,15 @@ export default function Customer() {
             ) : null
           }
         >
-
           {isInitialSearchLoading ? (
             <div className="mt-1">
               <DesktopTableSkeleton />
               <MobileTableSkeleton />
             </div>
           ) : showEmptyState ? (
-            <EmptyState
-              isSearching={isSearching}
-              searchQuery={searchQuery}
-              onAddCustomer={() => navigate("/user/add-customer")}
-            />
+            <EmptyState isSearching={isSearching} searchQuery={searchQuery} onAddCustomer={() => navigate("/user/add-customer")} />
           ) : (
-            /* ---------------------------------------------------------- */
-            /* Data                                                       */
-            /* ---------------------------------------------------------- */
             <>
-              {/* Desktop */}
               <div className="hidden w-full overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)] md:block">
                 <Table className="min-w-[1100px] w-full table-auto">
                   <TableHeader>
@@ -672,7 +576,6 @@ export default function Customer() {
                 </Table>
               </div>
 
-              {/* Mobile */}
               <div className="space-y-3 md:hidden">
                 {displayedCustomers.map((singleItem) => (
                   <MobileCustomerCard
@@ -689,7 +592,6 @@ export default function Customer() {
         </InfiniteScroll>
       )}
 
-
       <Dialog
         open={dialogOpen}
         onOpenChange={(open) => {
@@ -701,58 +603,58 @@ export default function Customer() {
           }
         }}
       >
-        <DialogContent className="fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-md !-translate-x-1/2 !-translate-y-1/2 rounded-xl bg-white p-6">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="shrink-0 rounded-full border border-rose-100 bg-rose-50 p-2.5 text-rose-600">
-                <AlertTriangle size={20} />
-              </div>
-              <div className="min-w-0">
-                <DialogTitle className="text-base font-bold text-gray-900">
-                  Delete Customer <span className="break-words">{customerName?.displayName}</span>?
-                </DialogTitle>
-                <DialogDescription className="mt-0.5 text-xs text-gray-500">
-                  This action will permanently delete the customer.
-                </DialogDescription>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-[26px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,0.20)] sm:rounded-[32px]">
+          <div className="h-24 w-full bg-gradient-to-br from-red-100/60 via-slate-50 to-slate-100/50" />
+          
+          <div className="px-6 pb-6 pt-0 sm:px-8 sm:pb-8">
+            <div className="-mt-10 mb-5 flex justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-red-50 text-red-600 shadow-sm">
+                <AlertTriangle size={32} strokeWidth={2} />
               </div>
             </div>
-          </DialogHeader>
 
-          <DialogFooter className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={deleteLoading}
-              onClick={() => {
-                setDialogOpen(false);
-                setCustomerName("");
-              }}
-              className="w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={deleteLoading}
-              className="min-w-[125px] w-full bg-red-600 text-white hover:bg-red-700 sm:w-auto"
-              onClick={(e) => handleDeleting(e, customerName?._id)}
-            >
-              {deleteLoading ? (
-                <>
-                  <LucideLoader size={16} className="animate-spin" /> Deleting...
-                </>
-              ) : (
-                "Confirm Delete"
-              )}
-            </Button>
-          </DialogFooter>
+            <div className="text-center text-slate-950">
+              <h2 className="text-lg font-bold tracking-tight">Delete Customer?</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                Are you sure you want to permanently delete{" "}
+                <span className="font-semibold text-slate-900">{customerName?.displayName}</span>
+                ? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="mt-8 grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={deleteLoading}
+                onClick={() => {
+                  setDialogOpen(false);
+                  setCustomerName("");
+                }}
+                className="h-11 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 active:scale-[0.98]"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={deleteLoading}
+                onClick={(e) => handleDeleting(e, customerName?._id)}
+                className="h-11 rounded-xl bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]"
+              >
+                {deleteLoading ? (
+                  <>
+                    <LucideLoader size={16} className="mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Confirm Delete"
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
   );
-}
-
-function isSearchActive(searchQuery, isDebouncing, searchLoading) {
-  return searchQuery.trim().length >= 2 && (isDebouncing || searchLoading);
 }

@@ -245,16 +245,25 @@ const approveReq = async (req, res) => {
     console.log("Approve/Reject Request Error:", error);
 
     if (error instanceof apiError) {
-      return res.status(error.statusCode).json(
-        new apiResponse(error.message, error.statusCode, null)
-      );
+      throw new apiError(error.message, error.statusCode, null)
     }
-
-    return res.status(500).json(
-      new apiResponse("Something went wrong while processing the request", 500, null)
-    );
+    throw new apiError("Something went wrong while processing the request", 500)
   }
 };
+
+const getAllUser = async(req, res) => {
+  try {
+    const allUser = await User.find({approvalStatus: "approved"}).select("fullName email createdAt role isVerified")
+    if(!allUser){
+      throw new apiError("Failed to get the user Information", 500)
+    }
+    return res.status(200).json(
+      new apiResponse("Users fetched successfully", 200, allUser)
+    )
+  } catch (error) {
+    throw new apiError("Failed to get User Info", 500)
+  }
+}
 
 
 export {
@@ -264,5 +273,6 @@ export {
   userVerification,
   checkUser,
   getAllPendingReq,
-  approveReq
+  approveReq,
+  getAllUser
 };

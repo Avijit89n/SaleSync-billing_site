@@ -8,13 +8,10 @@ import Invoices from "./pages/user/invoices.jsx"
 import AllPayment from "./pages/user/allPayment.jsx"
 import DuePayment from "./pages/user/duePayment.jsx"
 import PageNotFound from "./pages/errors/pageNotFound.jsx"
-import DeliveryChallan from "./pages/user/deliveryChallan.jsx"
 import Reports from "./pages/user/reports.jsx"
 import Expenses from "./pages/user/expenses.jsx"
 import Account from "./pages/profile/account.jsx"
-import Billing from "./pages/profile/billing.jsx"
 import Approval from "./pages/profile/approval.jsx"
-import Notification from "./pages/profile/notification.jsx"
 import AuthLayout from "./pages/layout/Auth.Layout.jsx"
 import AddInvoice from "./pages/user/addInvoice.jsx"
 import Direction from "./pages/layout/direction.Layout.jsx"
@@ -33,6 +30,7 @@ import CustomerInformation from "./pages/user/customerInformation.jsx"
 import { Login } from "./pages/authentication/login.jsx"
 import { Register } from "./pages/authentication/register.jsx"
 import OTP from "./pages/authentication/otp.jsx"
+import AllUsers from "./pages/profile/allUsers.jsx"
 
 function App() {
   const dispatch = useDispatch();
@@ -107,9 +105,8 @@ function App() {
         <Route path="reports" element={<Reports />} />
         <Route path="expenses" element={<Expenses />} />
         <Route path="account" element={<Account />} />
-        <Route path="billing" element={<Billing />} />
+        <Route path="all-users" element={<AllUsers />} />
         <Route path="approvals" element={<Approval />} />
-        <Route path="notifications" element={<Notification />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

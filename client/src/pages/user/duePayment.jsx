@@ -45,11 +45,6 @@ export default function DuePayment() {
 
         {/* Actions */}
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2">
-          <Button variant="outline" onClick={() => navigate(-1)} className="w-full sm:w-auto border-slate-200 text-slate-600 hover:bg-slate-50">
-            <ArrowLeft size={17} />
-            Go Back
-          </Button>
-
           <Button
             onClick={() => navigate("/user")}
             className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 shadow-sm transition-all active:scale-[0.98]"
