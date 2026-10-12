@@ -156,7 +156,7 @@ export default function Invoices() {
           <Button variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors rounded-md" onClick={(e) => e.stopPropagation()}><MoreHorizontal size={17} /></Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-40">
-          <DropdownMenuItem className="cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/user/check-invoice/${invoiceId}`); }}>View Details</DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/user/check-invoice/${invoiceId}`); }}>{t("Invoices.ViewDetails")}</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50" onClick={(e) => { e.stopPropagation(); handleOpenCancelDialog(singleInvoice); }}>{t("Invoices.VoidInvoice")}</DropdownMenuItem>
         </DropdownMenuContent>

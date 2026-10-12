@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useBlocker, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CircleQuestionMark, UserPlus, ArrowLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { addCustomerReq } from '@/redux/features/customerSlice';
-
 const countries = [
     "India",
     "United States",
@@ -21,7 +20,6 @@ const countries = [
     "United Arab Emirates",
     "Singapore"
 ];
-
 const indianStates = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
     "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
@@ -29,7 +27,6 @@ const indianStates = [
     "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
     "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
 ];
-
 const initialCustomerData = {
     customerType: "Individual",
     customerName: "",
@@ -62,17 +59,58 @@ const initialCustomerData = {
         fax: "",
     },
 };
-
 const labelCls = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
 const inputCls = "w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed";
-
 function AddCustomer() {
     const { t } = useTranslation();
     const [customerData, setCustomerData] = useState(initialCustomerData);
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { customerLoading } = useSelector((state) => state.customer);
-
+    // Detect changes compared with the original, empty customer form.
+    const hasUnsavedChanges = useMemo(
+        () => JSON.stringify(customerData) !== JSON.stringify(initialCustomerData),
+        [customerData]
+    );
+    const savedRef = useRef(false);
+    const unsavedMessage = t('CustomerForm.UnsavedChanges.Message', {
+        defaultValue: 'You have unsaved customer information. Are you sure you want to leave this page? Your changes will be lost.',
+    });
+    // Blocks React Router navigation from links, sidebar, breadcrumbs, and Back/Forward.
+    const blocker = useBlocker(
+        ({ currentLocation, nextLocation }) =>
+            hasUnsavedChanges &&
+            !savedRef.current &&
+            currentLocation.pathname !== nextLocation.pathname
+    );
+    useEffect(() => {
+        if (blocker.state !== 'blocked') return;
+        if (window.confirm(unsavedMessage)) {
+            blocker.proceed();
+        } else {
+            blocker.reset();
+        }
+    }, [blocker, unsavedMessage]);
+    // Browsers show their own confirmation when the user refreshes/closes the page.
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (!hasUnsavedChanges || savedRef.current) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasUnsavedChanges]);
+    const confirmLeave = () => {
+        if (!hasUnsavedChanges || savedRef.current) return true;
+        return window.confirm(unsavedMessage);
+    };
+    const handleCancel = () => {
+        if (!confirmLeave()) return;
+        savedRef.current = true;
+        setCustomerData(initialCustomerData);
+        navigate('/user/customer');
+    };
     const handleSubmit = async (e) => {
         e.preventDefault();
         const absolutePayload = {
@@ -86,6 +124,7 @@ function AddCustomer() {
             {
                 loading: t("CustomerForm.Add.Toast.Loading"),
                 success: (res) => {
+                    savedRef.current = true;
                     setCustomerData(initialCustomerData);
                     navigate("/user/customer");
                     return res?.message || t("CustomerForm.Add.Toast.Success");
@@ -96,7 +135,6 @@ function AddCustomer() {
             }
         );
     };
-
     return (
         <div className="transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-6 py-4 md:px-12 md:py-6 font-sans">
             <form onSubmit={handleSubmit} className="space-y-12">
@@ -115,7 +153,7 @@ function AddCustomer() {
                     <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Field className="space-y-1">
                             <FieldLabel htmlFor="display-name" className={labelCls}>
-                                {t("CustomerForm.Fields.CustomerName")} <span className='text-orange-500'>*</span>
+                                {t("CustomerForm.Fields.CustomerName")} <span className='text-orange-500'>\*</span>
                             </FieldLabel>
                             <Input
                                 disabled={customerLoading}
@@ -129,7 +167,7 @@ function AddCustomer() {
                         </Field>
                         <Field className="space-y-1">
                             <FieldLabel htmlFor="phone" className={labelCls}>
-                                {t("CustomerForm.Fields.WorkPhone")} <span className='text-orange-500'>*</span>
+                                {t("CustomerForm.Fields.WorkPhone")} <span className='text-orange-500'>\*</span>
                             </FieldLabel>
                             <Input
                                 disabled={customerLoading}
@@ -353,10 +391,7 @@ function AddCustomer() {
                         type="button"
                         variant="outline"
                         className="border-slate-200 hover:border-slate-300 text-slate-600 bg-white text-sm h-10 px-5 font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        onClick={() => {
-                            setCustomerData(initialCustomerData);
-                            navigate("/user/customer");
-                        }}
+                        onClick={handleCancel}
                     >
                         {t("CustomerForm.Actions.Cancel")}
                     </Button>
@@ -372,5 +407,4 @@ function AddCustomer() {
         </div>
     );
 }
-
 export default AddCustomer;

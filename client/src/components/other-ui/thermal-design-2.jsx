@@ -1,6 +1,5 @@
 import React from "react";
 import { Document, Page, Text, View, Image, StyleSheet, Font } from "@react-pdf/renderer";
-
 Font.register({
   family: "NotoSansDevanagari",
   fonts: [
@@ -8,7 +7,6 @@ Font.register({
     { src: "/fonts/NotoSansDevanagari-Bold.ttf", fontWeight: "bold" },
   ],
 });
-
 Font.register({
   family: "NotoSansBengali",
   fonts: [
@@ -16,28 +14,23 @@ Font.register({
     { src: "/fonts/NotoSansBengali-Bold.ttf", fontWeight: "bold" },
   ],
 });
-
 const parseChildrenToString = (child) => {
   if (Array.isArray(child)) return child.map(parseChildrenToString).join("");
   if (child == null || typeof child === "boolean") return "";
   return String(child);
 };
-
 const UnicodeText = ({ children, style }) => {
   const text = parseChildrenToString(children);
   const hasDevanagari = /[\u0900-\u097F]/.test(text);
   const hasBengali = /[\u0980-\u09FF]/.test(text);
-
   let fontFamily = style?.fontFamily || "Helvetica";
   if (hasBengali) {
     fontFamily = "NotoSansBengali";
   } else if (hasDevanagari) {
     fontFamily = "NotoSansDevanagari";
   }
-
   return <Text style={[style, { fontFamily }]}>{text}</Text>;
 };
-
 const styles = StyleSheet.create({
   page: { width: 226, paddingTop: 14, paddingHorizontal: 11, paddingBottom: 14, backgroundColor: "#ffffff", color: "#111827", fontFamily: "Helvetica", fontSize: 8 },
   header: { alignItems: "center", paddingBottom: 9 },
@@ -61,13 +54,18 @@ const styles = StyleSheet.create({
   customerText: { fontSize: 6.8, color: "#4b5563", marginTop: 2, lineHeight: 1.25 },
   itemsSection: { marginTop: 10 },
   itemsTitle: { fontSize: 7, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 },
-  itemRow: { paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: "#d1d5db" },
+  itemHeader: { flexDirection: "row", justifyContent: "space-between", paddingBottom: 4, marginBottom: 3, borderBottomWidth: 0.8, borderBottomColor: "#6b7280" },
+  itemHeaderText: { fontSize: 6.2, fontWeight: "bold", color: "#111827", textTransform: "uppercase", letterSpacing: 0.5 },
+  itemRow: { paddingTop: 5, paddingBottom: 6, paddingHorizontal: 2, marginBottom: 2, borderBottomWidth: 0.6, borderBottomColor: "#d1d5db" },
   itemTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  itemName: { flex: 1, paddingRight: 6, fontSize: 8, fontWeight: "bold", lineHeight: 1.2 },
-  itemAmount: { width: 62, fontSize: 8, fontWeight: "bold", textAlign: "right" },
-  itemBottom: { flexDirection: "row", justifyContent: "space-between", marginTop: 2 },
-  itemCalculation: { flex: 1, fontSize: 6.5, color: "#6b7280" },
-  itemDiscount: { fontSize: 6.5, color: "#15803d", textAlign: "right" },
+  itemName: { flex: 1, paddingRight: 5, fontSize: 7.4, fontWeight: "bold", lineHeight: 1.2, color: "#111827" },
+  itemAmount: { width: 66, fontSize: 8, fontWeight: "bold", textAlign: "right", color: "#111827" },
+  itemDetails: { flexDirection: "row", justifyContent: "space-between", marginTop: 3 },
+  itemDetail: { flex: 1 },
+  itemDetailLabel: { fontSize: 5.5, color: "#6b7280", textTransform: "uppercase", marginBottom: 1 },
+  itemDetailValue: { fontSize: 6.2, color: "#374151", fontWeight: "bold" },
+  qtyText: { fontSize: 6.1, color: "#6b7280", marginTop: 2 },
+  itemDiscount: { fontSize: 6.2, color: "#15803d", fontWeight: "bold", marginTop: 2 },
   itemDescription: { fontSize: 6.2, color: "#6b7280", marginTop: 2, lineHeight: 1.2 },
   summary: { marginTop: 7, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#111827" },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2.5 },
@@ -108,12 +106,10 @@ const styles = StyleSheet.create({
   watermark: { position: "absolute", top: 300, left: 0, right: 0, alignItems: "center" },
   watermarkText: { fontSize: 30, fontWeight: "bold", color: "#111827", opacity: 0.035, transform: "rotate(-35deg)" },
 });
-
 const estimateLines = (text, charsPerLine) => {
   if (!text) return 0;
   return String(text).split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / charsPerLine)), 0);
 };
-
 export default function ThermalInvoice2({
   companyInfo,
   companyLogo,
@@ -142,41 +138,33 @@ export default function ThermalInvoice2({
   const paid = Math.max(Number(paidAmount) || 0, 0);
   const balance = balanceAmount !== undefined ? Math.max(Number(balanceAmount) || 0, 0) : Math.max(total - paid, 0);
   const status = paymentStatus || (total <= 0 ? "Unpaid" : balance <= 0 ? "Paid" : paid > 0 ? "Partially Paid" : "Unpaid");
-
   const money = (value) => `Rs. ${(Number(value) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
   const formatDate = (value) => {
     if (!value) return "N/A";
     const parsed = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(parsed.getTime())) return String(value);
     return parsed.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   };
-
   const address = selectedCustomer?.billingAddress || {};
   const customerAddress = [address.street1, address.street2, [address.city, address.state, address.pincode].filter(Boolean).join(", "), address.country].filter(Boolean).join(", ");
   const companyName = companyInfo?.companyName || "YOUR COMPANY NAME";
-
   const companyHeaderHeight = 77 + (companyLogo ? 50 : 0) + (companyInfo?.address ? 11 : 0) + (companyInfo?.phone ? 9 : 0) + (companyInfo?.email ? 9 : 0) + (companyInfo?.gstin ? 9 : 0);
   const customerHeight = 35 + (selectedCustomer?.companyName ? 9 : 0) + (selectedCustomer?.workingPhone || selectedCustomer?.phone ? 9 : 0) + (selectedCustomer?.email ? 9 : 0) + Math.max(1, estimateLines(customerAddress, 43)) * 7.5;
-  
   const itemHeight = items.reduce((height, item) => {
     if (!item) return height;
     const name = item.itemName || item.name || "Unnamed Item";
     const description = item.itemDescription || item.description || "";
     const discount = Number(item.itemDiscountAmount ?? item.discountAmount ?? 0) || 0;
-    return height + 18 + estimateLines(name, 31) * 8 + (description ? estimateLines(description, 38) * 7 : 0) + (discount > 0 ? 2 : 0) + 12;
+    return height + 32 + estimateLines(name, 28) * 9 + (description ? estimateLines(description, 38) * 7 : 0) + (discount > 0 ? 8 : 0);
   }, 0);
-  
   const paymentHeight = 57 + (paymentList.length > 0 ? 17 + paymentList.length * 11 : 0);
   const notesHeight = notes ? 22 + estimateLines(notes, 49) * 7 : 0;
   const termsHeight = terms ? 22 + estimateLines(terms, 49) * 7 : 0;
   const signatureHeight = companySignature ? 56 : 0;
   const thankYouHeight = 31;
   const footerHeight = 23;
-  const safetySpace = 18;
-
-  const receiptHeight = 14 + companyHeaderHeight + 7 + 48 + 8 + customerHeight + 8 + 25 + itemHeight + 63 + paymentHeight + notesHeight + termsHeight + signatureHeight + thankYouHeight + footerHeight + safetySpace;
-
+  const safetySpace = 100;
+  const receiptHeight = companyHeaderHeight + 7 + 48 + 8 + customerHeight + 8 + 25 + itemHeight + 63 + paymentHeight + notesHeight + termsHeight + signatureHeight + thankYouHeight + footerHeight + safetySpace;
   return (
     <Document title={`Thermal-Invoice-${invoiceNumberSequence || "Invoice"}`}>
       <Page size={[226, receiptHeight]} style={styles.page}>
@@ -185,7 +173,6 @@ export default function ThermalInvoice2({
             <Text style={styles.watermarkText}>PREVIEW</Text>
           </View>
         )}
-
         <View style={styles.header}>
           {companyLogo && <Image src={companyLogo} style={styles.logo} />}
           <UnicodeText style={styles.companyName}>{companyName}</UnicodeText>
@@ -198,7 +185,6 @@ export default function ThermalInvoice2({
           </View>
           <Text style={styles.invoiceNumber}>#{invoiceNumberSequence}</Text>
         </View>
-
         <View style={styles.metaBox}>
           <View style={styles.metaRow}>
             <Text style={styles.metaLeft}>Invoice Date</Text>
@@ -213,7 +199,6 @@ export default function ThermalInvoice2({
             <Text style={status === "Paid" ? styles.statusPaid : status === "Partially Paid" ? styles.statusPartial : styles.statusUnpaid}>{status}</Text>
           </View>
         </View>
-
         <View style={styles.customerBox}>
           <Text style={styles.customerLabel}>Billed To</Text>
           <UnicodeText style={styles.customerName}>{selectedCustomer?.displayName || "Walk-in Customer"}</UnicodeText>
@@ -222,35 +207,49 @@ export default function ThermalInvoice2({
           {selectedCustomer?.email && <UnicodeText style={styles.customerText}>{selectedCustomer.email}</UnicodeText>}
           {customerAddress && <UnicodeText style={styles.customerText}>{customerAddress}</UnicodeText>}
         </View>
-
         <View style={styles.itemsSection}>
           <Text style={styles.itemsTitle}>Items</Text>
+          <View style={styles.itemHeader}>
+            <Text style={styles.itemHeaderText}>Product details</Text>
+            <Text style={styles.itemHeaderText}>Final amount</Text>
+          </View>
           {items.map((item, index) => {
             if (!item) return null;
             const quantity = Number(item.quantity) || 0;
-            const rate = Number(item.itemSellingPrice ?? item.sellingPrice) || 0;
+            const rate = Number(item.itemSellingPrice ?? item.sellingPrice ?? item.rate) || 0;
+            const mrp = Number(item.itemMRP ?? item.mrp ?? item.MRP ?? item.itemMrp) || 0;
             const discount = Number(item.itemDiscountAmount ?? item.discountAmount ?? 0) || 0;
             const hasDiscount = discount > 0;
             const amount = Math.max(quantity * rate - discount, 0);
             const name = item.itemName || item.name || "Unnamed Item";
             const description = item.itemDescription || item.description;
-
+            const unit = item.itemUnit || item.unit || "pcs";
             return (
               <View key={item._id || index} style={styles.itemRow} wrap={false}>
                 <View style={styles.itemTop}>
-                  <UnicodeText style={styles.itemName}>{name}{hasDiscount ? "*" : ""}</UnicodeText>
+                  <UnicodeText style={styles.itemName}>{name}{hasDiscount ? " *" : ""}</UnicodeText>
                   <Text style={styles.itemAmount}>{money(amount)}</Text>
                 </View>
-                <View style={styles.itemBottom}>
-                  <Text style={styles.itemCalculation}>{quantity} × {money(rate)}</Text>
-                  {hasDiscount && <Text style={styles.itemDiscount}>{money(discount)} off</Text>}
+                <View style={styles.itemDetails}>
+                  <View style={styles.itemDetail}>
+                    <Text style={styles.itemDetailLabel}>MRP</Text>
+                    <Text style={styles.itemDetailValue}>{mrp > 0 ? money(mrp) : "—"}</Text>
+                  </View>
+                  <View style={styles.itemDetail}>
+                    <Text style={styles.itemDetailLabel}>Rate</Text>
+                    <Text style={styles.itemDetailValue}>{money(rate)}</Text>
+                  </View>
+                  <View style={[styles.itemDetail, { alignItems: "flex-end" }]}>
+                    <Text style={styles.itemDetailLabel}>Quantity</Text>
+                    <Text style={styles.itemDetailValue}>{quantity} {unit}</Text>
+                  </View>
                 </View>
+                {hasDiscount && <Text style={styles.itemDiscount}>* Discount applied: {money(discount)} off</Text>}
                 {description && <UnicodeText style={styles.itemDescription}>{description}</UnicodeText>}
               </View>
             );
           })}
         </View>
-
         <View style={styles.summary}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
@@ -271,7 +270,6 @@ export default function ThermalInvoice2({
             <Text style={styles.totalValue}>{money(total)}</Text>
           </View>
         </View>
-
         <View style={styles.paymentSection}>
           <Text style={styles.paymentTitle}>Payment</Text>
           <View style={styles.paymentBox}>
@@ -300,21 +298,18 @@ export default function ThermalInvoice2({
             )}
           </View>
         </View>
-
         {notes && (
           <View style={styles.noteSection}>
             <Text style={styles.noteTitle}>Notes</Text>
             <UnicodeText style={styles.noteText}>{notes}</UnicodeText>
           </View>
         )}
-
         {terms && (
           <View style={styles.noteSection}>
             <Text style={styles.noteTitle}>Terms & Conditions</Text>
             <UnicodeText style={styles.noteText}>{terms}</UnicodeText>
           </View>
         )}
-
         {companySignature && (
           <View style={styles.signatureSection}>
             <Image src={companySignature} style={styles.signatureImage} />
@@ -323,12 +318,10 @@ export default function ThermalInvoice2({
             <Text style={styles.signatureSub}>Authorized Signatory</Text>
           </View>
         )}
-
         <View style={styles.thankYou}>
           <Text style={styles.thankYouText}>Thank you for your business!</Text>
           <Text style={styles.thankYouSub}>Please retain this receipt for your records.</Text>
         </View>
-
         <View style={styles.footer}>
           <Text style={styles.footerText}>E.&O.E. • Computer generated invoice</Text>
           <Text style={styles.footerBrand}>SaleSync</Text>

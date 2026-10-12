@@ -228,7 +228,7 @@ function AddItems() {
                   <SelectItem value="pcs">{t("AddEditItem.unitTypes.Pcs")} (Pcs)</SelectItem>
                   <SelectItem value="ml">{t("AddEditItem.unitTypes.ml")} (ml)</SelectItem>
                   <SelectItem value="l">{t("AddEditItem.unitTypes.L")} (L)</SelectItem>
-                  <SelectItem value="packet">{t("AddEditItem.unitTypes.packet")}</SelectItem>
+                  <SelectItem value="packet">{t("AddEditItem.unitTypes.packet")}</SelectItem> 
                   <SelectItem value="bora">{t("AddEditItem.unitTypes.bora")}</SelectItem>
                   <SelectItem value="peti">{t("AddEditItem.unitTypes.peti")}</SelectItem>
                   <SelectItem value="bundle">{t("AddEditItem.unitTypes.bundle")}</SelectItem>

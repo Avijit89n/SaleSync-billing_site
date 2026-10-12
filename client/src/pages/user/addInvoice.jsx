@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useBlocker } from 'react-router-dom';
 import { Plus, Trash2, FilePlus2, UserCheck, AlertCircle, AlertTriangle, MapPin, Mail, Search, ImageIcon, Eye, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import InfiniteScroll from "react-infinite-scroll-component";
@@ -47,6 +47,12 @@ import InvoiceDesign3 from '@/components/other-ui/invoice-design-3';
 import InvoiceDesign4 from '@/components/other-ui/invoice-design-4';
 import ThermalInvoice1 from '@/components/other-ui/thermal-design-1';
 import ThermalInvoice2 from '@/components/other-ui/thermal-design-2';
+import ThermalInvoice1Hindi from '@/components/other-ui/thermal-design-1-hindi';
+import ThermalInvoice2Hindi from '@/components/other-ui/thermal-design-2-hindi';
+import InvoiceDesign1Hindi from "@/components/other-ui/invoice-design-1-hindi";
+import InvoiceDesign2Hindi from "@/components/other-ui/invoice-design-2-hindi";
+import InvoiceDesign3Hindi from "@/components/other-ui/invoice-design-3-hindi";
+import InvoiceDesign4Hindi from "@/components/other-ui/invoice-design-4-hindi";
 import { addInvoiceReq } from '@/redux/features/invoiceSlice';
 import api from '@/axios/interceptor';
 
@@ -147,6 +153,91 @@ function AddInvoice() {
 
   const customerAbortRef = useRef(null);
   const itemAbortRef = useRef(null);
+  const baselineSignatureRef = useRef(null);
+  const preselectedBaselineSetRef = useRef(false);
+  const savedRef = useRef(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Compare the actual invoice draft with its original values. This means adding
+  // and then removing a customer/item returns the form to clean state.
+  const draftSignature = useMemo(() => JSON.stringify({
+    customer: selectedCustomer || null,
+    items: itemData.map(({ _rowId, ...item }) => item),
+    notes,
+    terms,
+    taxRate,
+    paymentStatus,
+    paidAmount,
+    paymentMethod,
+    paymentNote,
+    invoiceIssueDate: invoiceIssueDate ? new Date(invoiceIssueDate).toISOString() : null,
+    invoiceDueDate: invoiceDueDate ? new Date(invoiceDueDate).toISOString() : null,
+  }), [
+    selectedCustomer, itemData, notes, terms, taxRate, paymentStatus, paidAmount,
+    paymentMethod, paymentNote, invoiceIssueDate, invoiceDueDate,
+  ]);
+
+  const confirmLeave = () => window.confirm(
+    t("AddInvoice.UnsavedChanges.Message", {
+      defaultValue: "You have an unsaved invoice. Are you sure you want to leave this page? Your changes will be lost.",
+    })
+  );
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges &&
+      !savedRef.current &&
+      !saving &&
+      (currentLocation.pathname !== nextLocation.pathname ||
+        currentLocation.search !== nextLocation.search ||
+        currentLocation.hash !== nextLocation.hash)
+  );
+
+  useEffect(() => {
+    // Capture the initial form state once. If a customer was preselected through
+    // ?customerId=..., that preselection is setup, not an unsaved user change.
+    if (baselineSignatureRef.current === null) {
+      baselineSignatureRef.current = draftSignature;
+      return;
+    }
+
+    // A successful save resets the form; treat the reset state as the new baseline.
+    if (savedRef.current) {
+      baselineSignatureRef.current = draftSignature;
+      savedRef.current = false;
+      setHasUnsavedChanges(false);
+      return;
+    }
+
+    if (
+      customerId &&
+      selectedCustomer?._id === customerId &&
+      !preselectedBaselineSetRef.current
+    ) {
+      baselineSignatureRef.current = draftSignature;
+      preselectedBaselineSetRef.current = true;
+      setHasUnsavedChanges(false);
+      return;
+    }
+
+    setHasUnsavedChanges(draftSignature !== baselineSignatureRef.current);
+  }, [draftSignature, customerId, selectedCustomer?._id]);
+
+  useEffect(() => {
+    if (blocker.state !== "blocked") return;
+    if (confirmLeave()) blocker.proceed();
+    else blocker.reset();
+  }, [blocker.state, blocker, t]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (!hasUnsavedChanges || savedRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const {
     customers: allcustomers,
@@ -550,6 +641,8 @@ function AddInvoice() {
       });
 
       await savePromise;
+      savedRef.current = true;
+      setHasUnsavedChanges(false);
 
       if (action === "download") {
         await handleDownloadPdf();
@@ -605,10 +698,13 @@ function AddInvoice() {
       switch (companyInfo?.thermalLayout) {
         case "thermalDesign2":
           return <ThermalInvoice2 {...invoiceInfo} />;
+        case 'thermalDesign1_hindi':
+          return <ThermalInvoice1Hindi {...invoiceInfo} />;
+        case 'thermalDesign2_hindi':
+          return <ThermalInvoice2Hindi {...invoiceInfo} />;
 
         default:
           return <ThermalInvoice1 {...invoiceInfo} />;
-          return <ThermalInvoice2 {...invoiceInfo} />;
       }
     }
     switch (companyInfo?.a4Layout) {
@@ -618,6 +714,14 @@ function AddInvoice() {
         return <InvoiceDesign3 {...invoiceInfo} />;
       case "invoiceDesign4":
         return <InvoiceDesign4 {...invoiceInfo} />;
+      case 'invoiceDesign1Hindi':
+        return <InvoiceDesign1Hindi {...invoiceInfo} />;
+      case 'invoiceDesign2Hindi':
+        return <InvoiceDesign2Hindi {...invoiceInfo} />;
+      case 'invoiceDesign3Hindi':
+        return <InvoiceDesign3Hindi {...invoiceInfo} />;
+      case 'invoiceDesign4Hindi':
+        return <InvoiceDesign4Hindi {...invoiceInfo} />;
 
 
       default:
@@ -874,7 +978,7 @@ function AddInvoice() {
                               {t("AddInvoice.AddNewCustomer", {
                                 search: customerSearchValue,
                                 type: isPhoneNumberSearchCurrent ? t("AddInvoice.PhoneRecord") : t("AddInvoice.Client")
-                              })} 
+                              })}
                             </p>
                           </div>
                         </div>

@@ -37,7 +37,7 @@ import {
 const supportedLanguages = [
   { code: "en", label: "English" },
   { code: "hi", label: "हिंदी" },
-  { code: "bn", label: "বাংলা" },
+  // { code: "bn", label: "বাংলা" },
 ];
 
 function LanguageSelector() {

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useBlocker } from 'react-router-dom';
 import { toast } from 'sonner';
 import { UserPen } from 'lucide-react';
 import api from "@/axios/interceptor";
@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { updateCustomerReq } from '../../redux/features/customerSlice';
-
 const countries = [
   "India",
   "United States",
@@ -22,7 +21,6 @@ const countries = [
   "United Arab Emirates",
   "Singapore"
 ];
-
 const indianStates = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
   "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
@@ -30,7 +28,6 @@ const indianStates = [
   "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
   "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
 ];
-
 const initialCustomerData = {
   customerType: "Individual",
   customerName: "",
@@ -63,26 +60,69 @@ const initialCustomerData = {
     fax: "",
   },
 };
-
 const labelCls = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
 const inputCls = "w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed";
-
 function EditCustomer() {
   const { t } = useTranslation();
   const [customerData, setCustomerData] = useState(initialCustomerData);
+  const [originalCustomerData, setOriginalCustomerData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const savedRef = useRef(false);
   const navigate = useNavigate();
   const { id } = useParams();
   const dispatch = useDispatch();
   const { customerLoading } = useSelector((state) => state.customer);
   const isAppLoading = isLoading || customerLoading;
-
+  const hasUnsavedChanges =
+    originalCustomerData !== null &&
+    JSON.stringify(customerData) !== JSON.stringify(originalCustomerData);
+  const confirmLeave = () => {
+    if (!hasUnsavedChanges || savedRef.current) return true;
+    return window.confirm(
+      t("CustomerForm.UnsavedChanges.Message", {
+        defaultValue:
+          "You have unsaved customer information. Are you sure you want to leave this page? Your changes will be lost.",
+      })
+    );
+  };
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges &&
+      !savedRef.current &&
+      !isAppLoading &&
+      currentLocation.pathname !== nextLocation.pathname
+  );
+  useEffect(() => {
+    if (blocker.state !== "blocked") return;
+    if (confirmLeave()) {
+      blocker.proceed();
+    } else {
+      blocker.reset();
+    }
+  }, [blocker, t]);
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (!hasUnsavedChanges || savedRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+  const handleCancel = () => {
+    if (!confirmLeave()) return;
+    savedRef.current = true;
+    navigate("/user/customer");
+  };
   const fetchCustomerData = async (customerId) => {
+    savedRef.current = false;
+    setOriginalCustomerData(null);
     setIsLoading(true);
     try {
       const res = await api.get(`/customer/customer-id/${customerId}`);
       if (res.status === 200) {
         setCustomerData(res.data.data);
+        setOriginalCustomerData(JSON.parse(JSON.stringify(res.data.data)));
       } else {
         toast.error(t("CustomerForm.Edit.Errors.FetchFailed"));
       }
@@ -92,11 +132,9 @@ function EditCustomer() {
       setIsLoading(false);
     }
   }
-
   useEffect(() => {
     fetchCustomerData(id);
   }, [id]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     const absolutePayload = {
@@ -110,6 +148,7 @@ function EditCustomer() {
       {
         loading: t("CustomerForm.Edit.Status.Updating"),
         success: (res) => {
+          savedRef.current = true;
           navigate("/user/customer");
           return res?.message || t("CustomerForm.Edit.Toast.Success");
         },
@@ -119,7 +158,6 @@ function EditCustomer() {
       }
     );
   };
-
   return isLoading ? (
     <div className='flex h-full justify-center items-center w-full'>
       <Loader />
@@ -346,7 +384,7 @@ function EditCustomer() {
             type="button"
             variant="outline"
             className="border-slate-200 hover:border-slate-300 text-slate-600 bg-white text-sm h-10 px-5 font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => navigate("/user/customer")}
+            onClick={handleCancel}
           >
             {t("CustomerForm.Actions.Cancel")}
           </Button>
@@ -362,5 +400,4 @@ function EditCustomer() {
     </div>
   );
 }
-
 export default EditCustomer;

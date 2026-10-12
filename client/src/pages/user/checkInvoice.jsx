@@ -30,6 +30,12 @@ import InvoiceDesign3 from '@/components/other-ui/invoice-design-3';
 import InvoiceDesign4 from '@/components/other-ui/invoice-design-4';
 import ThermalInvoice1 from '@/components/other-ui/thermal-design-1';
 import ThermalInvoice2 from '@/components/other-ui/thermal-design-2';
+import ThermalInvoice1Hindi from '@/components/other-ui/thermal-design-1-hindi';
+import ThermalInvoice2Hindi from '@/components/other-ui/thermal-design-2-hindi';
+import InvoiceDesign1Hindi from "@/components/other-ui/invoice-design-1-hindi";
+import InvoiceDesign2Hindi from "@/components/other-ui/invoice-design-2-hindi";
+import InvoiceDesign3Hindi from "@/components/other-ui/invoice-design-3-hindi";
+import InvoiceDesign4Hindi from "@/components/other-ui/invoice-design-4-hindi";
 import {
   Dialog,
   DialogContent,
@@ -44,14 +50,12 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { DatePickerInput } from '@/components/other-ui/date-picker-input';
-
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: 2
   }).format(Number(amount) || 0);
-
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   return new Date(dateString).toLocaleDateString('en-GB', {
@@ -60,7 +64,6 @@ const formatDate = (dateString) => {
     year: 'numeric'
   });
 };
-
 const getDisplayStatus = (status, dueDate) => {
   let displayStatus = status;
   if (status?.toLowerCase() === 'cancel') {
@@ -76,14 +79,12 @@ const getDisplayStatus = (status, dueDate) => {
   }
   return displayStatus;
 };
-
 // Helper function to extract repeated calculation logic
 const getRowAmount = (data) => (data.quantity * data.itemSellingPrice) - (data.itemDiscountAmount || 0);
-
+const getItemMrp = (data) => Number(data?.itemMRP ?? data?.mrp ?? data?.MRP ?? data?.itemMrp) || 0;
 const StatusBadge = ({ status, dueDate }) => {
   const { t } = useTranslation(); // Fix: Added missing useTranslation
   const displayStatus = getDisplayStatus(status, dueDate);
-  
   const statusConfig = {
     Paid: {
       label: t('CheckInvoice.paidInFull'),
@@ -111,10 +112,8 @@ const StatusBadge = ({ status, dueDate }) => {
       className: 'bg-orange-50 text-orange-600 border-orange-200'
     }
   };
-
   const config = statusConfig[displayStatus] || statusConfig.default;
   const Icon = config.icon;
-
   return (
     <Badge
       className={`${config.className} inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold shadow-none pointer-events-none`}
@@ -124,14 +123,12 @@ const StatusBadge = ({ status, dueDate }) => {
     </Badge>
   );
 };
-
 const InfoRow = ({ icon: Icon, children }) => (
   <div className="flex items-start gap-2.5 text-sm text-slate-500">
     <Icon size={14} className="mt-0.5 shrink-0 text-slate-400" />
     <span className="min-w-0 break-words leading-relaxed">{children}</span>
   </div>
 );
-
 const SectionHeading = ({ icon: Icon, title, description }) => (
   <div className="mb-5 flex items-center justify-between">
     <div className="flex items-center gap-3">
@@ -149,7 +146,6 @@ const SectionHeading = ({ icon: Icon, title, description }) => (
     </div>
   </div>
 );
-
 // Reusable UI Action Button to DRY up code
 const ActionButton = ({ onClick, icon: Icon, children }) => (
   <Button
@@ -161,7 +157,6 @@ const ActionButton = ({ onClick, icon: Icon, children }) => (
     {children}
   </Button>
 );
-
 const initialData = {
   companyName: '',
   gstin: '',
@@ -173,7 +168,6 @@ const initialData = {
   a4Layout: 'invoiceDesign1',
   thermalLayout: 'thermalDesign1'
 };
-
 export default function CheckInvoice() {
   const { t } = useTranslation(); // Fix: Added missing useTranslation to avoid ReferenceError
   const { id } = useParams();
@@ -184,14 +178,12 @@ export default function CheckInvoice() {
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [companyInfo, setCompanyInfo] = useState(initialData);
   const [fetchLoading, setFetchLoading] = useState(false);
-  
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     method: 'Cash',
     date: new Date(),
     note: ''
   });
-
   const fetchInvoice = async () => {
     try {
       setLoading(true);
@@ -209,7 +201,6 @@ export default function CheckInvoice() {
       setLoading(false);
     }
   };
-
   const fetchInvoiceSettings = async () => {
     setFetchLoading(true);
     try {
@@ -233,55 +224,64 @@ export default function CheckInvoice() {
       setFetchLoading(false);
     }
   };
-
   useEffect(() => {
     fetchInvoice();
   }, [id]);
-
   useEffect(() => {
     fetchInvoiceSettings();
   }, []);
-
   const handleOpenPaymentModal = () => {
     if (!invoiceData) return;
     setPaymentForm({
-      amount: invoiceData.balanceAmount.toString(),
+      amount: String(Number(invoiceData.balanceAmount ?? 0)),
       method: 'Cash',
       date: new Date(),
       note: ''
     });
     setIsPaymentModalOpen(true);
   };
-
   const submitPayment = async () => {
-    const payAmount = Number(paymentForm.amount);
-    if (payAmount <= 0) {
-      return toast.error(t('CheckInvoice.paymentMustPositive'));
+    if (!invoiceData || !id) {
+      toast.error('Invoice details are missing. Please reload the invoice.');
+      return;
     }
-    if (payAmount > invoiceData.balanceAmount) {
-      return toast.error(t('CheckInvoice.cannotExceedBalance', { amount: formatCurrency(invoiceData.balanceAmount) }));
+    const payAmount = Number(paymentForm.amount);
+    const balance = Number(invoiceData.balanceAmount ?? 0);
+    if (!Number.isFinite(payAmount) || payAmount <= 0) {
+      toast.error(t('CheckInvoice.paymentMustPositive'));
+      return;
+    }
+    if (payAmount > balance) {
+      toast.error(t('CheckInvoice.cannotExceedBalance', { amount: formatCurrency(balance) }));
+      return;
+    }
+    if (!paymentForm.date || Number.isNaN(new Date(paymentForm.date).getTime())) {
+      toast.error('Please select a valid payment date.');
+      return;
     }
     try {
       setSubmittingPayment(true);
       const payload = {
         amount: payAmount,
         paymentMethod: paymentForm.method,
-        paymentDate: paymentForm.date.toISOString(),
-        note: paymentForm.note.trim()
+        paymentDate: new Date(paymentForm.date).toISOString(),
+        note: paymentForm.note.trim(),
       };
       const res = await api.post(`/invoice/${id}/payment`, payload);
-      if (res.data?.success) {
-        toast.success(t('CheckInvoice.paymentRecorded'));
-        setIsPaymentModalOpen(false);
-        fetchInvoice();
+      if (res.data?.success !== true) {
+        toast.error(res.data?.message || 'Payment could not be recorded.');
+        return;
       }
+      toast.success(t('CheckInvoice.paymentRecorded'));
+      setIsPaymentModalOpen(false);
+      await fetchInvoice();
     } catch (err) {
-      toast.error(err.response?.data?.message || t('CheckInvoice.failedRecordPayment'));
+      console.error('Confirm payment failed:', err.response?.data || err);
+      toast.error(err.response?.data?.message || err.message || t('CheckInvoice.failedRecordPayment'));
     } finally {
       setSubmittingPayment(false);
     }
   };
-
   const renderInvoiceDocument = (isPreview = false, type) => {
     const invoiceInfo = {
       invoiceNumberSequence: invoiceData?.invoiceNumber,
@@ -310,11 +310,14 @@ export default function CheckInvoice() {
       companyLogo: companyInfo?.logo || '',
       companySignature: companyInfo?.signature || ''
     };
-
     if (type === 'Thermal') {
       switch (companyInfo?.thermalLayout) {
         case 'thermalDesign2':
           return <ThermalInvoice2 {...invoiceInfo} />;
+        case 'thermalDesign1_hindi':
+          return <ThermalInvoice1Hindi {...invoiceInfo} />;
+        case 'thermalDesign2_hindi':
+          return <ThermalInvoice2Hindi {...invoiceInfo} />;
         default:
           return <ThermalInvoice1 {...invoiceInfo} />;
       }
@@ -326,11 +329,18 @@ export default function CheckInvoice() {
         return <InvoiceDesign3 {...invoiceInfo} />;
       case 'invoiceDesign4':
         return <InvoiceDesign4 {...invoiceInfo} />;
+      case 'invoiceDesign1Hindi':
+        return <InvoiceDesign1Hindi {...invoiceInfo} />;
+      case 'invoiceDesign2Hindi':
+        return <InvoiceDesign2Hindi {...invoiceInfo} />;
+      case 'invoiceDesign3Hindi':
+        return <InvoiceDesign3Hindi {...invoiceInfo} />;
+      case 'invoiceDesign4Hindi':
+        return <InvoiceDesign4Hindi {...invoiceInfo} />;
       default:
         return <InvoiceDesign1 {...invoiceInfo} />;
     }
   };
-
   const handleDownloadPdf = async () => {
     try {
       const blob = await pdf(renderInvoiceDocument(false)).toBlob();
@@ -348,14 +358,12 @@ export default function CheckInvoice() {
       throw err;
     }
   };
-
   const handlePrintPdf = async (type = 'Normal') => {
     const originalTitle = document.title;
     const invoiceNumber = invoiceData?.invoiceNumber || 'Invoice';
     try {
       const blob = await pdf(renderInvoiceDocument(false, type)).toBlob();
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      
       if (isMobile) {
         const file = new File([blob], `${invoiceNumber}.pdf`, {
           type: 'application/pdf'
@@ -392,7 +400,6 @@ export default function CheckInvoice() {
         document.title = originalTitle;
         return;
       }
-      
       const blobUrl = URL.createObjectURL(blob);
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
@@ -427,7 +434,6 @@ export default function CheckInvoice() {
       toast.error(t('CheckInvoice.failedGeneratePDF'));
     }
   };
-
   // Reusable sub-components for displaying Items mapping cleanly
   const renderDesktopRow = (data, index) => (
     <div
@@ -438,6 +444,11 @@ export default function CheckInvoice() {
         <p className="truncate text-sm font-semibold text-slate-900" title={data.itemName}>
           {data.itemName}
         </p>
+        {getItemMrp(data) > 0 && (
+          <p className="mt-1 text-[10px] font-medium text-slate-400">
+            MRP: {formatCurrency(getItemMrp(data))}
+          </p>
+        )}
       </div>
       <div className="min-w-0 text-center whitespace-nowrap">
         <span className="text-sm font-semibold text-slate-700">{data.quantity}</span>
@@ -454,12 +465,16 @@ export default function CheckInvoice() {
       </div>
     </div>
   );
-
   const renderMobileRow = (data, index) => (
     <div key={index} className="px-4 py-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="break-words text-sm font-semibold leading-snug text-slate-900">{data.itemName}</p>
+          {getItemMrp(data) > 0 && (
+            <p className="mt-1 text-[10px] font-medium text-slate-400">
+              MRP: {formatCurrency(getItemMrp(data))}
+            </p>
+          )}
           <p className="mt-1 text-[11px] text-slate-400">
             {data.quantity} {data.itemUnit || 'pcs'} {' × '}
             {formatCurrency(data.itemSellingPrice)}
@@ -479,7 +494,6 @@ export default function CheckInvoice() {
       )}
     </div>
   );
-
   if (loading || fetchLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -487,12 +501,9 @@ export default function CheckInvoice() {
       </div>
     );
   }
-
   if (!invoiceData) return null;
-
   const isVoid = invoiceData.status?.toLowerCase() === 'cancel';
   const canAddPayment = invoiceData.balanceAmount > 0 && !isVoid;
-
   return (
     <div className="animate-fade-in-scale transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-6 py-4 md:px-12 md:py-6 font-sans">
       <div className="space-y-12">
@@ -510,15 +521,12 @@ export default function CheckInvoice() {
               <ActionButton onClick={() => handlePrintPdf()} icon={Printer}>
                 {t('CheckInvoice.print')}
               </ActionButton>
-              
               <ActionButton onClick={() => handlePrintPdf('Thermal')} icon={Printer}>
                 {t('CheckInvoice.thermalPrint')}
               </ActionButton>
-              
               <ActionButton onClick={handleDownloadPdf} icon={Download}>
                 {t('CheckInvoice.downloadPDF')}
               </ActionButton>
-
               {canAddPayment && (
                 <Button
                   onClick={handleOpenPaymentModal}
@@ -835,7 +843,7 @@ export default function CheckInvoice() {
                     value={paymentForm.amount}
                     onChange={(e) => {
                       const val = e.target.value;
-                      if (/^\d*\.?\d*$/.test(val)) {
+                      if (/^\d*(?:\.\d*)?$/.test(val)) {
                         setPaymentForm((p) => ({ ...p, amount: val }));
                       }
                     }}
@@ -910,7 +918,7 @@ export default function CheckInvoice() {
               </Button>
               <Button
                 onClick={submitPayment}
-                disabled={submittingPayment || !paymentForm.amount}
+                disabled={submittingPayment || !paymentForm.amount || Number(paymentForm.amount) <= 0}
                 className="h-10 flex-1 rounded-lg bg-orange-500 px-5 text-xs font-bold text-white shadow-md shadow-orange-500/10 hover:bg-orange-600 sm:flex-none"
               >
                 {submittingPayment ? t('CheckInvoice.confirming') : t('CheckInvoice.confirmPayment')}

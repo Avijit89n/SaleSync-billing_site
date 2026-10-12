@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Trash2, Upload, Eye, FileCog } from 'lucide-react';
@@ -16,14 +16,20 @@ import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 // Dynamic Rendering Import
 import { PDFViewer } from '@react-pdf/renderer';
 import InvoiceDesign1 from "@/components/other-ui/invoice-design-1";
+import InvoiceDesign1Hindi from "@/components/other-ui/invoice-design-1-hindi";
 import InvoiceDesign2 from "@/components/other-ui/invoice-design-2";
+import InvoiceDesign2Hindi from "@/components/other-ui/invoice-design-2-hindi";
 import InvoiceDesign3 from "@/components/other-ui/invoice-design-3";
+import InvoiceDesign3Hindi from "@/components/other-ui/invoice-design-3-hindi";
 import InvoiceDesign4 from "@/components/other-ui/invoice-design-4";
+import InvoiceDesign4Hindi from "@/components/other-ui/invoice-design-4-hindi";
 import ThermalInvoice1 from '@/components/other-ui/thermal-design-1';
+import ThermalInvoice1Hindi from '@/components/other-ui/thermal-design-1-hindi';
 import ThermalInvoice2 from '@/components/other-ui/thermal-design-2';
+import ThermalInvoice2Hindi from '@/components/other-ui/thermal-design-2-hindi';
 import api from '@/axios/interceptor';
 import Loader from '@/components/loaders/loader2';
-import { useNavigate } from 'react-router-dom';
+import { useBlocker } from 'react-router-dom';
 const initialData = {
   companyName: "",
   gstin: "",
@@ -60,6 +66,30 @@ const invoiceLayouts = [
     description: "Compact invoice for quick billing",
     component: InvoiceDesign4,
   },
+  {
+    id: "invoiceDesign1Hindi",
+    name: "Classic Blueprint - Hindi",
+    description: "Traditional professional invoice layout",
+    component: InvoiceDesign1Hindi,
+  },
+  {
+    id: "invoiceDesign2Hindi",
+    name: "Modern Minimalist - Hindi",
+    description: "Clean and modern invoice design",
+    component: InvoiceDesign2Hindi,
+  },
+  {
+    id: "invoiceDesign3Hindi",
+    name: "Corporate Premium - Hindi",
+    description: "Premium business-focused invoice template",
+    component: InvoiceDesign3Hindi,
+  },
+  {
+    id: "invoiceDesign4Hindi",
+    name: "Compact Transactional - Hindi",
+    description: "Compact invoice for quick billing",
+    component: InvoiceDesign4Hindi,
+  },
 ];
 const invoiceLayoutsThermal = [
   {
@@ -73,6 +103,18 @@ const invoiceLayoutsThermal = [
     name: "Modern Thermal Minimalist",
     description: "Clean and modern thermal design",
     component: ThermalInvoice2,
+  },
+  {
+    id: "thermalDesign1_hindi",
+    name: "Classic Thermal Blueprint - Hindi",
+    description: "Traditional professional thermal layout",
+    component: ThermalInvoice1Hindi,
+  },
+  {
+    id: "thermalDesign2_hindi",
+    name: "Modern Thermal Minimalist - Hindi",
+    description: "Clean and modern thermal design",
+    component: ThermalInvoice2Hindi,
   }
 ];
 // Combine layouts for easier lookups in the preview modal
@@ -80,6 +122,25 @@ const allLayouts = [...invoiceLayouts, ...invoiceLayoutsThermal];
 // High-contrast typographical settings
 const labelCls = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
 const inputCls = "w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium";
+const getComparableValue = (value) => {
+  if (typeof File !== "undefined" && value instanceof File) {
+    return `file:${value.name}:${value.size}:${value.lastModified}:${value.type}`;
+  }
+  return value ?? null;
+};
+
+const getComparableCompanyInfo = (info) => ({
+  companyName: info.companyName || "",
+  gstin: info.gstin || "",
+  phone: info.phone || "",
+  email: info.email || "",
+  address: info.address || "",
+  logo: getComparableValue(info.logo),
+  signature: getComparableValue(info.signature),
+  a4Layout: info.a4Layout || "invoiceDesign1",
+  thermalLayout: info.thermalLayout || "thermalDesign1",
+});
+
 function InvoiceCustomizer() {
   const { t } = useTranslation();
   const [activePreviewLayout, setActivePreviewLayout] = useState(null);
@@ -88,7 +149,49 @@ function InvoiceCustomizer() {
   const [companyInfo, setCompanyInfo] = useState(initialData);
   const [saving, setSaving] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(false);
+  const savedDataRef = useRef(getComparableCompanyInfo(initialData));
+  const initializedRef = useRef(false);
 
+  const hasUnsavedChanges =
+    initializedRef.current &&
+    JSON.stringify(getComparableCompanyInfo(companyInfo)) !==
+      JSON.stringify(savedDataRef.current);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      initializedRef.current &&
+      hasUnsavedChanges &&
+      !saving &&
+      (
+        currentLocation.pathname !== nextLocation.pathname ||
+        currentLocation.search !== nextLocation.search ||
+        currentLocation.hash !== nextLocation.hash
+      )
+  );
+
+  useEffect(() => {
+    if (blocker.state !== "blocked") return;
+
+    const shouldLeave = window.confirm(
+      t("InvoiceCustomizer.unsavedChangesMessage", {
+        defaultValue: "You have unsaved changes. Are you sure you want to leave this page? Your changes will be lost.",
+      })
+    );
+
+    if (shouldLeave) blocker.proceed();
+    else blocker.reset();
+  }, [blocker, t]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (!hasUnsavedChanges || saving) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges, saving]);
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -115,6 +218,8 @@ function InvoiceCustomizer() {
       {
         loading: t('InvoiceCustomizer.saving'),
         success: (res) => {
+          savedDataRef.current = getComparableCompanyInfo(companyInfo);
+          initializedRef.current = true;
           setSaving(false);
           console.log(res)
           return res?.data?.message || t('InvoiceCustomizer.saveSuccess');
@@ -143,18 +248,32 @@ function InvoiceCustomizer() {
           logo: data.companyLogo || null,
           signature: data.companySignature || null,
         });
+        const loadedInfo = {
+          companyName: data.companyName || "",
+          gstin: data.companyGSTIN || "",
+          phone: data.companyPhone || "",
+          email: data.companyEmail || "",
+          address: data.companyAddress || "",
+          a4Layout: data.companyA4LayoutId || "invoiceDesign1",
+          thermalLayout: data.companyThermalLayoutId || "thermalDesign1",
+          logo: data.companyLogo || null,
+          signature: data.companySignature || null,
+        };
+        savedDataRef.current = getComparableCompanyInfo(loadedInfo);
+        initializedRef.current = true;
         if (data.companyLogo) setPreview(data.companyLogo);
         if (data.companySignature) setSignaturePreview(data.companySignature);
       } catch (err) {
         console.log(err);
         setCompanyInfo(initialData);
+        savedDataRef.current = getComparableCompanyInfo(initialData);
+        initializedRef.current = true;
       } finally {
         setFetchLoading(false);
       }
     };
     fetchInvoiceSettings();
   }, []);
-
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -564,8 +683,8 @@ function InvoiceCustomizer() {
                       }
                     }}
                     itemData={[
-                      { name: "Enterprise SaaS Suite License", quantity: 1, unit: "Unit", sellingPrice: 75000.00 },
-                      { name: "Technical Integration Consultation", quantity: 12, unit: "Hrs", sellingPrice: 2500.00 }
+                      { name: "Enterprise SaaS Suite License", quantity: 1, unit: "Unit", sellingPrice: 500.00, MRP: 500.00 },
+                      { name: "Technical Integration Consultation", quantity: 12, unit: "Hrs", sellingPrice: 200.00, MRP: 200.00 },
                     ]}
                     subtotal={105000.00}
                     totalDiscount={5000.00}

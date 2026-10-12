@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate, useParams, useBlocker } from "react-router-dom";
 import { toast } from "sonner";
 import { Trash2, Upload, ZoomIn, ClipboardPen } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
-
 import Loader from "../../components/loaders/loader2";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +26,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { updateItemReq } from "../../redux/features/itemSlice";
-
 const initialData = {
   name: "",
   description: "",
@@ -40,29 +38,28 @@ const initialData = {
   unit: "",
   status: "Active",
 };
-
 const labelCls =
   "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
 const inputCls =
   "w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed";
-
 function EditItem() {
   const [preview, setPreview] = useState(null);
   const [editItemData, setEditItemData] = useState(initialData);
+  const [originalItemData, setOriginalItemData] = useState(null);
+  const savedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { id } = useParams();
   const { itemLoading } = useSelector((state) => state.item);
   const { t } = useTranslation();
-
   const fetchItemFromBackend = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await api.get(`/item/item-id/${id}`);
       if (response.status === 200) {
         const itemData = response.data.data;
-        setEditItemData({
+        const loadedItemData = {
           name: itemData.name || "",
           description: itemData.description || "",
           image: itemData.image || null,
@@ -73,7 +70,10 @@ function EditItem() {
           stock: itemData.stock ?? 0,
           unit: itemData.unit || "",
           status: itemData.status || "Active",
-        });
+        };
+        setEditItemData(loadedItemData);
+        setOriginalItemData(JSON.parse(JSON.stringify(loadedItemData)));
+        savedRef.current = false;
         setPreview(itemData.imageUrl || itemData.image || null);
       } else {
         toast.error(t("AddEditItem.EditToast.FetchFailed"));
@@ -85,11 +85,53 @@ function EditItem() {
       setIsLoading(false);
     }
   }, [id, t]);
-
   useEffect(() => {
     fetchItemFromBackend();
   }, [fetchItemFromBackend]);
 
+  const hasUnsavedChanges =
+    originalItemData !== null &&
+    JSON.stringify(editItemData) !== JSON.stringify(originalItemData);
+
+  const confirmLeave = () => {
+    if (!hasUnsavedChanges || savedRef.current) return true;
+    return window.confirm(
+      t("AddEditItem.UnsavedChanges.Message", {
+        defaultValue: "You have unsaved item changes. Are you sure you want to leave this page? Your changes will be lost.",
+      })
+    );
+  };
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges &&
+      !savedRef.current &&
+      !isLoading &&
+      !itemLoading &&
+      currentLocation.pathname !== nextLocation.pathname
+  );
+
+  useEffect(() => {
+    if (blocker.state !== "blocked") return;
+    if (confirmLeave()) blocker.proceed();
+    else blocker.reset();
+  }, [blocker, t]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (!hasUnsavedChanges || savedRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const handleCancel = () => {
+    if (!confirmLeave()) return;
+    savedRef.current = true;
+    navigate("/user/all-items");
+  };
   const mrpAmount = Number(editItemData.MRP) || 0;
   const enteredDiscount = Number(editItemData.discount) || 0;
   const discountAmount =
@@ -100,10 +142,8 @@ function EditItem() {
     editItemData.discountType === "%"
       ? Math.max(0, mrpAmount - discountAmount)
       : Math.max(0, Number(editItemData.sellingPrice) || 0);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (mrpAmount < 0 || finalSellingPrice < 0) {
       toast.error(t("AddEditItem.EditToast.NegativePrice"));
       return;
@@ -122,7 +162,6 @@ function EditItem() {
       toast.error(t("AddEditItem.EditToast.InvalidSellingPrice"));
       return;
     }
-
     const formData = new FormData();
     for (const key in editItemData) {
       if (["discount", "discountType", "sellingPrice"].includes(key)) continue;
@@ -130,13 +169,13 @@ function EditItem() {
       formData.append(key, editItemData[key] ?? "");
     }
     formData.append("sellingPrice", finalSellingPrice.toFixed(2));
-
     try {
       await toast.promise(
         dispatch(updateItemReq({ id, data: formData })).unwrap(),
-        {
+        { 
           loading: t("AddEditItem.EditToast.Updating"),
           success: (res) => {
+            savedRef.current = true;
             navigate("/user/all-items");
             console.log("Item updated successfully:", res);
             return res?.message || t("AddEditItem.EditToast.UpdateSuccess");
@@ -151,20 +190,17 @@ function EditItem() {
       );
     }
   };
-
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setEditItemData((prev) => ({ ...prev, image: file }));
     setPreview(URL.createObjectURL(file));
   };
-
   const handleRemoveImage = (e) => {
     e.preventDefault();
     setPreview(null);
     setEditItemData((prev) => ({ ...prev, image: "" }));
   };
-
   if (isLoading) {
     return (
       <div className="flex h-full min-h-[50vh] w-full items-center justify-center">
@@ -172,7 +208,6 @@ function EditItem() {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-white px-4 py-5 font-sans text-slate-900 antialiased transition-all duration-500 animate-fade-in-scale sm:px-6 md:px-12 md:py-6">
       <form onSubmit={handleSubmit} autoComplete="off" className="space-y-10">
@@ -187,7 +222,6 @@ function EditItem() {
             </p>
           </div>
         </div>
-
         <div className="grid grid-cols-1 items-start gap-8 bg-white lg:grid-cols-3 lg:gap-12">
           <div className="space-y-4">
             <h2 className="border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -287,7 +321,6 @@ function EditItem() {
               </Field>
             </FieldGroup>
           </div>
-
           <div className="space-y-6 lg:col-span-2">
             <h2 className="border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-widest text-slate-400">
               {t("AddEditItem.ItemParameters")}
@@ -323,7 +356,6 @@ function EditItem() {
             </FieldGroup>
           </div>
         </div>
-
         <div className="space-y-6 border-t border-slate-200 bg-white pt-5">
           <h2 className="border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-widest text-slate-400">
             {t("AddEditItem.MetricsValuation")}
@@ -360,7 +392,6 @@ function EditItem() {
                 </SelectContent>
               </Select>
             </Field>
-
             <Field className="space-y-1">
               <FieldLabel htmlFor="MRP" className={labelCls}>
                 {t("AddEditItem.ItemMRP")} <span className="text-orange-500">*</span>
@@ -379,7 +410,6 @@ function EditItem() {
                 required
               />
             </Field>
-
             <Field className="space-y-2 sm:col-span-2">
               <FieldLabel className={labelCls}>{t("AddEditItem.SellingPriceHeader")}</FieldLabel>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -421,7 +451,6 @@ function EditItem() {
                 </button>
               </div>
             </Field>
-
             <Field className="space-y-1">
               <FieldLabel htmlFor="item-price" className={labelCls}>
                 {editItemData.discountType === "%" ? t("AddEditItem.DiscountPercentage") : t("AddEditItem.FinalSellingAmount")}
@@ -466,7 +495,6 @@ function EditItem() {
                   : t("AddEditItem.FinalSellingPriceHelp")}
               </p>
             </Field>
-
             <div className="flex min-h-[100px] flex-col justify-center rounded-xl border border-orange-200 bg-orange-50/60 p-3 sm:p-4 sm:col-span-2">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -481,13 +509,12 @@ function EditItem() {
             </div>
           </FieldGroup>
         </div>
-
         <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
           <Button
             variant="outline"
             type="button"
             className="h-10 rounded-xl border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 shadow-sm transition-all hover:border-slate-300"
-            onClick={() => navigate("/user/all-items")}
+            onClick={handleCancel}
             disabled={isLoading || itemLoading}
           >
             {t("AddEditItem.Cancel")}
@@ -504,5 +531,4 @@ function EditItem() {
     </div>
   );
 }
-
 export default EditItem;

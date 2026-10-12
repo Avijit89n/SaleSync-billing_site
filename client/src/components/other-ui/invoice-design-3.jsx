@@ -1,6 +1,5 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
-
 Font.register({
   family: "NotoSansDevanagari",
   fonts: [
@@ -8,7 +7,6 @@ Font.register({
     { src: "/fonts/NotoSansDevanagari-Bold.ttf", fontWeight: "bold" },
   ],
 });
-
 Font.register({
   family: "NotoSansBengali",
   fonts: [
@@ -16,28 +14,23 @@ Font.register({
     { src: "/fonts/NotoSansBengali-Bold.ttf", fontWeight: "bold" },
   ],
 });
-
 const parseChildrenToString = (child) => {
   if (Array.isArray(child)) return child.map(parseChildrenToString).join("");
   if (child == null || typeof child === "boolean") return "";
   return String(child);
 };
-
 const UnicodeText = ({ children, style }) => {
   const text = parseChildrenToString(children);
   const hasDevanagari = /[\u0900-\u097F]/.test(text);
   const hasBengali = /[\u0980-\u09FF]/.test(text);
-
   let fontFamily = style?.fontFamily || "Helvetica";
   if (hasBengali) {
     fontFamily = "NotoSansBengali";
   } else if (hasDevanagari) {
     fontFamily = "NotoSansDevanagari";
   }
-
   return <Text style={[style, { fontFamily }]}>{text}</Text>;
 };
-
 const styles = StyleSheet.create({
   page: { paddingTop: 50, paddingHorizontal: 50, paddingBottom: 72, fontSize: 9, color: "#1c1917", fontFamily: "Helvetica", backgroundColor: "#ffffff" },
   watermarkContainer: { position: "absolute", top: 380, left: 0, right: 0, alignItems: "center", justifyContent: "center", transform: "rotate(-45deg)" },
@@ -70,10 +63,11 @@ const styles = StyleSheet.create({
   tableHeaderRow: { flexDirection: "row", backgroundColor: "#78716c", paddingVertical: 5, paddingHorizontal: 6 },
   tableHeaderLabel: { fontSize: 8, fontWeight: "bold", color: "#ffffff", textTransform: "uppercase" },
   tableDataRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#e7e5e4", paddingVertical: 8, paddingHorizontal: 6, alignItems: "flex-start" },
-  colDesc: { flex: 2.8, paddingRight: 10 },
+  colDesc: { flex: 2.3, paddingRight: 10 },
   colQty: { flex: 0.4, textAlign: "center" },
-  colPrice: { flex: 0.9, textAlign: "right" },
-  colTotal: { flex: 0.9, textAlign: "right" },
+  colMrp: { flex: 0.8, textAlign: "right" },
+  colPrice: { flex: 0.8, textAlign: "right" },
+  colTotal: { flex: 0.8, textAlign: "right" },
   itemName: { fontSize: 9.5, fontWeight: "bold", color: "#1c1917" },
   itemDesc: { fontSize: 8.5, color: "#57534e", marginTop: 2, lineHeight: 1.2 },
   itemDiscountText: { fontSize: 7.5, color: "#15803d", fontWeight: "bold", marginTop: 2 },
@@ -116,7 +110,6 @@ const styles = StyleSheet.create({
   footerDisclaimerText: { fontSize: 8, color: "#78716c", fontStyle: "italic", maxWidth: "72%" },
   footerPlatformToken: { fontSize: 7.5, color: "#a8a29e", textAlign: "right" },
 });
-
 export default function InvoiceDesign3({
   companyInfo,
   companyLogo,
@@ -143,14 +136,11 @@ export default function InvoiceDesign3({
   const safeGrandTotal = Number(grandTotal) || 0;
   const safePaidAmount = Math.min(Math.max(Number(paidAmount) || 0, 0), Math.max(safeGrandTotal, 0));
   const safeBalanceAmount = Math.max(0, Number(balanceAmount !== undefined ? balanceAmount : safeGrandTotal - safePaidAmount) || 0);
-  
   const normalizedPaymentStatus = safeGrandTotal <= 0 || safePaidAmount <= 0 ? "Outstanding" : safeBalanceAmount <= 0 ? "Paid" : "Partially Paid";
   const statusStyle = normalizedPaymentStatus === "Paid" ? styles.paid : normalizedPaymentStatus === "Partially Paid" ? styles.partiallyPaid : styles.unpaid;
   const paymentHistory = Array.isArray(payments) ? payments.filter((payment) => Number(payment?.amount) > 0) : [];
-
   const formatDate = (date) => (!date ? "N/A" : date instanceof Date ? date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : date);
   const money = (value) => `Rs. ${(Number(value) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
   return (
     <Document title={isPreview ? `Preview-${invoiceNumberSequence}` : `Invoice-${invoiceNumberSequence}`}>
       <Page size="A4" style={styles.page}>
@@ -160,9 +150,7 @@ export default function InvoiceDesign3({
             <Text style={styles.watermarkSub}>UNOFFICIAL COPY</Text>
           </View>
         )}
-
         <View style={styles.topDecorativeBar} />
-
         <View style={styles.brandHeaderContainer}>
           <View style={styles.companyBrandGroup}>
             {companyLogo && (
@@ -176,7 +164,6 @@ export default function InvoiceDesign3({
             {companyInfo?.phone && <Text style={styles.companyMetaText}>Phone: {companyInfo.phone}</Text>}
             {companyInfo?.email && <Text style={styles.companyMetaText}>Email: {companyInfo.email}</Text>}
           </View>
-
           <View style={styles.invoiceMetaGroup}>
             <Text style={styles.invoiceLabel}>Official Invoice</Text>
             <Text style={styles.invoiceSequenceId}>Doc No: #{invoiceNumberSequence}</Text>
@@ -193,7 +180,6 @@ export default function InvoiceDesign3({
             <Text style={[styles.statusBadge, statusStyle]}>Account Status: {normalizedPaymentStatus}</Text>
           </View>
         </View>
-
         <View style={styles.billingSection}>
           <View style={styles.billingBox}>
             <Text style={styles.sectionTitle}>Invoice To</Text>
@@ -202,7 +188,6 @@ export default function InvoiceDesign3({
             {selectedCustomer?.workingPhone && <Text style={styles.profileSecondaryText}>Phone: {selectedCustomer.workingPhone}</Text>}
             {selectedCustomer?.email && <Text style={styles.profileSecondaryText}>Email: {selectedCustomer.email}</Text>}
           </View>
-
           <View style={styles.billingBox}>
             <Text style={styles.sectionTitle}>Shipping / Delivery Ledger</Text>
             <UnicodeText style={[styles.profileSecondaryText, { lineHeight: 1.3 }]}>
@@ -216,24 +201,22 @@ export default function InvoiceDesign3({
             </UnicodeText>
           </View>
         </View>
-
         <View style={styles.tableContainer}>
           <View style={styles.tableHeaderRow} minPresenceAhead={20}>
             <Text style={[styles.tableHeaderLabel, styles.colDesc]}>Item Particulars</Text>
             <Text style={[styles.tableHeaderLabel, styles.colQty]}>Unit</Text>
+          <Text style={[styles.tableHeaderLabel, styles.colMrp]}>MRP (Rs.)</Text>
             <Text style={[styles.tableHeaderLabel, styles.colPrice]}>Rate</Text>
             <Text style={[styles.tableHeaderLabel, styles.colTotal]}>Net Value</Text>
           </View>
-
           {itemData.map((item, index) => {
             if (!item || (!item.name && !item.itemName)) return null;
-
             const quantity = Number(item?.quantity) || 0;
             const price = Number(item?.sellingPrice || item?.itemSellingPrice) || 0;
+              const mrp = Number(item?.itemMRP ?? item?.mrp ?? item?.MRP ?? item?.itemMrp) || 0;
             const individualDiscount = Number(item?.itemDiscountAmount ?? item?.discountAmount ?? item?.itemDiscount ?? item?.discount ?? 0) || 0;
             const hasIndividualDiscount = individualDiscount > 0;
             const calculatedLineAmount = Math.max(quantity * price - individualDiscount, 0);
-
             return (
               <View key={item?._id || index} style={styles.tableDataRow} wrap={false}>
                 <View style={styles.colDesc}>
@@ -248,17 +231,16 @@ export default function InvoiceDesign3({
                     <Text style={styles.itemDiscountText}>({money(individualDiscount)} off)</Text>
                   )}
                 </View>
-
                 <Text style={[styles.colQty, styles.numericValueText]}>
                   {quantity} {item?.unit || item?.itemUnit || ""}
                 </Text>
+                <Text style={[styles.colMrp, styles.numericValueText]}>{money(mrp)}</Text>
                 <Text style={[styles.colPrice, styles.numericValueText]}>{money(price)}</Text>
                 <Text style={[styles.colTotal, styles.numericValueText, { fontWeight: "bold" }]}>{money(calculatedLineAmount)}</Text>
               </View>
             );
           })}
         </View>
-
         <View style={styles.bottomExecutionSegment} wrap={false}>
           <View style={styles.annotationsWrapper}>
             {notes && (
@@ -274,30 +256,25 @@ export default function InvoiceDesign3({
               </View>
             )}
           </View>
-
           <View style={styles.financialSummaryCard}>
             <View style={styles.financialRow}>
               <Text style={styles.financialRowLabel}>Gross Value</Text>
               <Text style={styles.financialRowValue}>{money(subtotal)}</Text>
             </View>
-
             {totalDiscount > 0 && (
               <View style={styles.discountRow}>
                 <Text style={styles.discountLabel}>Rebate / Discount</Text>
                 <Text style={styles.discountValue}>-{money(totalDiscount)}</Text>
               </View>
             )}
-
             <View style={styles.financialRow}>
               <Text style={styles.financialRowLabel}>Statutory Tax Levies ({taxRate}%)</Text>
               <Text style={styles.financialRowValue}>{money(taxedAmount)}</Text>
             </View>
-
             <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalLabel}>Aggregate Total</Text>
               <Text style={styles.grandTotalAmount}>{money(safeGrandTotal)}</Text>
             </View>
-
             <View style={styles.paymentSummary}>
               <Text style={styles.paymentSummaryTitle}>Payment Summary</Text>
               <View style={styles.paymentSummaryRow}>
@@ -312,7 +289,6 @@ export default function InvoiceDesign3({
                 <Text style={styles.paymentSummaryLabel}>Status</Text>
                 <Text style={styles.paymentSummaryValue}>{normalizedPaymentStatus}</Text>
               </View>
-
               {paymentHistory.length > 0 && (
                 <View style={styles.paymentHistory}>
                   <Text style={styles.paymentSummaryTitle}>Payment History</Text>
@@ -321,7 +297,6 @@ export default function InvoiceDesign3({
                     const formattedDate = paymentDate && !Number.isNaN(paymentDate.getTime())
                       ? paymentDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
                       : "Date unavailable";
-
                     return (
                       <View key={payment?._id || index} style={styles.paymentHistoryRow}>
                         <UnicodeText style={styles.paymentHistoryMeta}>
@@ -336,7 +311,6 @@ export default function InvoiceDesign3({
             </View>
           </View>
         </View>
-
         {companySignature && (
           <View style={styles.signatureBlockContainer} wrap={false}>
             <View style={styles.signatureWrapper}>
@@ -347,7 +321,6 @@ export default function InvoiceDesign3({
             </View>
           </View>
         )}
-
         <View fixed style={styles.globalPageFooter}>
           <Text style={styles.footerDisclaimerText}>
             Thank you for selecting us as your vendor. All invoices are tied strictly to contractual service parameters.
