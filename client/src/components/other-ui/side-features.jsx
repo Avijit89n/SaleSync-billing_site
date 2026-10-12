@@ -7,12 +7,14 @@ import {
   SidebarMenuItem
 } from "@/components/ui/sidebar"
 import { NavLink } from "react-router-dom"
+import { useTranslation } from "react-i18next";
 
 export function SideFeatures({ projects }) {
+   const { t } = useTranslation();
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Features</SidebarGroupLabel>
+      <SidebarGroupLabel>{t("Sidebar.Features", "Features")}</SidebarGroupLabel>
       <SidebarMenu>
         {projects.map((item) => (
           <SidebarMenuItem key={item.name}>

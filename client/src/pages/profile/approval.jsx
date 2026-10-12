@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Clock3,
   Check,
@@ -16,14 +17,13 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-
 export default function PendingRequests() {
+  const { t, i18n } = useTranslation();
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [userID, setUserID] = useState(null);
   const [buttonLoading, setButtonLoading] = useState(false);
-
   const getInitials = (name = "") => {
     return name
       .split(" ")
@@ -33,25 +33,22 @@ export default function PendingRequests() {
       .join("")
       .toUpperCase();
   };
-
   const getAllPendingRequest = async () => {
     setLoading(true);
     try {
       const res = await api.get('/auth/get-all-request');
       setPending(res?.data?.data || []);
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to load requests. Please refresh and try again.");
+      toast.error(error?.response?.data?.message || t("pendingRequests.errors.loadFailed"));
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     getAllPendingRequest();
   }, []);
-
   const dateFormat = (rawDate) => {
-    if (!rawDate) return "N/A";
+    if (!rawDate) return t("pendingRequests.common.na");
     const date = new Date(rawDate);
     const options = {
       year: 'numeric',
@@ -60,27 +57,25 @@ export default function PendingRequests() {
       hour: '2-digit',
       minute: '2-digit',
     };
-    return date.toLocaleString(undefined, options);
+    return date.toLocaleString(i18n.resolvedLanguage || i18n.language || undefined, options);
   };
-
   const approveRequest = async (id, action) => {
     setButtonLoading(true);
     try {
       await api.post('/auth/approve-reject-req', { id, action });
       setPending((current) => current.filter((item) => item._id !== id));
       if (action === "Reject") {
-        toast.success("Request rejected successfully");
+        toast.success(t("pendingRequests.toast.rejected"));
       } else {
-        toast.success("Request approved successfully");
+        toast.success(t("pendingRequests.toast.approved"));
       }
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to perform action. Please try Again");
+      toast.error(error?.response?.data?.message || t("pendingRequests.errors.actionFailed"));
     } finally {
       setButtonLoading(false);
       setOpen(false);
     }
   };
-
   if (loading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
@@ -88,34 +83,32 @@ export default function PendingRequests() {
       </div>
     );
   }
-
   return (
     <div className="animate-fade-in-scale min-h-full px-4 py-6 opacity-0 transition-all duration-500 sm:px-6 md:px-10 lg:px-12 lg:py-8">
       <div className="mb-7 flex flex-col items-start justify-between gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-center">
         <div className="space-y-2">
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
             <Clock3 className="text-orange-500" size={28} />
-            Pending Requests
+            {t("pendingRequests.title")}
             <Badge variant="secondary" className="ml-2">
-              {pending?.length} {pending.length === 1 ? "Request" : "Requests"}
+              {pending?.length} {pending.length === 1 ? t("pendingRequests.request") : t("pendingRequests.requests")}
             </Badge>
           </h1>
           <p className="text-sm text-gray-500">
-            Administrator access requests waiting for your decision.
+            {t("pendingRequests.subtitle")}
           </p>
         </div>
       </div>
-
       {pending.length === 0 && !loading ? (
         <div className="flex min-h-[380px] flex-col items-center justify-center rounded-[26px] border border-slate-200 bg-white px-6 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-emerald-50">
             <Check className="h-8 w-8 text-emerald-500" />
           </div>
           <h2 className="mt-5 text-lg font-bold text-slate-900">
-            You're all caught up
+            {t("pendingRequests.emptyTitle")}
           </h2>
           <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-            There are currently no pending administrator access requests.
+            {t("pendingRequests.emptyDescription")}
           </p>
         </div>
       ) : (
@@ -147,11 +140,11 @@ export default function PendingRequests() {
                       </h3>
                       {request.isVerified ? (
                         <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-600">
-                          Verified
+                          {t("pendingRequests.verified")}
                         </span>
                       ) : (
                         <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
-                          Unverified
+                          {t("pendingRequests.unverified")}
                         </span>
                       )}
                       <span className="shrink-0 rounded-full bg-orange-50 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-orange-600">
@@ -170,7 +163,7 @@ export default function PendingRequests() {
                   <div className="flex items-center gap-5 sm:gap-6">
                     <div className="min-w-0">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                        Requested
+                          {t("pendingRequests.requested")}
                       </p>
                       <div className="mt-1 flex items-center gap-1.5">
                         <CalendarDays className="h-3.5 w-3.5 shrink-0 text-slate-400" />
@@ -182,12 +175,12 @@ export default function PendingRequests() {
                     <div className="hidden h-8 w-px shrink-0 bg-slate-100 sm:block" />
                     <div className="min-w-0">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                        Status
+                          {t("pendingRequests.status")}
                       </p>
                       <div className="mt-1 flex items-center gap-1.5">
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
                         <span className="truncate text-xs font-medium text-slate-600">
-                          Pending
+                            {t("pendingRequests.pending")}
                         </span>
                       </div>
                     </div>
@@ -202,7 +195,7 @@ export default function PendingRequests() {
                       className="flex h-10 w-full min-w-[90px] flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-500 transition-all hover:border-red-100 hover:bg-red-50 hover:text-red-500 disabled:pointer-events-none disabled:opacity-50 sm:w-auto xl:flex-none"
                     >
                       <X className="h-4 w-4 shrink-0" />
-                      <span>Reject</span>
+                      <span>{t("pendingRequests.reject")}</span>
                     </button>
                     <button
                       disabled={buttonLoading}
@@ -214,7 +207,7 @@ export default function PendingRequests() {
                       ) : (
                         <Check className="h-4 w-4 shrink-0" />
                       )}
-                      <span>Approve</span>
+                      <span>{t("pendingRequests.approve")}</span>
                     </button>
                   </div>
                 </div>
@@ -223,16 +216,14 @@ export default function PendingRequests() {
           })}
         </div>
       )}
-
       {pending.length > 0 && (
         <div className="mt-6 flex items-center justify-center gap-2 text-center">
           <ShieldCheck className="h-3.5 w-3.5 text-slate-300" />
           <p className="text-[10px] font-medium text-slate-400">
-            Only approved users will receive administrator access.
+            {t("pendingRequests.footerNote")}
           </p>
         </div>
       )}
-
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-[26px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,0.20)] sm:rounded-[32px]">
           <div className="h-24 w-full bg-gradient-to-br from-red-100/60 via-slate-50 to-slate-100/50" />
@@ -243,9 +234,9 @@ export default function PendingRequests() {
               </div>
             </div>
             <div className="text-center text-slate-950">
-              <h2 className="text-lg font-bold tracking-tight">Reject Request?</h2>
+              <h2 className="text-lg font-bold tracking-tight">{t("pendingRequests.dialog.title")}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                Are you sure you want to reject this access request? This action cannot be undone and will permanently remove it from the pending list.
+                {t("pendingRequests.dialog.description")}
               </p>
             </div>
             <div className="mt-8 grid grid-cols-2 gap-3">
@@ -255,7 +246,7 @@ export default function PendingRequests() {
                 onClick={() => setOpen(false)}
                 className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
               >
-                Cancel
+                  {t("pendingRequests.cancel")}
               </button>
               <button
                 type="button"
@@ -266,10 +257,10 @@ export default function PendingRequests() {
                 {buttonLoading ? (
                   <>
                     <LucideLoader size={16} className="animate-spin" />
-                    Rejecting...
+                    {t("pendingRequests.rejecting")}
                   </>
                 ) : (
-                  "Confirm Reject"
+                  t("pendingRequests.dialog.confirmReject")
                 )}
               </button>
             </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Trash2, Upload, Eye, FileCog } from 'lucide-react';
-
 // Custom UI Imports
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
-
 // Dynamic Rendering Import
 import { PDFViewer } from '@react-pdf/renderer';
 import InvoiceDesign1 from "@/components/other-ui/invoice-design-1";
@@ -24,7 +23,7 @@ import ThermalInvoice1 from '@/components/other-ui/thermal-design-1';
 import ThermalInvoice2 from '@/components/other-ui/thermal-design-2';
 import api from '@/axios/interceptor';
 import Loader from '@/components/loaders/loader2';
-
+import { useNavigate } from 'react-router-dom';
 const initialData = {
   companyName: "",
   gstin: "",
@@ -36,7 +35,6 @@ const initialData = {
   a4Layout: "invoiceDesign1",
   thermalLayout: "thermalDesign1",
 };
-
 const invoiceLayouts = [
   {
     id: "invoiceDesign1",
@@ -63,7 +61,6 @@ const invoiceLayouts = [
     component: InvoiceDesign4,
   },
 ];
-
 const invoiceLayoutsThermal = [
   {
     id: "thermalDesign1",
@@ -78,15 +75,13 @@ const invoiceLayoutsThermal = [
     component: ThermalInvoice2,
   }
 ];
-
 // Combine layouts for easier lookups in the preview modal
 const allLayouts = [...invoiceLayouts, ...invoiceLayoutsThermal];
-
 // High-contrast typographical settings
 const labelCls = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
 const inputCls = "w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium";
-
 function InvoiceCustomizer() {
+  const { t } = useTranslation();
   const [activePreviewLayout, setActivePreviewLayout] = useState(null);
   const [preview, setPreview] = useState(null);
   const [signaturePreview, setSignaturePreview] = useState(null);
@@ -97,7 +92,6 @@ function InvoiceCustomizer() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-
     const formData = new FormData();
     formData.append("companyName", companyInfo.companyName);
     formData.append("gstin", companyInfo.gstin);
@@ -106,42 +100,38 @@ function InvoiceCustomizer() {
     formData.append("address", companyInfo.address);
     formData.append("a4Layout", companyInfo.a4Layout);
     formData.append("thermalLayout", companyInfo.thermalLayout);
-
     if (companyInfo.logo instanceof File) {
       formData.append("companyLogo", companyInfo.logo);
     } else {
       formData.append("currentLogo", companyInfo.logo || "");
     }
-
     if (companyInfo.signature instanceof File) {
       formData.append("companySignature", companyInfo.signature);
     } else {
       formData.append("currentSignature", companyInfo.signature || "");
     }
-
     toast.promise(
       api.post("/invoice-customizer/create-update", formData),
       {
-        loading: 'Saving invoice settings...',
+        loading: t('InvoiceCustomizer.saving'),
         success: (res) => {
           setSaving(false);
-          return res?.message || "Invoice customization saved successfully!";
+          console.log(res)
+          return res?.data?.message || t('InvoiceCustomizer.saveSuccess');
         },
         error: (err) => {
           setSaving(false);
-          return err?.response?.data?.message || "Failed to save invoice settings. Please try again.";
+          return err?.response?.data?.message || t('InvoiceCustomizer.saveFailed');
         }
       }
     );
   };
-
   useEffect(() => {
     setFetchLoading(true);
     const fetchInvoiceSettings = async () => {
       try {
         const res = await api.get("/invoice-customizer/get-invoice-settings");
         const data = res?.data?.data || {};
-
         setCompanyInfo({
           companyName: data.companyName || "",
           gstin: data.companyGSTIN || "",
@@ -153,10 +143,8 @@ function InvoiceCustomizer() {
           logo: data.companyLogo || null,
           signature: data.companySignature || null,
         });
-
         if (data.companyLogo) setPreview(data.companyLogo);
         if (data.companySignature) setSignaturePreview(data.companySignature);
-
       } catch (err) {
         console.log(err);
         setCompanyInfo(initialData);
@@ -164,7 +152,6 @@ function InvoiceCustomizer() {
         setFetchLoading(false);
       }
     };
-
     fetchInvoiceSettings();
   }, []);
 
@@ -173,7 +160,7 @@ function InvoiceCustomizer() {
     if (!file) return;
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
     if (!allowedTypes.includes(file.type)) {
-      toast.error("Only PNG and JPG images are supported.");
+      toast.error(t('InvoiceCustomizer.imageTypeError'));
       return;
     }
     setCompanyInfo(prev => ({ ...prev, logo: file }));
@@ -181,13 +168,12 @@ function InvoiceCustomizer() {
     reader.onloadend = () => setPreview(reader.result);
     reader.readAsDataURL(file);
   };
-
   const handleSignatureChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
     if (!allowedTypes.includes(file.type)) {
-      toast.error("Only PNG and JPG images are supported.");
+      toast.error(t('InvoiceCustomizer.imageTypeError'));
       return;
     }
     setCompanyInfo(prev => ({ ...prev, signature: file }));
@@ -195,11 +181,9 @@ function InvoiceCustomizer() {
     reader.onloadend = () => setSignaturePreview(reader.result);
     reader.readAsDataURL(file);
   };
-
   const PreviewComponent = allLayouts.find(l => l.id === activePreviewLayout)?.component;
   const activeA4Name = invoiceLayouts.find(l => l.id === companyInfo.a4Layout)?.name || companyInfo.a4Layout;
   const activeThermalName = invoiceLayoutsThermal.find(l => l.id === companyInfo.thermalLayout)?.name || companyInfo.thermalLayout;
-
   return fetchLoading ?
     <div className='h-full flex justify-center items-center'>
       <Loader />
@@ -207,26 +191,23 @@ function InvoiceCustomizer() {
     : (
       <div className="opacity-0 animate-fade-in-scale transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-6 py-4 md:px-12 md:py-6 font-sans">
         <form onSubmit={handleSubmit} className="space-y-12">
-
           {/* ── Page Header ── */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-5 mb-12 gap-4">
             <div className="space-y-2">
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <FileCog className="text-orange-500" size={28} />Customize Invoice
+                <FileCog className="text-orange-500" size={28} />{t('InvoiceCustomizer.title')}
               </h1>
-              <p className="text-sm text-gray-500">Configure global metadata structures, custom branding vectors, and print engine profiles.</p>
+              <p className="text-sm text-gray-500">{t('InvoiceCustomizer.subtitle')}</p>
             </div>
           </div>
-
           {/* ── Section 1: Logo, Signature & Company Info ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 bg-white">
-
             {/* Logo & Signature Left Column Block */}
             <div className="space-y-8 flex flex-col">
               {/* Logo Block */}
               <div className="space-y-4">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
-                  Logo & Branding
+                  {t('InvoiceCustomizer.logoBranding')}
                 </h2>
                 <FieldGroup>
                   <Field className="relative">
@@ -239,7 +220,7 @@ function InvoiceCustomizer() {
                             </div>
                             <div className="flex items-center justify-between w-full pt-1">
                               <FieldLabel htmlFor="item-image2" className={`text-xs font-bold ${saving ? "text-slate-400" : "text-orange-500 hover:text-orange-600"} ml-1 cursor-pointer uppercase tracking-wider`}>
-                                Change Image
+                                {t('InvoiceCustomizer.changeImage')}
                                 <Input disabled={saving} id="item-image2" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" className="hidden" onChange={handleImageChange} />
                               </FieldLabel>
                               <Button
@@ -263,8 +244,8 @@ function InvoiceCustomizer() {
                           <div className="w-56 h-56 flex flex-col items-center justify-center border border-slate-300 border-dashed rounded-xl cursor-pointer hover:border-orange-500 transition-colors bg-white shadow-sm p-4 text-center">
                             <Input disabled={saving} id="item-image" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                             <Upload className="h-7 w-7 text-slate-400 mb-2 stroke-[2.5]" />
-                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Upload Logo</p>
-                            <p className="text-[11px] text-slate-400 mt-1">PNG, JPG up to 5MB</p>
+                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">{t('InvoiceCustomizer.uploadLogo')}</p>
+                            <p className="text-[11px] text-slate-400 mt-1">{t('InvoiceCustomizer.imageHint')}</p>
                           </div>
                         </div>
                       )}
@@ -272,11 +253,10 @@ function InvoiceCustomizer() {
                   </Field>
                 </FieldGroup>
               </div>
-
               {/* Signature Block */}
               <div className="space-y-4">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
-                  Authorized Signature
+                  {t('InvoiceCustomizer.authorizedSignature')}
                 </h2>
                 <FieldGroup>
                   <Field className="relative">
@@ -289,7 +269,7 @@ function InvoiceCustomizer() {
                             </div>
                             <div className="flex items-center justify-between w-full pt-1">
                               <FieldLabel htmlFor="item-signature2" className={`text-xs font-bold ${saving ? "text-slate-400" : "text-orange-500 hover:text-orange-600"} ml-1 cursor-pointer uppercase tracking-wider`}>
-                                Change Signature
+                                {t('InvoiceCustomizer.changeSignature')}
                                 <Input disabled={saving} id="item-signature2" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" className="hidden" onChange={handleSignatureChange} />
                               </FieldLabel>
                               <Button
@@ -313,8 +293,8 @@ function InvoiceCustomizer() {
                           <div className="w-56 h-48 flex flex-col items-center justify-center border border-slate-300 border-dashed rounded-xl cursor-pointer hover:border-orange-500 transition-colors bg-white shadow-sm p-4 text-center">
                             <Input disabled={saving} id="item-signature" type="file" accept="image/*" className="hidden" onChange={handleSignatureChange} />
                             <Upload className="h-7 w-7 text-slate-400 mb-2 stroke-[2.5]" />
-                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Upload Signature</p>
-                            <p className="text-[11px] text-slate-400 mt-1">PNG, JPG transparent bg ideal</p>
+                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">{t('InvoiceCustomizer.uploadSignature')}</p>
+                            <p className="text-[11px] text-slate-400 mt-1">{t('InvoiceCustomizer.signatureHint')}</p>
                           </div>
                         </div>
                       )}
@@ -323,51 +303,48 @@ function InvoiceCustomizer() {
                 </FieldGroup>
               </div>
             </div>
-
             {/* Core Info Fields */}
             <div className="lg:col-span-2 flex flex-col h-full space-y-6">
               <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
-                Company Information
+                {t('InvoiceCustomizer.companyInformation')}
               </h2>
               <FieldGroup className="flex-1 flex flex-col space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <Field className="space-y-1">
-                    <FieldLabel htmlFor="comp-name" className={labelCls}>Company name <span className='text-orange-500'>*</span></FieldLabel>
-                    <Input disabled={saving} id="comp-name" placeholder="Enter Company Name" value={companyInfo.companyName} onChange={(e) => setCompanyInfo({ ...companyInfo, companyName: e.target.value })} className={inputCls} required />
+                    <FieldLabel htmlFor="comp-name" className={labelCls}>{t('InvoiceCustomizer.companyName')} <span className='text-orange-500'>*</span></FieldLabel>
+                    <Input disabled={saving} id="comp-name" placeholder={t('InvoiceCustomizer.enterCompanyName')} value={companyInfo.companyName} onChange={(e) => setCompanyInfo({ ...companyInfo, companyName: e.target.value })} className={inputCls} required />
                   </Field>
                   <Field className="space-y-1">
-                    <FieldLabel htmlFor="comp-gstin" className={labelCls}>GSTIN (tax id) <span className='text-orange-500'>*</span></FieldLabel>
-                    <Input disabled={saving} id="comp-gstin" placeholder="Enter GSTIN" value={companyInfo.gstin} onChange={(e) => setCompanyInfo({ ...companyInfo, gstin: e.target.value })} className={inputCls} required />
+                    <FieldLabel htmlFor="comp-gstin" className={labelCls}>{t('InvoiceCustomizer.gstinLabel')} <span className='text-orange-500'>*</span></FieldLabel>
+                    <Input disabled={saving} id="comp-gstin" placeholder={t('InvoiceCustomizer.enterGstin')} value={companyInfo.gstin} onChange={(e) => setCompanyInfo({ ...companyInfo, gstin: e.target.value })} className={inputCls} required />
                   </Field>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <Field className="space-y-1">
-                    <FieldLabel htmlFor="comp-phone" className={labelCls}>Company Phone No <span className='text-orange-500'>*</span></FieldLabel>
-                    <Input disabled={saving} id="comp-phone" placeholder="Enter Phone Number" value={companyInfo.phone} onChange={(e) => setCompanyInfo({ ...companyInfo, phone: e.target.value })} className={inputCls} required />
+                    <FieldLabel htmlFor="comp-phone" className={labelCls}>{t('InvoiceCustomizer.companyPhone')} <span className='text-orange-500'>*</span></FieldLabel>
+                    <Input disabled={saving} id="comp-phone" placeholder={t('InvoiceCustomizer.enterPhone')} value={companyInfo.phone} onChange={(e) => setCompanyInfo({ ...companyInfo, phone: e.target.value })} className={inputCls} required />
                   </Field>
                   <Field className="space-y-1">
-                    <FieldLabel htmlFor="comp-email" className={labelCls}>Email <span className='text-orange-500'>*</span></FieldLabel>
-                    <Input disabled={saving} id="comp-email" type="email" placeholder="Enter Email Address" value={companyInfo.email} onChange={(e) => setCompanyInfo({ ...companyInfo, email: e.target.value })} className={inputCls} required />
+                    <FieldLabel htmlFor="comp-email" className={labelCls}>{t('InvoiceCustomizer.email')} <span className='text-orange-500'>*</span></FieldLabel>
+                    <Input disabled={saving} id="comp-email" type="email" placeholder={t('InvoiceCustomizer.enterEmail')} value={companyInfo.email} onChange={(e) => setCompanyInfo({ ...companyInfo, email: e.target.value })} className={inputCls} required />
                   </Field>
                 </div>
                 <Field className="flex-1 flex flex-col space-y-1 pb-1">
-                  <FieldLabel htmlFor="comp-address" className={labelCls}>Company address</FieldLabel>
-                  <Textarea disabled={saving} value={companyInfo.address} onChange={(e) => setCompanyInfo({ ...companyInfo, address: e.target.value })} className="flex-1 w-full min-h-[150px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium placeholder-slate-400 resize-none" id="comp-address" placeholder="Enter Company Address..." />
+                  <FieldLabel htmlFor="comp-address" className={labelCls}>{t('InvoiceCustomizer.companyAddress')}</FieldLabel>
+                  <Textarea disabled={saving} value={companyInfo.address} onChange={(e) => setCompanyInfo({ ...companyInfo, address: e.target.value })} className="flex-1 w-full min-h-[150px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium placeholder-slate-400 resize-none" id="comp-address" placeholder={t('InvoiceCustomizer.enterAddress')} />
                 </Field>
               </FieldGroup>
             </div>
           </div>
-
           {/* ── Section 2: Output Documentation Blueprints (A4) ── */}
           <div className="space-y-6 pt-8 border-t border-slate-200 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div className="space-y-1">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Output Documentation Blueprints (A4)
+                  {t('InvoiceCustomizer.a4Templates')}
                 </h2>
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {invoiceLayouts.map((layout, index) => {
                 const isSelected = companyInfo.a4Layout === layout.id;
@@ -413,7 +390,7 @@ function InvoiceCustomizer() {
                     <div className="border-t border-slate-100 pt-3 flex items-center justify-between w-full mt-auto">
                       <span className="text-[11px] font-medium text-slate-400 inline-flex items-center gap-1.5">
                         <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-orange-500 animate-pulse" : "bg-slate-300"}`} />
-                        {isSelected ? "Active Layout" : "Idle State"}
+                        {isSelected ? t('InvoiceCustomizer.activeLayout') : t('InvoiceCustomizer.idleState')}
                       </span>
                       <Button
                         size="sm"
@@ -426,14 +403,13 @@ function InvoiceCustomizer() {
                           setActivePreviewLayout(layout.id);
                         }}
                       >
-                        <Eye size={12} className="stroke-[2.5]" /> Preview
+                        <Eye size={12} className="stroke-[2.5]" /> {t('InvoiceCustomizer.preview')}
                       </Button>
                     </div>
                   </div>
                 );
               })}
             </div>
-
             <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="relative flex h-2 w-2">
@@ -441,25 +417,23 @@ function InvoiceCustomizer() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
                 </div>
                 <p className="text-sm text-orange-700 font-medium leading-none">
-                  Active A4 template: <span className="font-bold text-orange-900 uppercase font-mono">{activeA4Name}</span>
+                  {t('InvoiceCustomizer.activeA4Template')}: <span className="font-bold text-orange-900 uppercase font-mono">{activeA4Name}</span>
                 </p>
               </div>
               <span className="text-[10px] font-bold tracking-wider uppercase text-orange-600 bg-white border border-orange-200 px-2 py-0.5 rounded-md shadow-2xs">
-                System Live
+                {t('InvoiceCustomizer.systemLive')}
               </span>
             </div>
           </div>
-          
           {/* ── Section 3: Output Documentation Blueprints (Thermal) ── */}
           <div className="space-y-6 pt-8 border-t border-slate-200 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div className="space-y-1">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Output Documentation Blueprints (Thermal)
+                  {t('InvoiceCustomizer.thermalTemplates')}
                 </h2>
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {invoiceLayoutsThermal.map((layout, index) => {
                 const isSelected = companyInfo.thermalLayout === layout.id;
@@ -505,7 +479,7 @@ function InvoiceCustomizer() {
                     <div className="border-t border-slate-100 pt-3 flex items-center justify-between w-full mt-auto">
                       <span className="text-[11px] font-medium text-slate-400 inline-flex items-center gap-1.5">
                         <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-orange-500 animate-pulse" : "bg-slate-300"}`} />
-                        {isSelected ? "Active Layout" : "Idle State"}
+                        {isSelected ? t('InvoiceCustomizer.activeLayout') : t('InvoiceCustomizer.idleState')}
                       </span>
                       <Button
                         size="sm"
@@ -518,14 +492,13 @@ function InvoiceCustomizer() {
                           setActivePreviewLayout(layout.id);
                         }}
                       >
-                        <Eye size={12} className="stroke-[2.5]" /> Preview
+                        <Eye size={12} className="stroke-[2.5]" /> {t('InvoiceCustomizer.preview')}
                       </Button>
                     </div>
                   </div>
                 );
               })}
             </div>
-
             <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="relative flex h-2 w-2">
@@ -533,51 +506,35 @@ function InvoiceCustomizer() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
                 </div>
                 <p className="text-sm text-orange-700 font-medium leading-none">
-                  Active Thermal template: <span className="font-bold text-orange-900 uppercase font-mono">{activeThermalName}</span>
+                  {t('InvoiceCustomizer.activeThermalTemplate')}: <span className="font-bold text-orange-900 uppercase font-mono">{activeThermalName}</span>
                 </p>
               </div>
               <span className="text-[10px] font-bold tracking-wider uppercase text-orange-600 bg-white border border-orange-200 px-2 py-0.5 rounded-md shadow-2xs">
-                System Live
+                {t('InvoiceCustomizer.systemLive')}
               </span>
             </div>
           </div>
-
           {/* ── Action Footer Console Bar ── */}
           <div className="pt-4 border-t border-slate-200 flex justify-end items-center gap-3">
-            <Button
-              variant="outline"
-              type="button"
-              className="border-slate-200 hover:border-slate-300 text-slate-600 bg-white text-sm h-10 px-5 font-bold rounded-xl transition-all shadow-sm"
-              onClick={() => {
-                setCompanyInfo(initialData);
-                setPreview(null);
-                setSignaturePreview(null);
-              }}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
             <Button
               type="submit"
               className="bg-orange-500 hover:bg-orange-600 active:scale-[0.99] text-white font-bold text-sm h-10 px-6 rounded-xl transition-all shadow-md shadow-orange-600/10"
               disabled={saving}
             >
-              Save Settings
+              {t('InvoiceCustomizer.saveSettings')}
             </Button>
           </div>
-
         </form>
-
         {/* ── Centralized On-Demand PDF Viewer Modal ── */}
         <Dialog open={!!activePreviewLayout} onOpenChange={(open) => !open && setActivePreviewLayout(null)}>
           <DialogContent className="max-w-[95vw] md:max-w-[850px] h-[92vh] bg-white border border-slate-200 flex flex-col p-0 overflow-hidden rounded-xl">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div>
                 <DialogTitle className="text-slate-900 font-bold">
-                  {allLayouts.find(l => l.id === activePreviewLayout)?.name} Preview
+                  {allLayouts.find(l => l.id === activePreviewLayout)?.name} {t('InvoiceCustomizer.preview')}
                 </DialogTitle>
                 <DialogDescription className="text-slate-500 text-xs mt-0.5">
-                  Real-time generated sandbox document vector stream.
+                  {t('InvoiceCustomizer.previewDescription')}
                 </DialogDescription>
               </div>
             </div>
@@ -626,5 +583,4 @@ function InvoiceCustomizer() {
       </div>
     );
 }
-
 export default InvoiceCustomizer;

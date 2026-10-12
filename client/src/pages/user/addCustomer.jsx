@@ -1,30 +1,17 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CircleQuestionMark, UserPlus, ArrowLeft } from 'lucide-react';
-
-// UI components
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-    Field,
-    FieldGroup,
-    FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-
-// Redux feature slice
 import { addCustomerReq } from '@/redux/features/customerSlice';
 
 const countries = [
@@ -52,7 +39,6 @@ const initialCustomerData = {
     email: "",
     mobile: "",
     addressSame: true,
-
     billingAddress: {
         attention: "",
         country: "India",
@@ -64,7 +50,6 @@ const initialCustomerData = {
         phone: "",
         fax: "",
     },
-
     shippingAddress: {
         attention: "",
         country: "India",
@@ -78,11 +63,11 @@ const initialCustomerData = {
     },
 };
 
-// Precise high-contrast typographical settings matching the Invoice final configuration
 const labelCls = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2";
 const inputCls = "w-full h-11 px-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed";
 
 function AddCustomer() {
+    const { t } = useTranslation();
     const [customerData, setCustomerData] = useState(initialCustomerData);
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -90,118 +75,104 @@ function AddCustomer() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         const absolutePayload = {
             ...customerData,
-            shippingAddress: customerData.addressSame 
-                ? { ...customerData.billingAddress } 
+            shippingAddress: customerData.addressSame
+                ? { ...customerData.billingAddress }
                 : { ...customerData.shippingAddress }
         };
-
         toast.promise(
             dispatch(addCustomerReq(absolutePayload)).unwrap(),
             {
-                loading: "Registering new record...",
+                loading: t("CustomerForm.Add.Toast.Loading"),
                 success: (res) => {
                     setCustomerData(initialCustomerData);
                     navigate("/user/customer");
-                    return res?.message || "Customer directory file added successfully";
+                    return res?.message || t("CustomerForm.Add.Toast.Success");
                 },
                 error: (err) => {
-                    return err.message || "Something went wrong while executing query";
+                    return err.message || t("CustomerForm.Add.Toast.Error");
                 }
             }
         );
     };
 
     return (
-        <div className="opacity-0 animate-fade-in-scale transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-6 py-4 md:px-12 md:py-6 font-sans">
+        <div className="transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-6 py-4 md:px-12 md:py-6 font-sans">
             <form onSubmit={handleSubmit} className="space-y-12">
-                
-                {/* ── Page Header ── */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-5 mb-12 gap-4">
                     <div className="space-y-2">
                         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                            <UserPlus className="text-orange-500" size={28} /> Add New Customer
+                            <UserPlus className="text-orange-500" size={28} /> {t("CustomerForm.Add.Title")}
                         </h1>
-                        <p className="text-sm text-gray-500">Create and configure client ledger indices, communication endpoints, and billing targets.</p>
+                        <p className="text-sm text-gray-500">{t("CustomerForm.Add.Subtitle")}</p>
                     </div>
                 </div>
-
-                {/* ── Section 1: Primary Profile Dossier Details ── */}
                 <div className="space-y-6">
                     <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
-                        Primary Profile Details
+                        {t("CustomerForm.Sections.PrimaryProfile")}
                     </h2>
-                    
                     <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Field className="space-y-1">
                             <FieldLabel htmlFor="display-name" className={labelCls}>
-                                Customer Name <span className='text-orange-500'>*</span>
+                                {t("CustomerForm.Fields.CustomerName")} <span className='text-orange-500'>*</span>
                             </FieldLabel>
-                            <Input 
+                            <Input
                                 disabled={customerLoading}
-                                value={customerData.displayName} 
+                                value={customerData.displayName}
                                 onChange={(e) => setCustomerData({ ...customerData, displayName: e.target.value })}
-                                id="display-name" 
-                                placeholder="Public system billing alias name" 
+                                id="display-name"
+                                placeholder={t("CustomerForm.Placeholders.CustomerName")}
                                 className={inputCls}
-                                required 
+                                required
                             />
                         </Field>
-
                         <Field className="space-y-1">
                             <FieldLabel htmlFor="phone" className={labelCls}>
-                                Work Phone <span className='text-orange-500'>*</span>
+                                {t("CustomerForm.Fields.WorkPhone")} <span className='text-orange-500'>*</span>
                             </FieldLabel>
-                            <Input 
+                            <Input
                                 disabled={customerLoading}
-                                type="text" 
-                                value={customerData.workingPhone} 
+                                type="text"
+                                value={customerData.workingPhone}
                                 onChange={(e) => setCustomerData({ ...customerData, workingPhone: e.target.value })}
-                                id="phone" 
-                                placeholder="Primary office landline or desk number" 
+                                id="phone"
+                                placeholder={t("CustomerForm.Placeholders.WorkPhone")}
                                 className={inputCls}
-                                required 
+                                required
                             />
                         </Field>
                     </FieldGroup>
-
                     <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Field className="space-y-1">
-                            <FieldLabel htmlFor="email" className={labelCls}>Email Address</FieldLabel>
-                            <Input 
+                            <FieldLabel htmlFor="email" className={labelCls}>{t("CustomerForm.Fields.EmailAddress")}</FieldLabel>
+                            <Input
                                 disabled={customerLoading}
-                                value={customerData.email} 
+                                value={customerData.email}
                                 onChange={(e) => setCustomerData({ ...customerData, email: e.target.value })}
-                                id="email" 
-                                type="email" 
-                                placeholder="client@domain.com" 
+                                id="email"
+                                type="email"
+                                placeholder={t("CustomerForm.Placeholders.Email")}
                                 className={inputCls}
                             />
                         </Field>
                     </FieldGroup>
                 </div>
-
-                {/* ── Section 2: Address Space Split Columns ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 pt-4 border-t border-slate-200 bg-white">
-                    
-                    {/* BILLING ADDRESS SPECIFICATION BLOCK */}
                     <div className="space-y-6">
                         <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
-                            Billing Address
+                            {t("CustomerForm.Sections.BillingAddress")}
                         </h2>
-                        
                         <div className="grid gap-4">
                             <div className="space-y-1">
-                                <label htmlFor="country" className={labelCls}>Country/Region</label>
+                                <label htmlFor="country" className={labelCls}>{t("CustomerForm.Fields.CountryRegion")}</label>
                                 <Select
                                     disabled={customerLoading}
                                     value={customerData?.billingAddress?.country}
                                     onValueChange={(val) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, country: val } })}
                                 >
                                     <SelectTrigger id="country" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                                        <SelectValue placeholder="Region" />
+                                        <SelectValue placeholder={t("CustomerForm.Placeholders.Region")} />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-64 bg-white border border-slate-200">
                                         {countries.map((country) => (
@@ -211,46 +182,44 @@ function AddCustomer() {
                                 </Select>
                             </div>
                         </div>
-
                         <div className="space-y-4">
                             <div className="space-y-1">
-                                <label htmlFor="street1" className={labelCls}>Address 1</label>
-                                <Textarea 
+                                <label htmlFor="street1" className={labelCls}>{t("CustomerForm.Fields.Address1")}</label>
+                                <Textarea
                                     disabled={customerLoading}
-                                    id="street1" 
-                                    value={customerData?.billingAddress?.street1} 
-                                    onChange={(e) => setCustomerData({...customerData, billingAddress: {...customerData.billingAddress, street1: e.target.value}})} 
-                                    className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed" 
-                                    placeholder="Plot line, building details, sector..." 
+                                    id="street1"
+                                    value={customerData?.billingAddress?.street1}
+                                    onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, street1: e.target.value } })}
+                                    className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                    placeholder={t("CustomerForm.Placeholders.Address1")}
                                 />
                             </div>
                             <div className="space-y-1">
-                                <label htmlFor="street2" className={labelCls}>Address 2</label>
-                                <Textarea 
+                                <label htmlFor="street2" className={labelCls}>{t("CustomerForm.Fields.Address2")}</label>
+                                <Textarea
                                     disabled={customerLoading}
-                                    id="street2" 
-                                    value={customerData?.billingAddress?.street2} 
-                                    onChange={(e) => setCustomerData({...customerData, billingAddress: {...customerData.billingAddress, street2: e.target.value}})} 
-                                    className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed" 
-                                    placeholder="Appartment unit, landmark, locality..." 
+                                    id="street2"
+                                    value={customerData?.billingAddress?.street2}
+                                    onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, street2: e.target.value } })}
+                                    className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                    placeholder={t("CustomerForm.Placeholders.Address2")}
                                 />
                             </div>
                         </div>
-
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="space-y-1">
-                                <label htmlFor="city" className={labelCls}>City</label>
-                                <Input disabled={customerLoading} value={customerData?.billingAddress?.city} onChange={(e) => setCustomerData({...customerData, billingAddress: {...customerData.billingAddress, city: e.target.value}})} id="city" placeholder="Kolkata" className={inputCls} />
+                                <label htmlFor="city" className={labelCls}>{t("CustomerForm.Fields.City")}</label>
+                                <Input disabled={customerLoading} value={customerData?.billingAddress?.city} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, city: e.target.value } })} id="city" placeholder={t("CustomerForm.Placeholders.City")} className={inputCls} />
                             </div>
                             <div className="space-y-1">
-                                <label htmlFor="state" className={labelCls}>State</label>
+                                <label htmlFor="state" className={labelCls}>{t("CustomerForm.Fields.State")}</label>
                                 <Select
                                     disabled={customerLoading}
                                     value={customerData?.billingAddress?.state}
                                     onValueChange={(val) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, state: val } })}
                                 >
                                     <SelectTrigger id="state" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                                        <SelectValue placeholder="State" />
+                                        <SelectValue placeholder={t("CustomerForm.Placeholders.State")} />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-64 bg-white border border-slate-200">
                                         {indianStates.map((state) => (
@@ -260,29 +229,25 @@ function AddCustomer() {
                                 </Select>
                             </div>
                             <div className="space-y-1">
-                                <label htmlFor="pincode" className={labelCls}>Pincode</label>
-                                <Input disabled={customerLoading} type="text" id="pincode" value={customerData?.billingAddress?.pincode} onChange={(e) => setCustomerData({...customerData, billingAddress: {...customerData.billingAddress, pincode: e.target.value}})} placeholder="700001" className={`${inputCls} font-mono`} />
+                                <label htmlFor="pincode" className={labelCls}>{t("CustomerForm.Fields.Pincode")}</label>
+                                <Input disabled={customerLoading} type="text" id="pincode" value={customerData?.billingAddress?.pincode} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, pincode: e.target.value } })} placeholder={t("CustomerForm.Placeholders.Pincode")} className={`${inputCls} font-mono`} />
                             </div>
                         </div>
-
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label htmlFor="phonebillingaddress" className={labelCls}>Address Phone</label>
-                                <Input disabled={customerLoading} type="text" id="phonebillingaddress" value={customerData?.billingAddress?.phone} onChange={(e)=> setCustomerData({...customerData, billingAddress: {...customerData.billingAddress, phone: e.target.value}})} placeholder="Local contact reference" className={inputCls} />
+                                <label htmlFor="phonebillingaddress" className={labelCls}>{t("CustomerForm.Fields.AddressPhone")}</label>
+                                <Input disabled={customerLoading} type="text" id="phonebillingaddress" value={customerData?.billingAddress?.phone} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, phone: e.target.value } })} placeholder={t("CustomerForm.Placeholders.AddressPhone")} className={inputCls} />
                             </div>
                             <div className="space-y-1">
-                                <label htmlFor="faxbillingaddress" className={labelCls}>Fax Gateway</label>
-                                <Input disabled={customerLoading} type="text" id="faxbillingaddress" value={customerData?.billingAddress?.fax} onChange={(e)=>setCustomerData({...customerData, billingAddress: {...customerData.billingAddress, fax: e.target.value}})} placeholder="Fax routing matrix" className={inputCls} />
+                                <label htmlFor="faxbillingaddress" className={labelCls}>{t("CustomerForm.Fields.Fax")}</label>
+                                <Input disabled={customerLoading} type="text" id="faxbillingaddress" value={customerData?.billingAddress?.fax} onChange={(e) => setCustomerData({ ...customerData, billingAddress: { ...customerData.billingAddress, fax: e.target.value } })} placeholder={t("CustomerForm.Placeholders.Fax")} className={inputCls} />
                             </div>
                         </div>
                     </div>
-
-                    {/* SHIPPING ADDRESS SPECIFICATION BLOCK */}
                     <div className="space-y-6">
                         <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-2">
-                            Shipping Logistics Address
+                            {t("CustomerForm.Sections.ShippingAddress")}
                         </h2>
-                        
                         <Label className={`flex items-start gap-3 rounded-xl border border-slate-200 p-4 transition-all duration-150 bg-white mb-6 ${customerLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-slate-300 has-[[aria-checked=true]]:border-orange-500/40'}`}>
                             <Checkbox
                                 disabled={customerLoading}
@@ -292,27 +257,22 @@ function AddCustomer() {
                                 className="mt-0.5 data-[state=checked]:border-orange-500 data-[state=checked]:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                             <div className="grid gap-1 font-normal">
-                                <p className="text-sm font-semibold text-slate-900 leading-none">
-                                    Mirror Billing Address Destinations
-                                </p>
-                                <p className="text-slate-400 text-xs mt-0.5">
-                                    Automatically map inventory routing and dispatch nodes to match client billing lines.
-                                </p>
+                                <p className="text-sm font-semibold text-slate-900 leading-none">{t("CustomerForm.AddressSame.Title")}</p>
+                                <p className="text-slate-400 text-xs mt-0.5">{t("CustomerForm.AddressSame.Description")}</p>
                             </div>
                         </Label>
-
                         {!customerData.addressSame && (
                             <div className="animate-fade-in-scale opacity-0 transition-all duration-300 space-y-6 bg-white pt-2">
                                 <div className="grid gap-4">
                                     <div className="space-y-1">
-                                        <label htmlFor="countryShippingAddress" className={labelCls}>Country/Region</label>
+                                        <label htmlFor="countryShippingAddress" className={labelCls}>{t("CustomerForm.Fields.CountryRegion")}</label>
                                         <Select
                                             disabled={customerLoading}
                                             value={customerData?.shippingAddress?.country}
                                             onValueChange={(val) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, country: val } })}
                                         >
                                             <SelectTrigger id="countryShippingAddress" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                                                <SelectValue placeholder="Region" />
+                                                <SelectValue placeholder={t("CustomerForm.Placeholders.Region")} />
                                             </SelectTrigger>
                                             <SelectContent className="max-h-64 bg-white border border-slate-200">
                                                 {countries.map((country) => (
@@ -322,46 +282,44 @@ function AddCustomer() {
                                         </Select>
                                     </div>
                                 </div>
-
                                 <div className="space-y-4">
                                     <div className="space-y-1">
-                                        <label htmlFor="street1ShippingAddress" className={labelCls}>Address 1</label>
-                                        <Textarea 
+                                        <label htmlFor="street1ShippingAddress" className={labelCls}>{t("CustomerForm.Fields.Address1")}</label>
+                                        <Textarea
                                             disabled={customerLoading}
-                                            id="street1ShippingAddress" 
-                                            value={customerData?.shippingAddress?.street1} 
-                                            onChange={(e) => setCustomerData({...customerData, shippingAddress: {...customerData.shippingAddress, street1: e.target.value}})} 
-                                            className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed" 
-                                            placeholder="Warehouse plot line..." 
+                                            id="street1ShippingAddress"
+                                            value={customerData?.shippingAddress?.street1}
+                                            onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, street1: e.target.value } })}
+                                            className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                            placeholder={t("CustomerForm.Placeholders.ShippingAddress1")}
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label htmlFor="street2ShippingAddress" className={labelCls}>Address 2</label>
-                                        <Textarea 
+                                        <label htmlFor="street2ShippingAddress" className={labelCls}>{t("CustomerForm.Fields.Address2")}</label>
+                                        <Textarea
                                             disabled={customerLoading}
-                                            id="street2ShippingAddress" 
-                                            value={customerData?.shippingAddress?.street2} 
-                                            onChange={(e) => setCustomerData({...customerData, shippingAddress: {...customerData.shippingAddress, street2: e.target.value}})} 
-                                            className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed" 
-                                            placeholder="Crossroad junction index..." 
+                                            id="street2ShippingAddress"
+                                            value={customerData?.shippingAddress?.street2}
+                                            onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, street2: e.target.value } })}
+                                            className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium placeholder-slate-400 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                            placeholder={t("CustomerForm.Placeholders.ShippingAddress2")}
                                         />
                                     </div>
                                 </div>
-
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div className="space-y-1">
-                                        <label htmlFor="cityShippingAddress" className={labelCls}>City</label>
-                                        <Input disabled={customerLoading} id="cityShippingAddress" value={customerData?.shippingAddress?.city} onChange={(e) => setCustomerData({...customerData, shippingAddress: {...customerData.shippingAddress, city: e.target.value}})} placeholder="City index" className={inputCls} />
+                                        <label htmlFor="cityShippingAddress" className={labelCls}>{t("CustomerForm.Fields.City")}</label>
+                                        <Input disabled={customerLoading} id="cityShippingAddress" value={customerData?.shippingAddress?.city} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, city: e.target.value } })} placeholder={t("CustomerForm.Placeholders.City")} className={inputCls} />
                                     </div>
                                     <div className="space-y-1">
-                                        <label htmlFor="stateShippingAddress" className={labelCls}>State</label>
+                                        <label htmlFor="stateShippingAddress" className={labelCls}>{t("CustomerForm.Fields.State")}</label>
                                         <Select
                                             disabled={customerLoading}
                                             value={customerData?.shippingAddress?.state}
                                             onValueChange={(val) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, state: val } })}
                                         >
                                             <SelectTrigger id="stateShippingAddress" className="w-full h-11 bg-white text-sm font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                                                <SelectValue placeholder="State" />
+                                                <SelectValue placeholder={t("CustomerForm.Placeholders.State")} />
                                             </SelectTrigger>
                                             <SelectContent className="max-h-64 bg-white border border-slate-200">
                                                 {indianStates.map((state) => (
@@ -371,46 +329,43 @@ function AddCustomer() {
                                         </Select>
                                     </div>
                                     <div className="space-y-1">
-                                        <label htmlFor="pincodeShippingAddress" className={labelCls}>Pincode</label>
-                                        <Input disabled={customerLoading} type="text" id="pincodeShippingAddress" value={customerData?.shippingAddress?.pincode} onChange={(e) => setCustomerData({...customerData, shippingAddress: {...customerData.shippingAddress, pincode: e.target.value}})} placeholder="Zip index" className={`${inputCls} font-mono`} />
+                                        <label htmlFor="pincodeShippingAddress" className={labelCls}>{t("CustomerForm.Fields.Pincode")}</label>
+                                        <Input disabled={customerLoading} type="text" id="pincodeShippingAddress" value={customerData?.shippingAddress?.pincode} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, pincode: e.target.value } })} placeholder={t("CustomerForm.Placeholders.Pincode")} className={`${inputCls} font-mono`} />
                                     </div>
                                 </div>
-
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1">
-                                        <label htmlFor="phoneShippingAddress" className={labelCls}>Logistics Phone</label>
-                                        <Input disabled={customerLoading} type="text" id="phoneShippingAddress" value={customerData?.shippingAddress?.phone} onChange={(e) => setCustomerData({...customerData, shippingAddress: {...customerData.shippingAddress, phone: e.target.value}})} placeholder="Receiving post contact" className={inputCls} />
+                                        <label htmlFor="phoneShippingAddress" className={labelCls}>{t("CustomerForm.Fields.ShippingPhone")}</label>
+                                        <Input disabled={customerLoading} type="text" id="phoneShippingAddress" value={customerData?.shippingAddress?.phone} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, phone: e.target.value } })} placeholder={t("CustomerForm.Placeholders.ShippingPhone")} className={inputCls} />
                                     </div>
                                     <div className="space-y-1">
-                                        <label htmlFor="faxShippingAddress" className={labelCls}>Logistics Fax</label>
-                                        <Input disabled={customerLoading} type="text" id="faxShippingAddress" value={customerData?.shippingAddress?.fax} onChange={(e) => setCustomerData({...customerData, shippingAddress: {...customerData.shippingAddress, fax: e.target.value}})} placeholder="Terminal fax marker" className={inputCls} />
+                                        <label htmlFor="faxShippingAddress" className={labelCls}>{t("CustomerForm.Fields.ShippingFax")}</label>
+                                        <Input disabled={customerLoading} type="text" id="faxShippingAddress" value={customerData?.shippingAddress?.fax} onChange={(e) => setCustomerData({ ...customerData, shippingAddress: { ...customerData.shippingAddress, fax: e.target.value } })} placeholder={t("CustomerForm.Placeholders.ShippingFax")} className={inputCls} />
                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
-
-                {/* ── Action Footer Console Bar ── */}
                 <div className="pt-4 border-t border-slate-200 flex justify-end items-center gap-3">
-                    <Button 
+                    <Button
                         disabled={customerLoading}
                         type="button"
-                        variant="outline" 
+                        variant="outline"
                         className="border-slate-200 hover:border-slate-300 text-slate-600 bg-white text-sm h-10 px-5 font-bold rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => {
-                            setCustomerData(initialCustomerData); 
+                            setCustomerData(initialCustomerData);
                             navigate("/user/customer");
-                        }} 
+                        }}
                     >
-                        Cancel
+                        {t("CustomerForm.Actions.Cancel")}
                     </Button>
-                    <Button 
+                    <Button
                         disabled={customerLoading}
-                        type="submit" 
+                        type="submit"
                         className="bg-orange-500 hover:bg-orange-600 active:scale-[0.99] text-white font-bold text-sm h-10 px-6 rounded-xl transition-all shadow-md shadow-orange-600/10 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Save Record
+                        {t("CustomerForm.Add.Actions.Save")}
                     </Button>
                 </div>
             </form>

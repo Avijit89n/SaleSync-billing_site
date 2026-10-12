@@ -1,55 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  AlertTriangle,
-  MoreHorizontal,
-  Plus,
-  Search,
-  ShoppingBag,
-  X,
-  Loader2 as LucideLoader,
-} from "lucide-react";
-
+import { useTranslation } from "react-i18next";
+import { AlertTriangle, MoreHorizontal, Plus, Search, ShoppingBag, X, Loader2 as LucideLoader } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
-
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-
-import {
-  clearSearchedItems,
-  getAllItemReq,
-  itemSearchReq,
-  deleteItemReq,
-} from "@/redux/features/itemSlice.js";
-
+import { clearSearchedItems, getAllItemReq, itemSearchReq, deleteItemReq } from "@/redux/features/itemSlice.js";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { toast } from "sonner";
-
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
 const discountCalculate = (MRP, sellingPrice) => {
   const mrp = Number(MRP || 0);
   const price = Number(sellingPrice || 0);
@@ -57,7 +18,6 @@ const discountCalculate = (MRP, sellingPrice) => {
   const discount = ((mrp - price) / mrp) * 100;
   return discount.toFixed(0);
 };
-
 const formatCurrency = (value) => {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -65,17 +25,12 @@ const formatCurrency = (value) => {
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 };
-
-/* -------------------------------------------------------------------------- */
-/* Product Image                                                              */
-/* -------------------------------------------------------------------------- */
-
-const ProductImage = ({ src, alt = "Product", size = "table" }) => {
+const ProductImage = ({ src, alt, size = "table" }) => {
+  const { t } = useTranslation();
+  alt = alt || t("AllItems.Product");
   const [imageError, setImageError] = useState(false);
-
   const wrapperClass = size === "mobile" ? "h-11 w-11 rounded-lg" : "h-11 w-11 rounded-xl";
   const imageClass = size === "mobile" ? "h-9 w-9 rounded-md" : "h-9 w-9 rounded-lg";
-
   if (!src || imageError) {
     return (
       <div className={`${wrapperClass} flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm shrink-0`}>
@@ -83,7 +38,6 @@ const ProductImage = ({ src, alt = "Product", size = "table" }) => {
       </div>
     );
   }
-
   return (
     <div className={`${wrapperClass} flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm shrink-0 overflow-hidden group-hover:border-orange-200 transition-all`}>
       <img
@@ -96,15 +50,9 @@ const ProductImage = ({ src, alt = "Product", size = "table" }) => {
     </div>
   );
 };
-
-/* -------------------------------------------------------------------------- */
-/* Skeleton Components                                                        */
-/* -------------------------------------------------------------------------- */
-
 const SkeletonBlock = ({ className = "" }) => {
   return <div className={`animate-pulse rounded-md bg-slate-200 ${className}`} />;
 };
-
 const TableSkeletonRow = ({ index }) => {
   return (
     <TableRow key={`item-skeleton-${index}`} className="border-b border-slate-100">
@@ -145,18 +93,18 @@ const TableSkeletonRow = ({ index }) => {
     </TableRow>
   );
 };
-
 const DesktopTableSkeleton = () => {
+  const { t } = useTranslation();
   return (
     <div className="hidden md:block w-full overflow-x-auto rounded-xl border border-slate-200 bg-white">
       <Table className="min-w-[1000px] w-full table-auto">
         <TableHeader>
           <TableRow className="bg-muted/60 hover:bg-muted/60">
-            <TableHead className="text-center min-w-[90px] w-[90px] px-4">Product</TableHead>
-            <TableHead className="text-center min-w-[280px] w-[280px] px-4">Name</TableHead>
-            <TableHead className="text-center min-w-[140px] w-[140px] px-4">MRP</TableHead>
-            <TableHead className="text-center min-w-[140px] w-[140px] px-4">Price</TableHead>
-            <TableHead className="text-center min-w-[120px] w-[120px] px-4">Offer</TableHead>
+            <TableHead className="text-center min-w-[90px] w-[90px] px-4">{t("AllItems.Product")}</TableHead>
+            <TableHead className="text-center min-w-[280px] w-[280px] px-4">{t("AllItems.Name")}</TableHead>
+            <TableHead className="text-center min-w-[140px] w-[140px] px-4">{t("AllItems.MRP")}</TableHead>
+            <TableHead className="text-center min-w-[140px] w-[140px] px-4">{t("AllItems.Price")}</TableHead>
+            <TableHead className="text-center min-w-[120px] w-[120px] px-4">{t("AllItems.Offer")}</TableHead>
             <TableHead className="text-center min-w-[70px] w-[70px] px-3" />
           </TableRow>
         </TableHeader>
@@ -169,7 +117,6 @@ const DesktopTableSkeleton = () => {
     </div>
   );
 };
-
 const MobileSkeletonCard = ({ index }) => {
   return (
     <div key={`mobile-item-skeleton-${index}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm animate-pulse">
@@ -200,7 +147,6 @@ const MobileSkeletonCard = ({ index }) => {
     </div>
   );
 };
-
 const MobileTableSkeleton = () => {
   return (
     <div className="md:hidden space-y-3">
@@ -210,35 +156,30 @@ const MobileTableSkeleton = () => {
     </div>
   );
 };
-
-/* -------------------------------------------------------------------------- */
-/* Empty State                                                                */
-/* -------------------------------------------------------------------------- */
-
 const EmptyState = ({ isSearching, searchQuery, onAddItem }) => {
+  const { t } = useTranslation();
   if (isSearching) {
     return (
       <div className="min-h-[300px] rounded-xl border border-slate-200 bg-white flex flex-col items-center justify-center text-center px-6">
         <div className="h-14 w-14 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center">
           <Search size={25} className="text-slate-300 stroke-[1.5]" />
         </div>
-        <p className="text-base font-semibold text-slate-700 mt-4">No items found</p>
+        <p className="text-base font-semibold text-slate-700 mt-4">{t("AllItems.NoItemsFound")}</p>
         <p className="text-sm text-slate-400 mt-1 max-w-sm">
-          We couldn't find anything matching <span className="font-medium text-slate-500">"{searchQuery}"</span>.
+          {t("AllItems.SearchNoMatch", { query: searchQuery })}
         </p>
-        <p className="text-xs text-slate-400 mt-3">Try searching with a different product name.</p>
+        <p className="text-xs text-slate-400 mt-3">{t("AllItems.TryDifferentSearch")}</p>
       </div>
     );
   }
-
   return (
     <div className="min-h-[300px] rounded-xl border border-slate-200 bg-white flex flex-col items-center justify-center text-center px-6">
       <div className="h-16 w-16 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
         <ShoppingBag size={29} className="text-orange-400 stroke-[1.5]" />
       </div>
-      <p className="text-base font-semibold text-slate-700 mt-4">No items yet</p>
+      <p className="text-base font-semibold text-slate-700 mt-4">{t("AllItems.NoItemsYet")}</p>
       <p className="text-sm text-slate-400 mt-1 max-w-sm">
-        Your product catalog is empty. Add your first item to start managing products and pricing.
+        {t("AllItems.EmptyCatalogDescription")}
       </p>
       <Button onClick={onAddItem} className="mt-5 bg-orange-500 hover:bg-orange-600 shadow-sm">
         <Plus size={17} className="mr-1" /> Add Item
@@ -246,12 +187,8 @@ const EmptyState = ({ isSearching, searchQuery, onAddItem }) => {
     </div>
   );
 };
-
-/* -------------------------------------------------------------------------- */
-/* Item Actions                                                               */
-/* -------------------------------------------------------------------------- */
-
 const ItemActions = ({ singleItem, navigate, setDialogOpen, setItemName }) => {
+  const { t } = useTranslation();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -261,7 +198,7 @@ const ItemActions = ({ singleItem, navigate, setDialogOpen, setItemName }) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => navigate(`/user/edit-item/${singleItem?._id}`)}>
-          Edit
+          {t("AllItems.Edit")}
         </DropdownMenuItem>
         <DropdownMenuItem
           className="text-red-600 focus:text-red-600 focus:bg-red-50"
@@ -270,20 +207,15 @@ const ItemActions = ({ singleItem, navigate, setDialogOpen, setItemName }) => {
             setDialogOpen(true);
           }}
         >
-          Delete
+          {t("AllItems.Delete")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 };
-
-/* -------------------------------------------------------------------------- */
-/* Desktop Row                                                                */
-/* -------------------------------------------------------------------------- */
-
 const CustomTableRow = ({ singleItem, navigate, setDialogOpen, setItemName }) => {
+  const { t } = useTranslation();
   const discount = discountCalculate(singleItem.MRP, singleItem.sellingPrice);
-
   return (
     <TableRow
       className="group cursor-pointer border-b border-slate-100 transition-all duration-200 hover:bg-orange-50/40 hover:shadow-[inset_3px_0_0_0_#f97316]"
@@ -311,7 +243,7 @@ const CustomTableRow = ({ singleItem, navigate, setDialogOpen, setItemName }) =>
           <span className="font-medium text-slate-600 whitespace-nowrap">
             {formatCurrency(singleItem.MRP)}
           </span>
-          <span className="text-[10px] text-slate-400 mt-0.5">MRP</span>
+          <span className="text-[10px] text-slate-400 mt-0.5">{t("AllItems.MRP")}</span>
         </div>
       </TableCell>
       <TableCell className="py-4 px-4 text-center align-middle">
@@ -319,19 +251,19 @@ const CustomTableRow = ({ singleItem, navigate, setDialogOpen, setItemName }) =>
           <span className="font-semibold text-slate-800 whitespace-nowrap">
             {formatCurrency(singleItem.sellingPrice)}
           </span>
-          <span className="text-[10px] text-emerald-500 mt-0.5">Selling price</span>
+          <span className="text-[10px] text-emerald-500 mt-0.5">{t("AllItems.SellingPrice")}</span>
         </div>
       </TableCell>
       <TableCell className="py-4 px-4 text-center align-middle">
         {Number(discount) > 0 ? (
           <div className="flex flex-col items-center">
             <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-md bg-orange-50 text-orange-600 text-xs font-semibold whitespace-nowrap">
-              {discount}% Off
+              {t("AllItems.PercentOff", { percent: discount })}
             </span>
-            <span className="text-[10px] text-slate-400 mt-1">Special offer</span>
+            <span className="text-[10px] text-slate-400 mt-1">{t("AllItems.SpecialOffer")}</span>
           </div>
         ) : (
-          <span className="text-xs text-slate-400">No offer</span>
+          <span className="text-xs text-slate-400">{t("AllItems.NoOffer")}</span>
         )}
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()} className="py-4 px-3 text-center align-middle">
@@ -345,14 +277,9 @@ const CustomTableRow = ({ singleItem, navigate, setDialogOpen, setItemName }) =>
     </TableRow>
   );
 };
-
-/* -------------------------------------------------------------------------- */
-/* Mobile Card                                                                */
-/* -------------------------------------------------------------------------- */
-
 const MobileItemCard = ({ singleItem, navigate, setDialogOpen, setItemName }) => {
+  const { t } = useTranslation();
   const discount = discountCalculate(singleItem.MRP, singleItem.sellingPrice);
-
   return (
     <div
       className="group rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:border-orange-200 hover:shadow-md cursor-pointer"
@@ -367,7 +294,7 @@ const MobileItemCard = ({ singleItem, navigate, setDialogOpen, setItemName }) =>
             <h3 className="font-semibold text-slate-800 text-[15px] leading-5 whitespace-normal break-words">
               {singleItem.name}
             </h3>
-            <p className="text-[10px] text-slate-400 mt-1">Product</p>
+            <p className="text-[10px] text-slate-400 mt-1">{t("AllItems.Product")}</p>
           </div>
         </div>
         <div onClick={(e) => e.stopPropagation()} className="shrink-0">
@@ -387,36 +314,30 @@ const MobileItemCard = ({ singleItem, navigate, setDialogOpen, setItemName }) =>
           </p>
         </div>
         <div className="rounded-lg bg-orange-50/70 px-2 py-2.5 text-center">
-          <div className="text-[10px] text-orange-500 mb-1">Price</div>
+          <div className="text-[10px] text-orange-500 mb-1">{t("AllItems.Price")}</div>
           <p className="text-sm font-semibold text-slate-800 whitespace-nowrap">
             {formatCurrency(singleItem.sellingPrice)}
           </p>
         </div>
         <div className="rounded-lg bg-emerald-50 px-2 py-2.5 text-center">
-          <div className="text-[10px] text-emerald-500 mb-1">Offer</div>
+          <div className="text-[10px] text-emerald-500 mb-1">{t("AllItems.Offer")}</div>
           <p className="text-sm font-semibold text-emerald-600 whitespace-nowrap">
-            {Number(discount) > 0 ? `${discount}% Off` : "No offer"}
+            {Number(discount) > 0 ? `${t("AllItems.PercentOff", { percent: discount })}` : t("AllItems.NoOffer")}
           </p>
         </div>
       </div>
     </div>
   );
 };
-
-/* -------------------------------------------------------------------------- */
-/* Main Component                                                             */
-/* -------------------------------------------------------------------------- */
-
 export default function Items() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
   const [searchQuery, setSearchQuery] = useState("");
   const [isDebouncing, setIsDebouncing] = useState(false);
   const [itemName, setItemName] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const initialFetchStarted = useRef(false);
-
   const {
     items,
     searchedItems,
@@ -428,29 +349,26 @@ export default function Items() {
     deleteLoading,
     searchNextCursor,
   } = useSelector((state) => state.item);
-
   const fetchItems = async (limit = 10, cursor = undefined) => {
     if (itemLoading) return;
     try {
       await dispatch(getAllItemReq({ limit, lastCreatedAt: cursor })).unwrap();
     } catch (error) {
-      toast.error(error?.message || "Unable to load items");
+      toast.error(error?.message || t("AllItems.Errors.LoadItems"));
     }
   };
-
   const handleDeleting = async (e, id) => {
     e.preventDefault();
     if (!id || deleteLoading) return;
     try {
       await dispatch(deleteItemReq(id)).unwrap();
-      toast.success("Item deleted successfully");
+      toast.success(t("AllItems.Toast.ItemDeleted"));
       setDialogOpen(false);
       setItemName("");
     } catch (error) {
-      toast.error(error?.message || `Failed to delete item ${itemName?.name || ""}`);
+      toast.error(error?.message || t("AllItems.Errors.DeleteItem", { name: itemName?.name || "" }));
     }
   };
-
   useEffect(() => {
     if (initialFetchStarted.current) return;
     initialFetchStarted.current = true;
@@ -459,7 +377,6 @@ export default function Items() {
       fetchItems(10);
     }
   }, []);
-
   useEffect(() => {
     const trimmedQuery = searchQuery.trim();
     if (trimmedQuery.length < 2) {
@@ -467,10 +384,8 @@ export default function Items() {
       setIsDebouncing(false);
       return;
     }
-
     setIsDebouncing(true);
     let requestPromise = null;
-
     const timer = setTimeout(() => {
       setIsDebouncing(false);
       requestPromise = dispatch(
@@ -482,10 +397,9 @@ export default function Items() {
       );
       requestPromise.unwrap().catch((err) => {
         if (err?.name === "AbortError" || err === "Request canceled") return;
-        toast.error(err?.message || "Unable to search items");
+        toast.error(err?.message || t("AllItems.Errors.SearchItems"));
       });
     }, 350);
-
     return () => {
       clearTimeout(timer);
       if (requestPromise) {
@@ -493,7 +407,6 @@ export default function Items() {
       }
     };
   }, [searchQuery, dispatch]);
-
   const searchPagination = async (limit = 10, cursor) => {
     if (searchQuery.trim().length < 2 || searchLoading || !cursor) return;
     try {
@@ -506,10 +419,9 @@ export default function Items() {
       ).unwrap();
     } catch (error) {
       if (error?.name === "AbortError" || error === "Request canceled") return;
-      toast.error(error?.message || "Unable to load more items");
+      toast.error(error?.message || t("AllItems.Errors.LoadMoreItems"));
     }
   };
-
   const isSearching = searchQuery.trim().length >= 2;
   const displayedItems = isSearching ? searchedItems : items;
   const isInitialLoading = !isSearching && itemLoading && items.length === 0;
@@ -517,31 +429,28 @@ export default function Items() {
   const isLoading = isInitialLoading || isInitialSearchLoading;
   const showEmptyState = !isLoading && !itemLoading && !searchLoading && displayedItems.length === 0;
   const isSearchActive = isDebouncing || searchLoading;
-
   const handleClearSearch = () => {
     setSearchQuery("");
     dispatch(clearSearchedItems());
   };
-
   return (
     <div className="opacity-0 animate-fade-in-scale transition-all duration-500 px-4 py-4 sm:px-6 md:px-12 md:py-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-5 mb-7 gap-4">
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShoppingBag className="text-orange-500" size={28} />
-            All Items
+            {t("AllItems.PageTitle")}
           </h1>
           <p className="text-sm text-gray-500">
-            Browse, manage, and configure your products, pricing, and active catalog items.
+            {t("AllItems.PageSubtitle")}
           </p>
         </div>
       </div>
-
       <div className="flex items-center py-4 justify-between flex-wrap sm:flex-nowrap gap-2">
         <div className="relative max-w-sm w-full">
           <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <Input
-            placeholder="Search items by product name..."
+            placeholder={t("AllItems.SearchPlaceholder")}
             className="w-full pl-9 pr-9 transition-all focus-visible:ring-orange-500 focus-visible:border-orange-300"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -551,7 +460,7 @@ export default function Items() {
               type="button"
               onClick={handleClearSearch}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
-              aria-label="Clear search"
+              aria-label={t("AllItems.ClearSearch")}
             >
               {isDebouncing || searchLoading ? (
                 <LucideLoader size={16} className="animate-spin" />
@@ -568,10 +477,9 @@ export default function Items() {
           className="bg-orange-500 hover:bg-orange-600 shrink-0 shadow-sm transition-all active:scale-[0.98]"
         >
           <Plus size={18} className="mr-1" />
-          Add Items
+          {t("AllItems.AddItems")}
         </Button>
       </div>
-
       {isInitialLoading ? (
         <div className="mt-1">
           <DesktopTableSkeleton />
@@ -592,14 +500,14 @@ export default function Items() {
             <div className="py-6 flex items-center justify-center w-full">
               <div className="flex items-center gap-2 text-sm text-slate-400">
                 <LucideLoader size={17} className="animate-spin text-orange-500" />
-                <span>Loading more items...</span>
+                <span>{t("AllItems.LoadingMore")}</span>
               </div>
             </div>
           }
           endMessage={
             displayedItems.length > 0 ? (
               <div className="py-5 text-center">
-                <span className="text-[11px] text-slate-400">You've reached the end of the item list</span>
+                <span className="text-[11px] text-slate-400">{t("AllItems.EndOfList")}</span>
               </div>
             ) : null
           }
@@ -621,11 +529,11 @@ export default function Items() {
                 <Table className="min-w-[1000px] w-full table-auto">
                   <TableHeader>
                     <TableRow className="bg-muted/60 hover:bg-muted/60">
-                      <TableHead className="text-center min-w-[90px] w-[90px] px-4 whitespace-nowrap">Product</TableHead>
-                      <TableHead className="text-center min-w-[280px] w-[280px] px-4 whitespace-nowrap">Name</TableHead>
-                      <TableHead className="text-center min-w-[140px] w-[140px] px-4 whitespace-nowrap">MRP</TableHead>
-                      <TableHead className="text-center min-w-[140px] w-[140px] px-4 whitespace-nowrap">Price</TableHead>
-                      <TableHead className="text-center min-w-[120px] w-[120px] px-4 whitespace-nowrap">Offer</TableHead>
+                      <TableHead className="text-center min-w-[90px] w-[90px] px-4 whitespace-nowrap">{t("AllItems.Product")}</TableHead>
+                      <TableHead className="text-center min-w-[280px] w-[280px] px-4 whitespace-nowrap">{t("AllItems.Name")}</TableHead>
+                      <TableHead className="text-center min-w-[140px] w-[140px] px-4 whitespace-nowrap">{t("AllItems.MRP")}</TableHead>
+                      <TableHead className="text-center min-w-[140px] w-[140px] px-4 whitespace-nowrap">{t("AllItems.Price")}</TableHead>
+                      <TableHead className="text-center min-w-[120px] w-[120px] px-4 whitespace-nowrap">{t("AllItems.Offer")}</TableHead>
                       <TableHead className="text-center min-w-[70px] w-[70px] px-3" />
                     </TableRow>
                   </TableHeader>
@@ -642,7 +550,6 @@ export default function Items() {
                   </TableBody>
                 </Table>
               </div>
-
               <div className="md:hidden space-y-3">
                 {displayedItems.map((singleItem) => (
                   <MobileItemCard
@@ -658,7 +565,6 @@ export default function Items() {
           )}
         </InfiniteScroll>
       )}
-
       <Dialog
         open={dialogOpen}
         onOpenChange={(open) => {
@@ -672,23 +578,20 @@ export default function Items() {
       >
         <DialogContent className="w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-[26px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,0.20)] sm:rounded-[32px]">
           <div className="h-24 w-full bg-gradient-to-br from-red-100/60 via-slate-50 to-slate-100/50" />
-          
           <div className="px-6 pb-6 pt-0 sm:px-8 sm:pb-8">
             <div className="-mt-10 mb-5 flex justify-center">
               <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-red-50 text-red-600 shadow-sm">
                 <AlertTriangle size={32} strokeWidth={2} />
               </div>
             </div>
-
             <div className="text-center text-slate-950">
-              <h2 className="text-lg font-bold tracking-tight">Delete Item?</h2>
+              <h2 className="text-lg font-bold tracking-tight">{t("AllItems.DeleteDialog.Title")}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                Are you sure you want to permanently delete{" "}
+                {t("AllItems.DeleteDialog.ConfirmPrefix")} {" "}
                 <span className="font-semibold text-slate-900">{itemName?.name}</span>{" "}
-                from your catalog? This action cannot be undone.
+                {t("AllItems.DeleteDialog.ConfirmSuffix")}
               </p>
             </div>
-
             <div className="mt-8 grid grid-cols-2 gap-3">
               <Button
                 type="button"
@@ -700,7 +603,7 @@ export default function Items() {
                 }}
                 className="h-11 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 active:scale-[0.98]"
               >
-                Cancel
+                {t("AllItems.Cancel")}
               </Button>
               <Button
                 type="button"
@@ -712,10 +615,10 @@ export default function Items() {
                 {deleteLoading ? (
                   <>
                     <LucideLoader size={16} className="mr-2 animate-spin" />
-                    Deleting...
+                    {t("AllItems.Deleting")}
                   </>
                 ) : (
-                  "Confirm Delete"
+                  t("AllItems.ConfirmDelete")
                 )}
               </Button>
             </div>

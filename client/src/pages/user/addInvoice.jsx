@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Trash2, FilePlus2, UserCheck, AlertCircle, MapPin, Mail, Search, ImageIcon, Eye } from 'lucide-react';
+import { Plus, Trash2, FilePlus2, UserCheck, AlertCircle, AlertTriangle, MapPin, Mail, Search, ImageIcon, Eye, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import InfiniteScroll from "react-infinite-scroll-component";
 
@@ -106,6 +107,7 @@ const looksLikePhoneNumber = (value) => {
 };
 
 function AddInvoice() {
+  const { t } = useTranslation();
   const [itemData, setItemData] = useState([{ ...initialItemData }]);
   const [customerSearchValue, setCustomerSearchValue] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -124,6 +126,7 @@ function AddInvoice() {
   // Modal Catalog State
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState(null);
 
   const [invoiceIssueDate, setInvoiceIssueDate] = useState(new Date());
   const [invoiceDueDate, setInvoiceDueDate] = useState(new Date());
@@ -280,7 +283,7 @@ function AddInvoice() {
 
       customerAbortRef.current.unwrap().catch((err) => {
         if (err.name === 'AbortError' || err === "Request canceled") return;
-        toast.error(err.message || "Something went wrong");
+        toast.error(err.message || t("AddInvoice.Errors.SomethingWentWrong"));
       });
     }, 300);
 
@@ -309,7 +312,7 @@ function AddInvoice() {
 
       itemAbortRef.current.unwrap().catch((err) => {
         if (err.name === 'AbortError' || err === "Request canceled") return;
-        toast.error(err.message || "Something went wrong");
+        toast.error(err.message || t("AddInvoice.Errors.SomethingWentWrong"));
       });
     }, 300);
 
@@ -320,11 +323,11 @@ function AddInvoice() {
   }, [catalogSearch, dispatch]);
 
   const fetchCustomers = async (limit = 10, cursor = undefined) => {
-    await dispatch(getAllCustomerReq({ limit, lastCreatedAt: cursor })).unwrap().catch((err) => toast.error(err.message));
+    await dispatch(getAllCustomerReq({ limit, lastCreatedAt: cursor })).unwrap().catch((err) => toast.error(err.message || t("AddInvoice.Errors.SomethingWentWrong")));
   };
 
   const fetchItems = async (limit = 10, cursor = undefined) => {
-    await dispatch(getAllItemReq({ limit, lastCreatedAt: cursor })).unwrap().catch((err) => toast.error(err.message));
+    await dispatch(getAllItemReq({ limit, lastCreatedAt: cursor })).unwrap().catch((err) => toast.error(err.message || t("AddInvoice.Errors.SomethingWentWrong")));
   };
 
   const searchCustomerPagination = async (limit = 10, cursor) => {
@@ -333,12 +336,12 @@ function AddInvoice() {
       search: customerSearchValue,
       limit,
       cursor
-    })).unwrap().catch((err) => toast.error(err.message || "Something went wrong"));
+    })).unwrap().catch((err) => toast.error(err.message || t("AddInvoice.Errors.SomethingWentWrong")));
   };
 
   const searchItemPagination = async (limit = 10, cursor) => {
     if (catalogSearch.length < 2 || itemSearchLoading) return;
-    await dispatch(itemSearchReq({ search: catalogSearch, limit, cursor })).unwrap().catch((err) => toast.error(err.message));
+    await dispatch(itemSearchReq({ search: catalogSearch, limit, cursor })).unwrap().catch((err) => toast.error(err.message || t("AddInvoice.Errors.SomethingWentWrong")));
   };
 
   const subtotal = useMemo(() => {
@@ -494,7 +497,7 @@ function AddInvoice() {
     if (saving) return;
 
     if (!selectedCustomer || (selectedCustomer.isInstantNew && (!selectedCustomer.displayName || !selectedCustomer.displayName.trim()))) {
-      toast.error("Please provide a valid client name.");
+      toast.error(t("AddInvoice.Errors.ValidCustomerName"));
       return;
     }
 
@@ -506,17 +509,17 @@ function AddInvoice() {
     );
 
     if (invalidItems) {
-      toast.error("Please complete all item rows correctly.");
+      toast.error(t("AddInvoice.Errors.CompleteItemRows"));
       return;
     }
 
     if (invoiceDueDate < invoiceIssueDate) {
-      toast.error("Due date cannot be before issue date.");
+      toast.error(t("AddInvoice.Errors.DueDateBeforeIssue"));
       return;
     }
 
     if (grandTotal <= 0) {
-      toast.error("Invoice total must be greater than ₹0.");
+      toast.error(t("AddInvoice.Errors.TotalMustBePositive"));
       return;
     }
 
@@ -524,12 +527,12 @@ function AddInvoice() {
       const amount = normalizeMoney(paidAmount);
 
       if (amount <= 0) {
-        toast.error("Enter the amount received.");
+        toast.error(t("AddInvoice.Errors.EnterAmountReceived"));
         return;
       }
 
       if (amount >= grandTotal) {
-        toast.error("For a full payment, select Paid instead.");
+        toast.error(t("AddInvoice.Errors.SelectPaidForFullPayment"));
         return;
       }
     }
@@ -542,8 +545,8 @@ function AddInvoice() {
       const savePromise = dispatch(addInvoiceReq(invoicePayload)).unwrap();
 
       toast.promise(savePromise, {
-        loading: 'Saving invoice...',
-        success: 'Invoice saved successfully!'
+        loading: t("AddInvoice.Toast.SavingInvoice"),
+        success: t("AddInvoice.Toast.InvoiceSaved"),
       });
 
       await savePromise;
@@ -563,7 +566,7 @@ function AddInvoice() {
       setInvoiceNumberSequence(nextInvoiceNum);
 
     } catch (error) {
-      toast.error(error.message || "Something went wrong. Please try again.");
+      toast.error(error.message || t("AddInvoice.Errors.GenericRetry"));
     } finally {
       setSaving(false);
     }
@@ -638,7 +641,7 @@ function AddInvoice() {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to download invoice");
+      toast.error(t("AddInvoice.Errors.DownloadFailed"));
       throw err;
     }
   };
@@ -679,7 +682,7 @@ function AddInvoice() {
         link.click();
         document.body.removeChild(link);
         setTimeout(() => URL.revokeObjectURL(url), 5000);
-        toast.info("PDF downloaded. Open it and use your PDF viewer's Print option.");
+        toast.info(t("AddInvoice.Toast.PdfDownloadedPrint"));
         document.title = originalTitle;
         return;
       }
@@ -717,7 +720,7 @@ function AddInvoice() {
     } catch (err) {
       document.title = originalTitle;
       console.error(err);
-      toast.error("Failed to generate invoice PDF.");
+      toast.error(t("AddInvoice.Errors.GeneratePdfFailed"));
     }
   };
 
@@ -726,12 +729,12 @@ function AddInvoice() {
       const previewWindow = window.open("", "_blank");
 
       if (!previewWindow) {
-        toast.error("Please allow pop-ups to view the PDF preview.");
+        toast.error(t("AddInvoice.Errors.AllowPopups"));
         return;
       }
 
       previewWindow.document.write(
-        "<div style='font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; color: #64748b; background-color: #f8fafc;'>Generating Preview...</div>"
+        `<div style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; color: #64748b; background-color: #f8fafc;">${t("AddInvoice.GeneratingPreview")}</div>`
       );
 
       try {
@@ -742,7 +745,7 @@ function AddInvoice() {
       } catch (err) {
         console.error(err);
         previewWindow.close();
-        toast.error("Failed to generate preview");
+        toast.error(t("AddInvoice.Errors.PreviewFailed"));
       }
     } else {
       setPreviewOpen(true);
@@ -760,7 +763,7 @@ function AddInvoice() {
       const data = res.data?.statusCode?.invoiceNumber || "";
       setInvoiceNumberSequence(data);
     } catch (error) {
-      toast.error(error.message || "Failed to load Invoice Number. Please try again.");
+      toast.error(error.message || t("AddInvoice.Errors.LoadInvoiceNumberFailed"));
     }
   };
 
@@ -780,7 +783,7 @@ function AddInvoice() {
         signature: data.companySignature || null,
       });
     } catch (err) {
-      toast.error(err.message || "Failed to load company details. Please try again.");
+      toast.error(err.message || t("AddInvoice.Errors.LoadCompanyDetailsFailed"));
     }
   };
 
@@ -807,29 +810,29 @@ function AddInvoice() {
       <Loader2 />
     </div>
   ) : (
-    <div className="opacity-0 animate-fade-in-scale transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-4 py-4 md:px-12 md:py-6 font-sans select-none">
+    <div className="opacity-0 animate-fade-in-scale transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-4 py-4 sm:px-6 md:px-12 md:py-6 font-sans select-none">
       <form
         onSubmit={handleFormSubmit}
-        className={`space-y-10 print:hidden ${saving ? "pointer-events-none opacity-60" : ""}`}
+        className={`space-y-7 print:hidden ${saving ? "pointer-events-none opacity-60" : ""}`}
       >
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-5 mb-7 gap-4">
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <FilePlus2 className="text-orange-500" size={28} /> Create New Invoice
+              <FilePlus2 className="text-orange-500" size={28} /> {t("AddInvoice.PageTitle")}
             </h1>
-            <p className="text-sm text-gray-500">Generate invoices and track customer balances automatically.</p>
+            <p className="text-sm text-gray-500">{t("AddInvoice.PageSubtitle")}</p>
           </div>
         </div>
 
         {/* Section 1: Customer Allocation */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
           <div className="lg:col-span-2 space-y-4">
-            <h2 className={sectionHeadingCls}>Client Allocation</h2>
+            <h2 className={sectionHeadingCls}>{t("AddInvoice.ClientAllocation")}</h2>
             <FieldGroup>
               <Field className="space-y-1">
                 <FieldLabel htmlFor="customer-name" className={labelCls}>
-                  Customer Name / Phone <span className="text-orange-500">*</span>
+                  {t("AddInvoice.CustomerNameNumber")} <span className="text-orange-500">*</span>
                 </FieldLabel>
 
                 <Combobox
@@ -838,7 +841,7 @@ function AddInvoice() {
                   onOpenChange={setCustomerComboboxOpen}
                 >
                   <ComboboxInput
-                    placeholder="Search customer by name or phone..."
+                    placeholder={t("AddInvoice.SearchCustomerPlaceholder")}
                     value={customerSearchValue || selectedCustomer?.displayName || ""}
                     onChange={(e) => {
                       const value = e.target.value;
@@ -866,14 +869,17 @@ function AddInvoice() {
                             <Plus size={16} />
                           </div>
                           <div>
-                            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Record not found</p>
+                            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{t("AddInvoice.RecordNotFound")}</p>
                             <p className="text-sm font-semibold text-slate-800">
-                              Add <span className="text-orange-600">"{customerSearchValue}"</span> as new {isPhoneNumberSearchCurrent ? "phone record" : "client"}
+                              {t("AddInvoice.AddNewCustomer", {
+                                search: customerSearchValue,
+                                type: isPhoneNumberSearchCurrent ? t("AddInvoice.PhoneRecord") : t("AddInvoice.Client")
+                              })} 
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-1 text-[11px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded font-semibold">
-                          <span>Press</span> <kbd className="text-slate-700">Enter</kbd>
+                          <span>{t("AddInvoice.Press")}</span> <kbd className="text-slate-700">Enter</kbd>
                         </div>
                       </div>
                     ) : (
@@ -897,7 +903,7 @@ function AddInvoice() {
                               className="py-3 px-4 text-sm font-medium text-slate-800 data-[selected]:bg-slate-50 flex justify-between items-center cursor-pointer"
                             >
                               <span className="font-semibold">{customer.displayName}</span>
-                              <span className="text-xs text-slate-400 font-mono">{customer.workingPhone || 'No phone'}</span>
+                              <span className="text-xs text-slate-400 font-mono">{customer.workingPhone || t("AddInvoice.NoPhone")}</span>
                             </ComboboxItem>
                           ))}
                         </InfiniteScroll>
@@ -925,16 +931,16 @@ function AddInvoice() {
                         <div>
                           <div className="flex items-center gap-2">
                             <h4 className="text-[15px] font-bold text-slate-800 tracking-tight">
-                              {selectedCustomer.displayName || "New Client"}
+                              {selectedCustomer.displayName || t("AddInvoice.NewCustomer")}
                             </h4>
                             {selectedCustomer.isInstantNew && (
                               <span className="bg-orange-50 text-orange-600 text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wide">
-                                NEW
+                                {t("AddInvoice.New")}
                               </span>
                             )}
                           </div>
                           <p className="text-xs text-slate-500 font-medium mt-0.5">
-                            {selectedCustomer.customerType} Profile
+                            {t("AddInvoice.CustomerProfile", { type: selectedCustomer.customerType })}
                           </p>
                         </div>
                       </div>
@@ -943,7 +949,7 @@ function AddInvoice() {
                     <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
                       <div className="flex-1 space-y-4">
                         <h5 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2 mb-3">
-                          <Mail size={13} className="text-slate-300" /> Contact
+                          <Mail size={13} className="text-slate-300" /> {t("AddInvoice.Contact")}
                         </h5>
 
                         <div className="space-y-3">
@@ -951,32 +957,32 @@ function AddInvoice() {
                             <>
                               <Input
                                 autoFocus={!selectedCustomer.displayName}
-                                placeholder="Customer Name (Mandatory)"
+                                placeholder={t("AddInvoice.CustomerNameMandatory")}
                                 value={selectedCustomer.displayName || ""}
                                 onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, displayName: e.target.value }))}
                                 className={`bg-white ${!selectedCustomer.displayName ? 'border-orange-300 ring-2 ring-orange-500/10' : ''}`}
                               />
                               <Input
                                 autoFocus={!!selectedCustomer.displayName}
-                                placeholder="Phone number (Mandatory)"
+                                placeholder={t("AddInvoice.PhoneMandatory")}
                                 value={selectedCustomer.workingPhone || ""}
                                 onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, workingPhone: e.target.value }))}
                                 className={`bg-white ${!selectedCustomer.workingPhone ? 'border-orange-300 ring-2 ring-orange-500/10' : ''}`}
                               />
                               <Input
-                                placeholder="Email address"
+                                placeholder={t("AddInvoice.EmailAddress")}
                                 value={selectedCustomer.email || ""}
                                 onChange={(e) => setSelectedCustomer((prev) => ({ ...prev, email: e.target.value }))}
                                 className="bg-white"
                               />
                             </>
                           ) : (
-                            <div className="space-y-2.5">
+                            <div className="space-y-1.5">
                               <p className="text-sm font-medium text-slate-700 font-mono flex items-center h-10 bg-slate-50 px-4 rounded-lg">
-                                {selectedCustomer.workingPhone || "No phone provided"}
+                                {selectedCustomer.workingPhone || t("AddInvoice.NoPhoneProvided")}
                               </p>
                               <p className="text-sm font-medium text-slate-700 flex items-center h-10 bg-slate-50 px-4 rounded-lg truncate">
-                                {selectedCustomer.email || "No email provided"}
+                                {selectedCustomer.email || t("AddInvoice.NoEmailProvided")}
                               </p>
                             </div>
                           )}
@@ -985,13 +991,13 @@ function AddInvoice() {
 
                       <div className="flex-[1.5] space-y-4">
                         <h5 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2 mb-3">
-                          <MapPin size={13} className="text-slate-300" /> Billing Address
+                          <MapPin size={13} className="text-slate-300" /> {t("AddInvoice.BillingAddress")}
                         </h5>
 
                         {selectedCustomer.isInstantNew ? (
                           <div className="space-y-3">
                             <Input
-                              placeholder="Street Address (e.g. 123 Main St)"
+                              placeholder={t("AddInvoice.StreetAddressPlaceholder")}
                               value={selectedCustomer.billingAddress?.street1 || ""}
                               onChange={(e) => setSelectedCustomer(prev => ({
                                 ...prev, billingAddress: { ...prev.billingAddress, street1: e.target.value }
@@ -1001,7 +1007,7 @@ function AddInvoice() {
 
                             <div className="grid grid-cols-2 gap-3">
                               <Input
-                                placeholder="City"
+                                placeholder={t("AddInvoice.City")}
                                 value={selectedCustomer.billingAddress?.city || ""}
                                 onChange={(e) => setSelectedCustomer(prev => ({
                                   ...prev, billingAddress: { ...prev.billingAddress, city: e.target.value }
@@ -1009,7 +1015,7 @@ function AddInvoice() {
                                 className="bg-white"
                               />
                               <Input
-                                placeholder="State"
+                                placeholder={t("AddInvoice.State")}
                                 value={selectedCustomer.billingAddress?.state || ""}
                                 onChange={(e) => setSelectedCustomer(prev => ({
                                   ...prev, billingAddress: { ...prev.billingAddress, state: e.target.value }
@@ -1020,7 +1026,7 @@ function AddInvoice() {
 
                             <div className="grid grid-cols-2 gap-3">
                               <Input
-                                placeholder="Pincode"
+                                placeholder={t("AddInvoice.Pincode")}
                                 value={selectedCustomer.billingAddress?.pincode || ""}
                                 onChange={(e) => setSelectedCustomer(prev => ({
                                   ...prev, billingAddress: { ...prev.billingAddress, pincode: e.target.value }
@@ -1028,7 +1034,7 @@ function AddInvoice() {
                                 className="bg-white"
                               />
                               <Input
-                                placeholder="Country"
+                                placeholder={t("AddInvoice.Country")}
                                 value={selectedCustomer.billingAddress?.country ?? "India"}
                                 onChange={(e) => setSelectedCustomer(prev => ({
                                   ...prev, billingAddress: { ...prev.billingAddress, country: e.target.value }
@@ -1056,7 +1062,7 @@ function AddInvoice() {
                                 </div>
                               </div>
                             ) : (
-                              <p className="text-slate-400 italic text-sm text-center">No billing address provided</p>
+                              <p className="text-slate-400 italic text-sm text-center">{t("AddInvoice.NoBillingAddress")}</p>
                             )}
                           </div>
                         )}
@@ -1070,9 +1076,9 @@ function AddInvoice() {
                     <AlertCircle size={22} className="text-slate-300" />
                   </div>
                   <div>
-                    <p className="text-base font-semibold text-slate-700">No client selected</p>
+                    <p className="text-base font-semibold text-slate-700">{t("AddInvoice.NoCustomerSelected")}</p>
                     <p className="text-sm text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">
-                      Search for an existing client or type a new name/number above to allocate a record.
+                      {t("AddInvoice.NoCustomerSelectedDescription")}
                     </p>
                   </div>
                 </div>
@@ -1082,31 +1088,31 @@ function AddInvoice() {
 
           {/* Timeline Metadata */}
           <div className="space-y-5 lg:border-l lg:pl-10 border-slate-200">
-            <h2 className={sectionHeadingCls}>Timeline Details</h2>
+            <h2 className={sectionHeadingCls}>{t("AddInvoice.TimelineDetails")}</h2>
             <div className="space-y-4">
-              <div className="space-y-1"><label className={labelCls}>Issue Date</label><DatePickerInput onChange={setInvoiceIssueDate} value={invoiceIssueDate} /></div>
-              <div className="space-y-1"><label className={labelCls}>Due Date</label><DatePickerInput onChange={setInvoiceDueDate} value={invoiceDueDate} /></div>
+              <div className="space-y-1"><label className={labelCls}>{t("AddInvoice.IssueDate")}</label><DatePickerInput onChange={setInvoiceIssueDate} value={invoiceIssueDate} /></div>
+              <div className="space-y-1"><label className={labelCls}>{t("AddInvoice.DueDate")}</label><DatePickerInput onChange={setInvoiceDueDate} value={invoiceDueDate} /></div>
               <div className="space-y-1">
-                <label className={labelCls}>Invoice No.</label>
+                <label className={labelCls}>{t("AddInvoice.InvoiceNumber")}</label>
                 <Input className="w-full h-11 px-3 bg-slate-50 border-slate-200 text-sm font-mono font-bold text-slate-500 cursor-not-allowed" value={invoiceNumberSequence} readOnly />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Section 2: Line Items */}
+        {/* Section 2: {t("AddInvoice.LineItems")} */}
         <div className="space-y-4">
-          <h2 className={sectionHeadingCls}>Line Items</h2>
+          <h2 className={sectionHeadingCls}>{t("AddInvoice.LineItems")}</h2>
           <div className={`hidden md:block overflow-visible ${cardCls}`}>
             <Table className="w-full">
               <TableHeader className="bg-slate-50 border-b border-slate-200">
                 <TableRow>
-                  <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide pl-4 py-3.5 min-w-[320px]">Product / Item</TableHead>
-                  <TableHead className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wide py-3.5 w-24">Qty</TableHead>
-                  <TableHead className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wide py-3.5 w-28">MRP</TableHead>
-                  <TableHead className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wide py-3.5 w-32">Unit Price</TableHead>
-                  <TableHead className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wide py-3.5 w-44">Discount</TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wide py-3.5 pr-4 min-w-[120px]">Amount</TableHead>
+                  <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide pl-4 py-3.5 min-w-[320px]">{t("AddInvoice.ProductItem")}</TableHead>
+                  <TableHead className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wide py-3.5 w-24">{t("AddInvoice.Quantity")}</TableHead>
+                  <TableHead className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wide py-3.5 w-28">{t("AddInvoice.MRP")}</TableHead>
+                  <TableHead className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wide py-3.5 w-32">{t("AddInvoice.UnitPrice")}</TableHead>
+                  <TableHead className="text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wide py-3.5 w-44">{t("AddInvoice.Discount")}</TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wide py-3.5 pr-4 min-w-[120px]">{t("AddInvoice.Amount")}</TableHead>
                   <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
@@ -1119,7 +1125,7 @@ function AddInvoice() {
                       <TableCell className="pl-4 py-3.5 align-middle">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="h-11 w-11 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
-                            {data.image ? <img src={data.image} className="h-full w-full object-cover" alt="" /> : <ImageIcon size={18} className="text-slate-300" />}
+                            {data.image ? <img src={data.image} className="h-full w-full object-cover" alt={t("AddInvoice.ItemImageAlt")} /> : <ImageIcon size={18} className="text-slate-300" />}
                           </div>
 
                           <div
@@ -1131,9 +1137,9 @@ function AddInvoice() {
                             className="flex-1 min-w-0 h-11 bg-white border border-slate-200 rounded-lg px-3.5 flex items-center justify-between gap-2 cursor-pointer hover:border-orange-400 hover:bg-orange-50/30 transition-colors"
                           >
                             {data.name ? (
-                              <span className="font-semibold text-slate-800 truncate min-w-0 text-sm">{data.name}</span>
+                              <span className="font-semibold text-slate-800 truncate min-w-0 text-sm" title={data.name}>{data.name}</span>
                             ) : (
-                              <span className="font-medium text-slate-400 truncate min-w-0 text-sm">Tap to select product...</span>
+                              <span className="font-medium text-slate-400 truncate min-w-0 text-sm">{t("AddInvoice.SelectProductPlaceholder")}</span>
                             )}
                             <Search size={16} className="text-slate-400 shrink-0" />
                           </div>
@@ -1165,7 +1171,7 @@ function AddInvoice() {
                               onFocus={(e) => e.target.select()}
                               value={data.unit}
                               onChange={(e) => updateItem(index, "unit", e.target.value)}
-                              placeholder="Unit"
+                              placeholder={t("AddInvoice.Unit")}
                               className="w-16 h-10 px-1 bg-white border border-slate-300 rounded-r-lg text-[11px] font-semibold text-slate-600 uppercase text-center focus:outline-none focus:ring-2 focus:ring-orange-500/15 focus:border-orange-400 focus:z-10 shrink-0"
                               maxLength={5}
                             />
@@ -1239,7 +1245,7 @@ function AddInvoice() {
 
                       <TableCell className="text-right pr-4 py-3.5 font-bold text-slate-900 font-mono text-[15px] align-middle">₹{rowAmount.toFixed(2)}</TableCell>
                       <TableCell className="pr-3 py-3.5 align-middle text-center">
-                        <button type="button" onClick={() => removeItem(index)} className="text-slate-300 hover:text-rose-600 p-2 transition-colors"><Trash2 size={16} /></button>
+                        <button type="button" onClick={() => setPendingDeleteIndex(index)} className="text-slate-300 hover:text-rose-600 p-2 transition-colors"><Trash2 size={16} /></button>
                       </TableCell>
                     </TableRow>
                   );
@@ -1257,14 +1263,14 @@ function AddInvoice() {
                 <div key={data._rowId} className={`p-4 space-y-4 relative ${cardCls}`}>
                   <div className="flex justify-between items-start border-b border-slate-100 pb-3">
                     <span className="text-xs font-semibold text-orange-600 tracking-wide">Item #{index + 1}</span>
-                    <button type="button" onClick={() => removeItem(index)} className="text-slate-300 hover:text-rose-600 transition-colors p-1"><Trash2 size={16} /></button>
+                    <button type="button" onClick={() => setPendingDeleteIndex(index)} className="text-slate-300 hover:text-rose-600 transition-colors p-1"><Trash2 size={16} /></button>
                   </div>
 
                   <div className="space-y-1">
-                    <label className={labelCls}>Item</label>
+                    <label className={labelCls}>{t("AddInvoice.Item")}</label>
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-12 w-12 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
-                        {data.image ? <img src={data.image} className="h-full w-full object-cover" alt="" /> : <ImageIcon size={18} className="text-slate-300" />}
+                        {data.image ? <img src={data.image} className="h-full w-full object-cover" alt={t("AddInvoice.ItemImageAlt")} /> : <ImageIcon size={18} className="text-slate-300" />}
                       </div>
 
                       <div
@@ -1276,9 +1282,9 @@ function AddInvoice() {
                         className="flex-1 min-w-0 h-12 bg-white border border-slate-200 rounded-lg px-3.5 flex items-center justify-between gap-2 cursor-pointer active:border-orange-400"
                       >
                         {data.name ? (
-                          <span className="font-semibold text-slate-800 truncate min-w-0 text-sm">{data.name}</span>
+                          <span className="font-semibold text-slate-800 truncate min-w-0 text-sm" title={data.name}>{data.name}</span>
                         ) : (
-                          <span className="font-medium text-slate-400 truncate min-w-0 text-sm">Tap to select product...</span>
+                          <span className="font-medium text-slate-400 truncate min-w-0 text-sm">{t("AddInvoice.SelectProductPlaceholder")}</span>
                         )}
                         <Search size={16} className="text-slate-400 shrink-0" />
                       </div>
@@ -1287,7 +1293,7 @@ function AddInvoice() {
 
                   <div className="grid grid-cols-3 gap-2 pt-1">
                     <div>
-                      <label className={labelCls}>Qty</label>
+                      <label className={labelCls}>{t("AddInvoice.Quantity")}</label>
                       <div className="flex items-center">
                         <input
                           onFocus={(e) => e.target.select()}
@@ -1312,7 +1318,7 @@ function AddInvoice() {
                             value={data.unit}
                             onChange={(e) => updateItem(index, "unit", e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            placeholder="Unit"
+                            placeholder={t("AddInvoice.Unit")}
                             className="w-14 h-11 px-1 bg-white border border-slate-300 rounded-r-lg text-[11px] font-semibold text-slate-600 uppercase text-center focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500 focus:z-10 shrink-0"
                             maxLength={5}
                           />
@@ -1324,7 +1330,7 @@ function AddInvoice() {
                       </div>
                     </div>
                     <div>
-                      <label className={labelCls}>Price</label>
+                      <label className={labelCls}>{t("AddInvoice.Price")}</label>
                       <input
                         value={data.sellingPrice ?? ""}
                         onFocus={(e) => e.target.select()}
@@ -1344,7 +1350,7 @@ function AddInvoice() {
                     </div>
 
                     <div>
-                      <label className={labelCls}>Discount</label>
+                      <label className={labelCls}>{t("AddInvoice.Discount")}</label>
                       <div className="flex items-center">
                         <input
                           value={data.discount ?? ""}
@@ -1384,7 +1390,7 @@ function AddInvoice() {
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 flex justify-between items-center bg-white">
-                    <span className="text-xs text-slate-400 uppercase font-semibold">Row Total</span>
+                    <span className="text-xs text-slate-400 uppercase font-semibold">{t("AddInvoice.RowTotal")}</span>
                     <span className="text-sm font-bold font-mono text-slate-900">₹{rowAmount.toFixed(2)}</span>
                   </div>
                 </div>
@@ -1409,40 +1415,40 @@ function AddInvoice() {
             variant="outline"
           >
             <Plus size={14} className="mr-1.5 stroke-[2.5]" />
-            Add New Item Line
+            {t("AddInvoice.AddNewItem")}
           </Button>
         </div>
 
         {/* Section 3: Notes, Terms & Balance */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-4 border-t border-slate-200">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 pt-5 border-t border-slate-200">
           <div className="space-y-5">
-            <h2 className={sectionHeadingCls}>Notes & Terms</h2>
+            <h2 className={sectionHeadingCls}>{t("AddInvoice.NotesTerms")}</h2>
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className={labelCls}>Invoice Note</label>
-                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note visible on the customer's invoice..." className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/15 focus:border-orange-400 font-medium placeholder-slate-400" />
+                <label className={labelCls}>{t("AddInvoice.InvoiceNote")}</label>
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("AddInvoice.InvoiceNotePlaceholder")} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/15 focus:border-orange-400 font-medium placeholder-slate-400" />
               </div>
               <div className="space-y-1">
-                <label className={labelCls}>Payment Terms</label>
-                <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} placeholder="Specify payment terms, due windows, late fees..." className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/15 focus:border-orange-400 font-medium placeholder-slate-400" />
+                <label className={labelCls}>{t("AddInvoice.PaymentTerms")}</label>
+                <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} placeholder={t("AddInvoice.PaymentTermsPlaceholder")} className="w-full min-h-[90px] text-sm border border-slate-300 rounded-lg bg-white p-3 focus:outline-none focus:ring-2 focus:ring-orange-500/15 focus:border-orange-400 font-medium placeholder-slate-400" />
               </div>
             </div>
           </div>
 
           <div className="space-y-5">
-            <h2 className={sectionHeadingCls}>Balance Summary</h2>
+            <h2 className={sectionHeadingCls}>{t("AddInvoice.BalanceSummary")}</h2>
             <div className={`p-6 space-y-4 ${cardCls}`}>
               <div className="flex justify-between items-center text-sm font-medium">
-                <span className="text-slate-500">Subtotal</span>
+                <span className="text-slate-500">{t("AddInvoice.Subtotal")}</span>
                 <span className="font-mono text-slate-900 font-semibold text-[15px]">₹{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center text-sm font-medium">
-                <span className="text-emerald-600">Discount</span>
+                <span className="text-emerald-600">{t("AddInvoice.Discount")}</span>
                 <span className="font-mono text-emerald-600 font-semibold text-[15px]">−₹{totalDiscount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5 text-sm font-medium text-slate-500">
-                  <span>Tax Rate</span>
+                  <span>{t("AddInvoice.TaxRate")}</span>
                   <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="text"
@@ -1467,7 +1473,7 @@ function AddInvoice() {
                 <span className="font-mono text-sm text-slate-900 font-semibold">₹{taxedAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-baseline pt-1">
-                <span className="text-sm font-bold text-slate-900 uppercase tracking-wide">Total Due</span>
+                <span className="text-sm font-bold text-slate-900 uppercase tracking-wide">{t("AddInvoice.TotalDue")}</span>
                 <span className="text-3xl font-bold font-mono text-slate-900 tracking-tight">₹{grandTotal.toFixed(2)}</span>
               </div>
 
@@ -1489,7 +1495,7 @@ function AddInvoice() {
                       }}
                       className="h-4 w-4 accent-slate-900"
                     />
-                    <span className="text-sm text-slate-700">Unpaid</span>
+                    <span className="text-sm text-slate-700">{t("AddInvoice.Unpaid")}</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1503,7 +1509,7 @@ function AddInvoice() {
                       }}
                       className="h-4 w-4 accent-orange-500"
                     />
-                    <span className="text-sm text-slate-700">Partially Paid</span>
+                    <span className="text-sm text-slate-700">{t("AddInvoice.PartiallyPaid")}</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1517,7 +1523,7 @@ function AddInvoice() {
                       }}
                       className="h-4 w-4 accent-emerald-600"
                     />
-                    <span className="text-sm text-slate-700">Paid</span>
+                    <span className="text-sm text-slate-700">{t("AddInvoice.Paid")}</span>
                   </label>
                 </div>
 
@@ -1527,7 +1533,7 @@ function AddInvoice() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {paymentStatus === "Partially Paid" ? (
                         <div>
-                          <label className={labelCls}>Amount Received</label>
+                          <label className={labelCls}>{t("AddInvoice.AmountReceived")}</label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">₹</span>
                             <input
@@ -1555,26 +1561,26 @@ function AddInvoice() {
                         </div>
                       ) : (
                         <div>
-                          <label className={labelCls}>Amount Received</label>
+                          <label className={labelCls}>{t("AddInvoice.AmountReceived")}</label>
                           <div className="h-11 px-3 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-between">
-                            <span className="text-xs font-semibold text-emerald-700">Fully Paid</span>
+                            <span className="text-xs font-semibold text-emerald-700">{t("AddInvoice.FullyPaid")}</span>
                             <span className="font-mono font-bold text-emerald-700">₹{grandTotal.toFixed(2)}</span>
                           </div>
                         </div>
                       )}
 
                       <div>
-                        <label className={labelCls}>Payment Method</label>
+                        <label className={labelCls}>{t("AddInvoice.PaymentMethod")}</label>
                         <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                           <SelectTrigger className="w-full h-11 border border-slate-300 bg-white font-medium text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-white border border-slate-200">
-                            <SelectItem value="Cash">Cash</SelectItem>
-                            <SelectItem value="UPI">UPI</SelectItem>
-                            <SelectItem value="Card">Card</SelectItem>
-                            <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
+                            <SelectItem value="Cash">{t("AddInvoice.PaymentMethods.Cash")}</SelectItem>
+                            <SelectItem value="UPI">{t("AddInvoice.PaymentMethods.UPI")}</SelectItem>
+                            <SelectItem value="Card">{t("AddInvoice.PaymentMethods.Card")}</SelectItem>
+                            <SelectItem value="Bank Transfer">{t("AddInvoice.PaymentMethods.BankTransfer")}</SelectItem>
+                            <SelectItem value="Other">{t("AddInvoice.PaymentMethods.Other")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1582,9 +1588,9 @@ function AddInvoice() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className={labelCls}>Payment Note (Optional)</label>
+                        <label className={labelCls}>{t("AddInvoice.PaymentNoteOptional")}</label>
                         <Input
-                          placeholder="e.g. Transaction ID / Ref"
+                          placeholder={t("AddInvoice.PaymentNotePlaceholder")}
                           value={paymentNote}
                           onChange={(e) => setPaymentNote(e.target.value)}
                           className="bg-white text-sm h-11"
@@ -1593,7 +1599,7 @@ function AddInvoice() {
 
                       <div className="flex flex-col justify-end">
                         <div className="h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-slate-500">Due Later</span>
+                          <span className="text-xs font-semibold text-slate-500">{t("AddInvoice.DueLater")}</span>
                           <span className="font-mono font-bold text-slate-900">₹{balanceAmount.toFixed(2)}</span>
                         </div>
                       </div>
@@ -1603,7 +1609,7 @@ function AddInvoice() {
 
                 {paymentStatus === "Unpaid" && grandTotal > 0 && (
                   <div className="mt-4 flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <span className="text-xs font-semibold text-slate-500">Due Later</span>
+                    <span className="text-xs font-semibold text-slate-500">{t("AddInvoice.DueLater")}</span>
                     <span className="font-mono font-bold text-slate-900">₹{grandTotal.toFixed(2)}</span>
                   </div>
                 )}
@@ -1620,7 +1626,7 @@ function AddInvoice() {
               type="button"
               onClick={handlePreview}
             >
-              Preview
+              {t("AddInvoice.Preview")}
             </Button>
 
             <Button
@@ -1629,7 +1635,7 @@ function AddInvoice() {
               onClick={() => saveInvoice("download")}
               disabled={saving}
             >
-              Save & Download
+              {t("AddInvoice.SaveDownload")}
             </Button>
 
             <Button
@@ -1638,7 +1644,7 @@ function AddInvoice() {
               onClick={() => saveInvoice("print")}
               disabled={saving}
             >
-              Save & Print
+              {t("AddInvoice.SavePrint")}
             </Button>
 
             <Button
@@ -1647,7 +1653,7 @@ function AddInvoice() {
               onClick={() => saveInvoice("print", "Thermal")}
               disabled={saving}
             >
-              Save & Thermal Print
+              {t("AddInvoice.SaveThermalPrint")}
             </Button>
 
             <Button
@@ -1655,7 +1661,7 @@ function AddInvoice() {
               disabled={saving}
               className="bg-slate-900 hover:bg-slate-800 text-white"
             >
-              Save Invoice
+              {t("AddInvoice.SaveInvoice")}
             </Button>
           </div>
         </div>
@@ -1667,10 +1673,10 @@ function AddInvoice() {
           <div className="p-5 border-b border-slate-200 bg-slate-50/60 shrink-0">
             <DialogHeader className="space-y-1">
               <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Eye size={20} className="text-orange-500" /> Invoice Preview
+                <Eye size={20} className="text-orange-500" /> {t("AddInvoice.InvoicePreview")}
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 font-medium leading-normal">
-                Review your invoice carefully before compilation.
+                {t("AddInvoice.PreviewDescription")}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -1687,91 +1693,187 @@ function AddInvoice() {
 
       {/* Product Catalog Modal */}
       <Dialog open={isCatalogOpen} onOpenChange={setIsCatalogOpen}>
-        <DialogContent className="max-w-[95vw] md:max-w-[850px] h-[85vh] flex flex-col bg-slate-50 p-0 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="p-6 bg-white border-b border-slate-200 shrink-0">
-            <DialogHeader className="mb-4">
-              <DialogTitle className="text-xl font-bold text-slate-900">Select a Product</DialogTitle>
-              <DialogDescription className="text-sm text-slate-500 font-medium">
-                Tap any product below to instantly add it to your invoice.
+        <DialogContent className="w-[calc(100vw-1.25rem)] !max-w-[920px] h-[82vh] max-h-[720px] flex flex-col gap-0 bg-white p-0 rounded-xl overflow-hidden border border-slate-200 shadow-xl">
+          <div className="px-4 py-3 border-b border-slate-200 bg-white shrink-0 sm:px-5">
+            <DialogHeader className="mb-3 space-y-0.5">
+              <DialogTitle className="text-base font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                <span className="h-7 w-7 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center"><Search size={15} /></span> {t("AddInvoice.SelectProduct")}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 pl-0.5">
+                {t("AddInvoice.SelectProductDescription")}
               </DialogDescription>
             </DialogHeader>
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
               <Input
                 autoFocus
-                className="w-full h-12 pl-11 text-[15px] rounded-xl border-2 border-slate-200 focus:border-orange-400 font-medium"
-                placeholder="Search products..."
+                className="w-full h-9 pl-9 pr-3 text-sm rounded-lg border border-slate-200 bg-white shadow-none focus-visible:ring-2 focus-visible:ring-orange-500/20 focus-visible:border-orange-400 placeholder:text-slate-400"
+                placeholder={t("AddInvoice.SearchProductPlaceholder")}
                 value={catalogSearch}
                 onChange={(e) => setCatalogSearch(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 md:p-6" id="catalog-scroll-container">
+          <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50/60" id="catalog-scroll-container">
             {hasNoItemSearchResults ? (
-              <div className="h-full flex flex-col items-center justify-center p-8 bg-white border-2 border-dashed border-slate-200 rounded-xl">
-                <p className="text-slate-500 font-medium mb-4 text-center text-[15px]">No products found for "{catalogSearch}"</p>
+              <div className="min-h-[280px] h-full flex flex-col items-center justify-center p-6 text-center">
+                <div className="h-12 w-12 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center mb-3">
+                  <Package size={22} className="text-slate-400" />
+                </div>
+                <p className="text-sm font-semibold text-slate-800 mb-1">{t("AddInvoice.NoProductsFound")}</p>
+                <p className="text-sm text-slate-500 mb-4 max-w-sm break-words">
+                  {t("AddInvoice.NoProductMatches", { search: catalogSearch })}
+                </p>
                 <Button
+                  type="button"
                   onClick={() => {
                     setItemData(prev => prev.map((it, i) => i === activeRowIndex ? {
-                      ...it,
-                      _id: "",
-                      name: catalogSearch,
-                      unit: "",
-                      MRP: 0,
-                      sellingPrice: 0,
-                      image: null,
+                      ...it, _id: "", name: catalogSearch, unit: "", MRP: 0, sellingPrice: 0, image: null,
                     } : it));
                     setIsCatalogOpen(false);
                     setCatalogSearch("");
                   }}
-                  className="bg-orange-500 hover:bg-orange-600 text-white font-semibold h-11 px-6 rounded-xl"
+                  className="h-9 rounded-lg bg-orange-500 px-4 text-sm font-semibold text-white hover:bg-orange-600"
                 >
-                  <Plus size={18} className="mr-2" /> Add "{catalogSearch}" as Custom Item
+                  <Plus size={15} className="mr-2" /> {t("AddInvoice.AddCustomItem", { search: catalogSearch })}
                 </Button>
               </div>
             ) : (
-              <InfiniteScroll
-                dataLength={itemSearchDropdownItems.length}
-                next={() => !isSearchingItems ? fetchItems(10, itemNextCursor) : searchItemPagination(10, itemsearchNextCursor)}
-                hasMore={!isSearchingItems ? !itemIsEnd : !itemsearchIsEnd}
-                scrollableTarget="catalog-scroll-container"
-                loader={<div className="py-4 flex justify-center w-full"><Loader2 /></div>}
-                className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4"
-              >
-                {itemSearchDropdownItems.map((product) => (
-                  <div
-                    key={product._id}
-                    onClick={() => {
-                      setItemData(prev => prev.map((it, i) => i === activeRowIndex ? {
-                        ...it,
-                        _id: product._id,
-                        name: product.name,
-                        unit: product.unit || "",
-                        MRP: product.MRP || 0,
-                        sellingPrice: product.sellingPrice || 0,
-                        image: product.image || null,
-                      } : it));
-                      setIsCatalogOpen(false);
-                      setCatalogSearch("");
-                    }}
-                    className="bg-white border border-slate-200 rounded-xl overflow-hidden cursor-pointer hover:border-orange-400 hover:shadow-md transition-all group flex flex-col h-full"
-                  >
-                    <div className="aspect-square bg-slate-50 flex items-center justify-center p-3 border-b border-slate-100">
-                      {product.image ? (
-                        <img src={product.image} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" alt={product.name} />
-                      ) : (
-                        <ImageIcon size={40} className="text-slate-300" />
-                      )}
-                    </div>
-                    <div className="p-3 text-center flex-1 flex flex-col justify-between bg-white">
-                      <p className="font-semibold text-slate-800 text-sm leading-tight line-clamp-2 mb-2 group-hover:text-orange-600">{product.name}</p>
-                      <p className="font-mono font-bold text-slate-500 text-sm">₹{product.sellingPrice}</p>
-                    </div>
-                  </div>
-                ))}
-              </InfiniteScroll>
+              <>
+                <InfiniteScroll
+                  dataLength={itemSearchDropdownItems.length}
+                  next={() => !isSearchingItems ? fetchItems(10, itemNextCursor) : searchItemPagination(10, itemsearchNextCursor)}
+                  hasMore={!isSearchingItems ? !itemIsEnd : !itemsearchIsEnd}
+                  scrollableTarget="catalog-scroll-container"
+                  loader={<div className="py-4 flex justify-center"><Loader2 size={18} className="text-orange-500" /></div>}
+                  className="flex flex-col px-0"
+                >
+                  {itemSearchDropdownItems.map((product) => (
+                    <button
+                      type="button"
+                      key={product._id}
+                      onClick={() => {
+                        setItemData(prev => prev.map((it, i) => i === activeRowIndex ? {
+                          ...it,
+                          _id: product._id,
+                          name: product.name,
+                          unit: product.unit || "",
+                          MRP: product.MRP || 0,
+                          sellingPrice: product.sellingPrice || 0,
+                          image: product.image || null,
+                        } : it));
+                        setIsCatalogOpen(false);
+                        setCatalogSearch("");
+                      }}
+                      className="group flex w-full flex-col gap-2.5 border-b border-slate-200/80 bg-white px-3 py-3 text-left transition-colors hover:bg-orange-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500/30 sm:flex-row sm:items-center sm:gap-4 sm:px-4 sm:py-2.5"
+                    >
+                      {/* Mobile: full product name first, details beneath. Desktop: compact single row. */}
+                      <span className="order-1 block w-full whitespace-normal break-words text-sm font-semibold leading-5 text-slate-800 group-hover:text-orange-700 sm:hidden" title={product.name}>
+                        {product.name}
+                      </span>
+                      <span className="order-2 flex w-full min-w-0 items-center gap-3 sm:contents">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white sm:h-11 sm:w-11">
+                          {product.image ? (
+                            <img src={product.image} className="h-full w-full object-contain p-1" alt={product.name || "Product"} />
+                          ) : (
+                            <ImageIcon size={20} className="text-slate-300" />
+                          )}
+                        </span>
+                        <span className="hidden min-w-0 flex-1 sm:block">
+                          <span className="block whitespace-normal break-words text-sm font-semibold leading-5 text-slate-800 group-hover:text-orange-700" title={product.name}>{product.name}</span>
+                          <span className="mt-0.5 block whitespace-normal break-words text-xs text-slate-400">{product.unit ? t("AddInvoice.UnitWithValue", { unit: product.unit }) : t("AddInvoice.Product")}</span>
+                        </span>
+                        <span className="flex min-w-0 flex-1 flex-col sm:hidden">
+                          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span className="flex flex-col">
+                              <span className="text-sm font-semibold tabular-nums text-slate-700">₹{Number(product.MRP || 0).toFixed(2)}</span>
+                              <span className="text-[10px] leading-3 text-slate-400">{t("AddInvoice.MRP")}</span>
+                            </span>
+                            <span className="flex flex-col">
+                              <span className="text-sm font-bold tabular-nums text-orange-600">₹{Number(product.sellingPrice || 0).toFixed(2)}</span>
+                              <span className="text-[10px] leading-3 text-slate-400">{t("AddInvoice.Rate")}</span>
+                            </span>
+                          </span>
+                          <span className="mt-1 text-xs text-slate-400">{product.unit ? t("AddInvoice.UnitWithValue", { unit: product.unit }) : t("AddInvoice.Product")}</span>
+                        </span>
+                        <span className="hidden w-[76px] shrink-0 flex-col items-end px-1 sm:flex sm:w-[92px]">
+                          <span className="text-sm font-semibold tabular-nums text-slate-700">₹{Number(product.MRP || 0).toFixed(2)}</span>
+                          <span className="mt-0.5 text-[10px] leading-3 text-slate-400">{t("AddInvoice.MRP")}</span>
+                        </span>
+                        <span className="hidden w-[76px] shrink-0 flex-col items-end px-1 sm:flex sm:w-[92px]">
+                          <span className="text-sm font-bold tabular-nums text-orange-600">₹{Number(product.sellingPrice || 0).toFixed(2)}</span>
+                          <span className="mt-0.5 text-[10px] leading-3 text-slate-400">{t("AddInvoice.Rate")}</span>
+                        </span>
+                        <span className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors group-hover:bg-orange-500 group-hover:text-white sm:ml-0">
+                          <Plus size={16} />
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </InfiniteScroll>
+              </>
             )}
+          </div>
+          <div className="px-4 py-2 border-t border-slate-200 bg-white flex items-center justify-between gap-3 shrink-0 sm:px-5">
+            <span className="text-xs text-slate-500">{t("AddInvoice.ItemsShown", { count: itemSearchDropdownItems.length })}</span>
+            <Button type="button" variant="outline" onClick={() => setIsCatalogOpen(false)} className="h-8 rounded-lg border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50">{t("AddInvoice.Close")}
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm item deletion — styled to match the Items page delete dialog */}
+      <Dialog
+        open={pendingDeleteIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteIndex(null);
+        }}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-[26px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,0.20)] sm:rounded-[32px]">
+          <div className="h-24 w-full bg-gradient-to-br from-red-100/60 via-slate-50 to-slate-100/50" />
+
+          <div className="px-6 pb-6 pt-0 sm:px-8 sm:pb-8">
+            <div className="-mt-10 mb-5 flex justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-red-50 text-red-600 shadow-sm">
+                <AlertTriangle size={32} strokeWidth={2} />
+              </div>
+            </div>
+
+            <div className="text-center text-slate-950">
+              <DialogTitle className="text-lg font-bold tracking-tight">{t("AddInvoice.DeleteItemTitle")}</DialogTitle>
+              <DialogDescription className="mt-2 text-sm leading-relaxed text-slate-500">
+                {t("AddInvoice.DeleteItemQuestion")}{" "}
+                <span className="font-semibold text-slate-900">
+                  {pendingDeleteIndex !== null && itemData[pendingDeleteIndex]?.name
+                    ? `“${itemData[pendingDeleteIndex].name}”`
+                    : t("AddInvoice.ThisItem")}
+                </span>{" "}
+                {t("AddInvoice.DeleteItemDescription")}
+              </DialogDescription>
+            </div>
+
+            <div className="mt-8 grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPendingDeleteIndex(null)}
+                className="h-11 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 active:scale-[0.98]"
+              >
+                {t("AddInvoice.Cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (pendingDeleteIndex !== null) removeItem(pendingDeleteIndex);
+                  setPendingDeleteIndex(null);
+                }}
+                className="h-11 rounded-xl bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]"
+              >
+                {t("AddInvoice.ConfirmDelete")}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

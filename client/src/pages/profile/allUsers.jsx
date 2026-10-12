@@ -12,16 +12,16 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { useSelector } from "react-redux";
+import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-
 const AllUsers = () => {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [openMenu, setOpenMenu] = useState(null);
   const [loading, setLoading] = useState(false);
   const { user: currUser } = useSelector((state) => state.auth);
-
   const getInitials = (name) => {
     const parts = name.trim().split(/\s+/).filter(Boolean);
     if (!parts.length) return "U";
@@ -30,14 +30,12 @@ const AllUsers = () => {
     }
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
   };
-
   const formatRole = (role) => {
     return role
       .trim()
       .toLowerCase()
       .replace(/\b\w/g, (char) => char.toUpperCase());
   };
-
   const getAllUser = async () => {
     setLoading(true);
     try {
@@ -46,17 +44,15 @@ const AllUsers = () => {
     } catch (error) {
       toast.error(
         error?.response?.data?.message ||
-        "Failed to get user data. Please refresh and try again"
+        t("AllUsers.fetchError")
       );
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     getAllUser();
   }, []);
-
   const filteredUsers = useMemo(() => {
     const searchText = search.toLowerCase().trim();
     if (!searchText) return users;
@@ -66,7 +62,6 @@ const AllUsers = () => {
         user.email.toLowerCase().includes(searchText)
     );
   }, [users, search]);
-
   const dateFormat = (rawDate) => {
     if (!rawDate) return "N/A";
     const date = new Date(rawDate);
@@ -77,7 +72,6 @@ const AllUsers = () => {
     };
     return date.toLocaleString(undefined, options);
   };
-
   const handleRemove = () => {
     if (!selectedUser) return;
     setUsers((currentUsers) =>
@@ -85,7 +79,6 @@ const AllUsers = () => {
     );
     setSelectedUser(null);
   };
-
   return loading ? (
     <div className="flex w-full h-full justify-center items-center">
       <Loader2 />
@@ -96,10 +89,10 @@ const AllUsers = () => {
         <div className="space-y-2">
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
             <UsersIcon className="text-orange-500" size={28} />
-            Manage users
+            {t("AllUsers.title")}
           </h1>
           <p className="text-sm text-gray-500">
-            Manage the people who have access to your SaleSync account.
+            {t("AllUsers.subtitle")}
           </p>
         </div>
         <div className="relative w-full sm:w-[280px]">
@@ -112,7 +105,7 @@ const AllUsers = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onClick={(e) => e.stopPropagation()}
-            placeholder="Search users..."
+            placeholder={t("AllUsers.searchPlaceholder")}
             className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10"
           />
         </div>
@@ -145,7 +138,7 @@ const AllUsers = () => {
                       </h2>
                       {user?._id === currUser?._id && (
                         <span className="shrink-0 rounded-full bg-orange-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-orange-600 ring-1 ring-inset ring-orange-200">
-                          You
+                          {t("AllUsers.you")}
                         </span>
                       )}
                     </div>
@@ -185,7 +178,7 @@ const AllUsers = () => {
                           className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
                         >
                           <Trash2 size={14} />
-                          Remove user
+                          {t("AllUsers.removeUser")}
                         </button>
                       </div>
                     )}
@@ -209,7 +202,7 @@ const AllUsers = () => {
                   </div>
                   <div className="flex-1">
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                      Role
+                      {t("AllUsers.role")}
                     </p>
                     <p className="mt-0.5 text-xs font-semibold text-slate-800">
                       {formatRole(user.role)}
@@ -222,7 +215,7 @@ const AllUsers = () => {
                   </div>
                   <div className="flex-1">
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                      Joined
+                      {t("AllUsers.joined")}
                     </p>
                     <p className="mt-0.5 text-xs font-semibold text-slate-700">
                       {dateFormat(user.createdAt)}
@@ -238,7 +231,7 @@ const AllUsers = () => {
                       className="shrink-0 text-orange-500"
                     />
                     <span className="text-[10px] font-semibold text-orange-700 leading-snug">
-                      Superadmin account is protected
+                      {t("AllUsers.superadminProtected")}
                     </span>
                   </div>
                 ) : (
@@ -248,7 +241,7 @@ const AllUsers = () => {
                       className="shrink-0 text-slate-400"
                     />
                     <span className="text-[10px] font-medium text-slate-500 leading-snug">
-                      Standard administrator access
+                      {t("AllUsers.standardAccess")}
                     </span>
                   </div>
                 )}
@@ -262,10 +255,10 @@ const AllUsers = () => {
             <Search size={24} />
           </div>
           <h3 className="mt-4 text-sm font-semibold text-slate-900">
-            No users found
+            {t("AllUsers.noUsers")}
           </h3>
           <p className="mt-1 text-xs text-slate-400">
-            Try searching with a different name or email.
+            {t("AllUsers.noUsersHint")}
           </p>
         </div>
       )}
@@ -280,7 +273,6 @@ const AllUsers = () => {
         <DialogContent className="w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-[26px] border border-slate-200 bg-white p-0 shadow-[0_25px_70px_rgba(15,23,42,0.20)] sm:rounded-[32px]">
           {/* Decorative Background Banner */}
           <div className="h-24 w-full bg-gradient-to-br from-red-100/60 via-slate-50 to-slate-100/50" />
-
           <div className="px-6 pb-6 pt-0 sm:px-8 sm:pb-8">
             {/* Centered Overlapping Avatar */}
             <div className="-mt-10 mb-5 flex justify-center">
@@ -296,23 +288,21 @@ const AllUsers = () => {
                     {selectedUser ? getInitials(selectedUser.fullName) : "U"}
                   </div>
                 )}
-
                 {/* Small destructive badge */}
                 <div className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border-[3px] border-white bg-red-500 text-white shadow-sm">
                   <Trash2 size={12} strokeWidth={3} />
                 </div>
               </div>
             </div>
-
             {/* Text Content */}
             <div className="text-center text-slate-950">
-              <h2 className="text-lg font-bold tracking-tight">Remove Access?</h2>
+              <h2 className="text-lg font-bold tracking-tight">{t("AllUsers.removeAccessTitle")}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                Are you sure you want to remove{" "}
+                {t("AllUsers.removeConfirmPrefix")}{" "}
                 <span className="font-semibold text-slate-900">
                   {selectedUser?.fullName}
                 </span>{" "}
-                from SaleSync? They will no longer be able to log in or access data.
+                {t("AllUsers.removeConfirmSuffix")}
               </p>
               {selectedUser?.email && (
                 <p className="mt-1 text-xs text-slate-400">
@@ -320,7 +310,6 @@ const AllUsers = () => {
                 </p>
               )}
             </div>
-
             {/* Action Buttons */}
             <div className="mt-8 grid grid-cols-2 gap-3">
               <button
@@ -328,7 +317,7 @@ const AllUsers = () => {
                 onClick={() => setSelectedUser(null)}
                 className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98]"
               >
-                Cancel
+                {t("AllUsers.cancel")}
               </button>
               <button
                 type="button"
@@ -336,7 +325,7 @@ const AllUsers = () => {
                 className="flex h-11 items-center justify-center gap-2 rounded-xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-600 active:scale-[0.98]"
               >
                 <Trash2 size={16} />
-                Remove
+                {t("AllUsers.remove")}
               </button>
             </div>
           </div>
@@ -345,5 +334,4 @@ const AllUsers = () => {
     </div>
   );
 };
-
 export default AllUsers;

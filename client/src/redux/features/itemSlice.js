@@ -100,7 +100,7 @@ export const updateItemReq = createAsyncThunk(
     async ({ id, data }, thunkAPI) => {
         try {
             const res = await api.put(`/item/update-item/${id}`, data);
-            return res.data?.data;
+            return res?.data;
         } catch (error) {
             console.error("Error updating item:", error);
             return thunkAPI.rejectWithValue(
@@ -217,8 +217,8 @@ const itemSlice = createSlice({
             .addCase(updateItemReq.fulfilled, (state, action) => {
                 state.itemLoading = false;
                 state.items = state.items.map((item) =>
-                    item._id === action.payload?._id
-                        ? action.payload
+                    item._id === action.payload?.data?._id
+                        ? action.payload?.data
                         : item
                 )
                 state.error = null;
