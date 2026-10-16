@@ -87,14 +87,54 @@ const labelCls = "block text-[11px] font-bold text-slate-500 uppercase tracking-
 const sectionHeadingCls = "text-[11px] font-semibold uppercase tracking-wide text-slate-400 border-b border-slate-100 pb-2";
 const cardCls = "border border-slate-200 rounded-xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
 
-const calcRowAmount = (item) => {
-  const qty = Number(item.quantity) || 0;
-  const price = Number(item.sellingPrice) || 0;
-  const disc = Number(item.discount) || 0;
-  const rowTotal = qty * price;
-  const discountAmount = item.discountType === "%" ? rowTotal * (disc / 100) : disc * qty;
-  return rowTotal - discountAmount;
+// Keep all invoice math at two-decimal currency precision to avoid floating-point drift.
+const money = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.round((number + Number.EPSILON) * 100) / 100;
 };
+
+const nonNegativeNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+};
+
+const getQuantity = (item) => nonNegativeNumber(item.quantity);
+const getMRP = (item) => money(nonNegativeNumber(item.MRP));
+const getSellingPrice = (item) => money(nonNegativeNumber(item.sellingPrice));
+const getDiscountValue = (item) => nonNegativeNumber(item.discount);
+
+const hasApplicableDiscount = (item) =>
+  getSellingPrice(item) > 0 && getDiscountValue(item) > 0 && getMRP(item) > 0;
+
+// Discount is calculated from MRP. A fixed-rupee discount applies per unit.
+// The per-unit discount is capped at MRP so an item's amount can never be negative.
+const getDiscountPerUnit = (item) => {
+  if (!hasApplicableDiscount(item)) return 0;
+  const mrp = getMRP(item);
+  const discount = getDiscountValue(item);
+  const requestedDiscount = item.discountType === "%"
+    ? money(mrp * (Math.min(discount, 100) / 100))
+    : money(discount);
+  return money(Math.min(mrp, requestedDiscount));
+};
+
+const getItemDiscountAmount = (item) =>
+  money(getDiscountPerUnit(item) * getQuantity(item));
+
+// Subtotal is the sum of original selling price × quantity, whether discounted or not.
+const getItemBaseAmount = (item) =>
+  money(getSellingPrice(item) * getQuantity(item));
+
+// Amount per row: discounted MRP × quantity when a valid discount exists;
+// otherwise selling price × quantity. Selling price itself is never overwritten.
+const getDiscountedUnitPrice = (item) => {
+  if (!hasApplicableDiscount(item)) return getSellingPrice(item);
+  return money(Math.max(0, getMRP(item) - getDiscountPerUnit(item)));
+};
+
+const calcRowAmount = (item) =>
+  money(getDiscountedUnitPrice(item) * getQuantity(item));
 
 const DECIMAL_INPUT_REGEX = /^\d*\.?\d*$/;
 const INTEGER_INPUT_REGEX = /^\d*$/;
@@ -269,13 +309,20 @@ function AddInvoice() {
       customer?.workingPhone?.includes(searchLower);
   });
 
-  const itemSearchDropdownItems = (searchedItems?.length > 0 ? searchedItems : allitems).filter(item => {
+  const itemSearchDropdownItems = (isSearchingItems
+    ? (searchedItems || [])
+    : allitems
+  ).filter(item => {
     if (!isSearchingItems || !catalogSearch) return true;
     return item?.name?.toLowerCase().includes(catalogSearch.toLowerCase());
   });
 
   const hasNoCustomerSearchResults = isSearchingCustomers && !customersSearchLoading && customerDropdownItems.length === 0;
-  const hasNoItemSearchResults = isSearchingItems && !itemSearchLoading && itemSearchDropdownItems.length === 0;
+  const hasNoItemSearchResults =
+    isSearchingItems &&
+    !isItemDebouncing &&
+    !itemSearchLoading &&
+    itemSearchDropdownItems.length === 0;
 
   const isMobile = useMemo(() => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent), []);
 
@@ -435,27 +482,38 @@ function AddInvoice() {
     await dispatch(itemSearchReq({ search: catalogSearch, limit, cursor })).unwrap().catch((err) => toast.error(err.message || t("AddInvoice.Errors.SomethingWentWrong")));
   };
 
-  const subtotal = useMemo(() => {
-    return itemData.reduce((acc, c) => acc + ((Number(c.quantity) || 0) * (Number(c.sellingPrice) || 0)), 0);
-  }, [itemData]);
+  const subtotal = useMemo(() =>
+    money(itemData.reduce((acc, item) => acc + getItemBaseAmount(item), 0)),
+    [itemData]
+  );
 
-  const totalDiscount = useMemo(() => {
-    return itemData.reduce((acc, c) => {
-      const qty = Number(c.quantity) || 0;
-      const price = Number(c.sellingPrice) || 0;
-      const disc = Number(c.discount) || 0;
-      const rowTotal = qty * price;
-      return acc + (c.discountType === "%" ? (rowTotal * (disc / 100)) : (disc * qty));
-    }, 0);
-  }, [itemData]);
+  // The totals must reconcile: Subtotal - Discount = Discounted Item Total.
+  // Calculate the payable item total from the actual row Amount values, then
+  // derive the invoice-level discount as the difference from the subtotal.
+  const discountedItemsTotal = useMemo(() =>
+    money(itemData.reduce((acc, item) => acc + calcRowAmount(item), 0)),
+    [itemData]
+  );
 
-  const taxedAmount = useMemo(() => {
-    return (subtotal - totalDiscount) * (Number(taxRate) / 100);
-  }, [subtotal, totalDiscount, taxRate]);
+  const totalDiscount = useMemo(() =>
+    money(subtotal - discountedItemsTotal),
+    [subtotal, discountedItemsTotal]
+  );
 
-  const grandTotal = useMemo(() => {
-    return (subtotal - totalDiscount) + taxedAmount;
-  }, [subtotal, totalDiscount, taxedAmount]);
+  const normalizedTaxRate = useMemo(() => {
+    const rate = Number(taxRate);
+    return Number.isFinite(rate) ? Math.min(100, Math.max(0, rate)) : 0;
+  }, [taxRate]);
+
+  const taxedAmount = useMemo(() =>
+    money(discountedItemsTotal * (normalizedTaxRate / 100)),
+    [discountedItemsTotal, normalizedTaxRate]
+  );
+
+  const grandTotal = useMemo(() =>
+    money(discountedItemsTotal + taxedAmount),
+    [discountedItemsTotal, taxedAmount]
+  );
 
   const numericEnteredPaidAmount = useMemo(() => {
     const amount = normalizeMoney(paidAmount);
@@ -539,11 +597,17 @@ function AddInvoice() {
             name: item.name,
             quantity: Number(item.quantity) || 1,
             MRP: Number(item.MRP) || 0,
-            sellingPrice: Number(item.sellingPrice) || 0,
-            discount: Number(item.discount) || 0,
+            // Keep selling price unchanged. The discount is calculated from MRP
+            // and the final line amount is supplied separately for invoice displays.
+            sellingPrice: Number((Number(item.sellingPrice) || 0).toFixed(2)),
+            discount: hasApplicableDiscount(item) ? Number(item.discount) || 0 : 0,
             discountType: item.discountType || "%",
+            discountAmount: Number(getItemDiscountAmount(item).toFixed(2)),
+            discountedPrice: getDiscountedUnitPrice(item),
+            amount: Number(calcRowAmount(item).toFixed(2)),
             image: item.image || null,
             unit: item.unit || "",
+            description: item.description || item.itemDescription || "",
           };
           if (item._id && item._id.trim() !== "") {
             cleanedItem.itemId = item._id;
@@ -556,6 +620,7 @@ function AddInvoice() {
       dueDate: invoiceDueDate ? new Date(invoiceDueDate).toISOString() : new Date().toISOString(),
       discount: Number(totalDiscount.toFixed(2)),
       tax: Number(taxedAmount.toFixed(2)),
+      taxRate: normalizedTaxRate,
       grandTotal: Number(grandTotal.toFixed(2)),
       notes: notes ? notes.trim() : "",
       terms: terms ? terms.trim() : "",
@@ -588,6 +653,14 @@ function AddInvoice() {
     if (saving) return;
 
     if (!selectedCustomer || (selectedCustomer.isInstantNew && (!selectedCustomer.displayName || !selectedCustomer.displayName.trim()))) {
+      toast.error(t("AddInvoice.Errors.ValidCustomerName"));
+      return;
+    }
+
+    // New customers use a temporary frontend ID until customerValidation
+    // resolves or creates the customer on the backend during /add-invoice.
+    // Do not block invoice submission just because this ID starts with "temp_".
+    if (!selectedCustomer._id) {
       toast.error(t("AddInvoice.Errors.ValidCustomerName"));
       return;
     }
@@ -679,12 +752,48 @@ function AddInvoice() {
         note: paymentNote.trim()
       }] : [],
       selectedCustomer: selectedCustomer,
-      itemData: itemData,
-      subtotal: subtotal,
-      totalDiscount: totalDiscount,
-      taxRate: taxRate,
-      taxedAmount: taxedAmount,
-      grandTotal: grandTotal,
+      // Keep the PDF template unchanged. It calculates each line as
+      // quantity * rate - itemDiscountAmount, so pass the reconciled discount
+      // (selling-price subtotal minus the intended discounted line amount),
+      // not the configured discount input from the product form.
+      itemData: itemData.map((item) => {
+        const discountApplied = hasApplicableDiscount(item);
+        const rowSubtotal = getItemBaseAmount(item);
+        const rowAmount = calcRowAmount(item);
+        const reconciledItemDiscount = money(Math.max(0, rowSubtotal - rowAmount));
+        const sellingPrice = getSellingPrice(item);
+        const mrp = getMRP(item);
+        const discountedPrice = getDiscountedUnitPrice(item);
+
+        return {
+          ...item,
+          name: item.name,
+          // Supply the exact aliases consumed by existing PDF templates.
+          sellingPrice,
+          itemSellingPrice: sellingPrice,
+          MRP: mrp,
+          mrp,
+          itemMRP: mrp,
+          itemMrp: mrp,
+          // The PDF uses itemDiscountAmount first for both the discount label
+          // and line amount. Make every discount alias consistent with the
+          // reconciled amount (e.g. ₹780), rather than the input value (₹1,500).
+          discount: reconciledItemDiscount,
+          itemDiscount: reconciledItemDiscount,
+          itemDiscountAmount: reconciledItemDiscount,
+          discountAmount: reconciledItemDiscount,
+          discountType: "Rs.",
+          discountedPrice,
+          amount: rowAmount,
+        };
+      }),
+      subtotal: money(subtotal),
+      totalDiscount: money(totalDiscount),
+      discountedItemsTotal: money(discountedItemsTotal),
+      itemsTotal: money(discountedItemsTotal),
+      taxRate: normalizedTaxRate,
+      taxedAmount: money(taxedAmount),
+      grandTotal: money(grandTotal),
       notes: notes,
       terms: terms,
       issueDate: invoiceIssueDate,
@@ -1288,7 +1397,23 @@ function AddInvoice() {
                       </TableCell>
 
                       <TableCell className="py-3.5 align-middle">
-                        <input value={data.MRP} className="w-full h-10 px-2 text-center min-w-20 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-400 font-mono outline-none cursor-not-allowed font-semibold" type="number" readOnly />
+                        <input
+                          value={data.MRP ?? ""}
+                          readOnly={Boolean(data._id)}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            if (data._id) return;
+                            const value = e.target.value;
+                            if (!isValidDecimalInput(value)) return;
+                            updateItem(index, "MRP", value);
+                          }}
+                          onBlur={() => {
+                            if (!data._id) updateItem(index, "MRP", normalizeMoney(data.MRP).toFixed(2));
+                          }}
+                          inputMode="decimal"
+                          type="text"
+                          className={`w-full h-10 px-2 text-center min-w-20 border border-slate-200 rounded-lg text-sm font-mono font-semibold outline-none ${data._id ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "bg-white text-slate-700 focus:border-orange-400"}`}
+                        />
                       </TableCell>
 
                       <TableCell className="text-right py-3.5 align-middle">
@@ -1299,6 +1424,9 @@ function AddInvoice() {
                             const value = e.target.value;
                             if (!isValidDecimalInput(value)) return;
                             updateItem(index, "sellingPrice", value);
+                            if (value !== "" && Number(value) <= 0 && Number(data.discount) > 0) {
+                              updateItem(index, "discount", "0.00");
+                            }
                           }}
                           onBlur={() => {
                             const value = normalizeMoney(data.sellingPrice);
@@ -1306,7 +1434,8 @@ function AddInvoice() {
                           }}
                           inputMode="decimal"
                           type="text"
-                          className="w-full h-10 px-2 min-w-20 bg-white border border-slate-300 rounded-lg text-sm text-center font-mono font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/15 focus:border-orange-400"
+                          title="Selling price remains editable; discount is calculated from MRP"
+                          className="w-full h-10 px-2 min-w-20 border border-slate-300 rounded-lg text-sm text-center font-mono font-medium bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/15 focus:border-orange-400"
                         />
                       </TableCell>
 
@@ -1315,13 +1444,19 @@ function AddInvoice() {
                           <input
                             onFocus={(e) => e.target.select()}
                             value={data.discount ?? ""}
+                            disabled={(Number(data.sellingPrice) || 0) <= 0}
                             onChange={(e) => {
+                              if ((Number(data.sellingPrice) || 0) <= 0) return;
                               const value = e.target.value;
                               if (!isValidDecimalInput(value)) return;
                               if (data.discountType === "%" && value !== "" && Number(value) > 100) return;
                               updateItem(index, "discount", value);
                             }}
                             onBlur={() => {
+                              if ((Number(data.sellingPrice) || 0) <= 0) {
+                                updateItem(index, "discount", "0.00");
+                                return;
+                              }
                               const value = normalizeMoney(data.discount);
                               const normalized = data.discountType === "%"
                                 ? Math.min(100, Math.max(0, value))
@@ -1334,9 +1469,12 @@ function AddInvoice() {
                           />
                           <Select
                             value={data.discountType}
-                            onValueChange={(val) => updateItem(index, "discountType", val)}
+                            disabled={(Number(data.sellingPrice) || 0) <= 0}
+                            onValueChange={(val) => {
+                              if ((Number(data.sellingPrice) || 0) > 0) updateItem(index, "discountType", val);
+                            }}
                           >
-                            <SelectTrigger className="w-14 h-10 rounded-l-none border border-slate-300 bg-slate-50 px-2 py-[18px] font-semibold">
+                            <SelectTrigger className="w-14  rounded-l-none border border-slate-300 bg-slate-50 px-2 py-[19px] font-semibold">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1395,7 +1533,7 @@ function AddInvoice() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="grid grid-cols-2 gap-3 pt-1">
                     <div>
                       <label className={labelCls}>{t("AddInvoice.Quantity")}</label>
                       <div className="flex items-center">
@@ -1433,7 +1571,28 @@ function AddInvoice() {
                         )}
                       </div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
+                      <label className={labelCls}>{t("AddInvoice.MRP")}</label>
+                      {data._id ? (
+                        <div className="flex h-11 min-w-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-semibold font-mono text-slate-500 tabular-nums">
+                          ₹{normalizeMoney(data.MRP).toFixed(2)}
+                        </div>
+                      ) : (
+                        <input
+                          value={data.MRP ?? ""}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (isValidDecimalInput(value)) updateItem(index, "MRP", value);
+                          }}
+                          onBlur={() => updateItem(index, "MRP", normalizeMoney(data.MRP).toFixed(2))}
+                          inputMode="decimal"
+                          type="text"
+                          className="w-full h-11 min-w-0 rounded-lg border border-slate-300 bg-white px-2 text-center text-sm font-semibold font-mono focus:border-orange-400 focus:outline-none"
+                        />
+                      )}
+                    </div>
+                    <div className="min-w-0">
                       <label className={labelCls}>{t("AddInvoice.Price")}</label>
                       <input
                         value={data.sellingPrice ?? ""}
@@ -1449,23 +1608,30 @@ function AddInvoice() {
                         }}
                         inputMode="decimal"
                         type="text"
-                        className="w-full h-11 px-2 bg-white border border-slate-300 rounded-lg text-sm text-center font-semibold font-mono"
+                        title="Selling price remains editable; discount is calculated from MRP"
+                        className="w-full min-w-0 h-11 px-1.5 border border-slate-300 rounded-lg text-[13px] text-center font-semibold font-mono bg-white focus:border-orange-400 focus:outline-none"
                       />
                     </div>
 
                     <div>
                       <label className={labelCls}>{t("AddInvoice.Discount")}</label>
-                      <div className="flex items-center">
+                      <div className="flex min-w-0 items-center">
                         <input
                           value={data.discount ?? ""}
                           onFocus={(e) => e.target.select()}
+                          disabled={(Number(data.sellingPrice) || 0) <= 0}
                           onChange={(e) => {
+                            if ((Number(data.sellingPrice) || 0) <= 0) return;
                             const value = e.target.value;
                             if (!isValidDecimalInput(value)) return;
                             if (data.discountType === "%" && value !== "" && Number(value) > 100) return;
                             updateItem(index, "discount", value);
                           }}
                           onBlur={() => {
+                            if ((Number(data.sellingPrice) || 0) <= 0) {
+                              updateItem(index, "discount", "0.00");
+                              return;
+                            }
                             const value = normalizeMoney(data.discount);
                             const normalized = data.discountType === "%"
                               ? Math.min(100, Math.max(0, value))
@@ -1474,14 +1640,17 @@ function AddInvoice() {
                           }}
                           inputMode="decimal"
                           type="text"
-                          className="w-full h-11 px-2 bg-white border border-slate-300 border-r-0 rounded-l-lg text-sm text-center font-mono"
+                          className={`w-full min-w-0 h-11 px-1 border border-slate-300 border-r-0 rounded-l-lg text-[12px] text-center font-mono tabular-nums ${(Number(data.sellingPrice) || 0) <= 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-white"}`}
                         />
 
                         <Select
                           value={data.discountType}
-                          onValueChange={(val) => updateItem(index, "discountType", val)}
+                          disabled={(Number(data.sellingPrice) || 0) <= 0}
+                          onValueChange={(val) => {
+                            if ((Number(data.sellingPrice) || 0) > 0) updateItem(index, "discountType", val);
+                          }}
                         >
-                          <SelectTrigger className="w-14 h-11 rounded-l-none border py-[21px] border-slate-300 bg-slate-50 px-2 font-semibold">
+                          <SelectTrigger className="w-11 min-w-11 py-[21.5px] rounded-l-none border border-slate-300 bg-slate-50 px-1 font-semibold text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-white border border-slate-200">
@@ -1548,7 +1717,11 @@ function AddInvoice() {
               </div>
               <div className="flex justify-between items-center text-sm font-medium">
                 <span className="text-emerald-600">{t("AddInvoice.Discount")}</span>
-                <span className="font-mono text-emerald-600 font-semibold text-[15px]">−₹{totalDiscount.toFixed(2)}</span>
+                <span className="font-mono text-emerald-600 font-semibold text-[15px]">₹{totalDiscount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm font-medium">
+                <span className="text-slate-500">{t("AddInvoice.DiscountedItemTotal", "Discounted Item Total")}</span>
+                <span className="font-mono text-slate-900 font-semibold text-[15px]">₹{discountedItemsTotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5 text-sm font-medium text-slate-500">
@@ -1820,7 +1993,12 @@ function AddInvoice() {
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50/60" id="catalog-scroll-container">
-            {hasNoItemSearchResults ? (
+            {(isItemDebouncing || (itemSearchLoading && isSearchingItems)) ? (
+              <div className="min-h-[280px] h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
+                <Loader2 size={24} />
+                <p className="text-sm font-medium text-slate-500">{t("AddInvoice.SearchingProducts", "Searching products...")}</p>
+              </div>
+            ) : hasNoItemSearchResults ? (
               <div className="min-h-[280px] h-full flex flex-col items-center justify-center p-6 text-center">
                 <div className="h-12 w-12 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center mb-3">
                   <Package size={22} className="text-slate-400" />
@@ -1922,7 +2100,6 @@ function AddInvoice() {
           <div className="px-4 py-2 border-t border-slate-200 bg-white flex items-center justify-between gap-3 shrink-0 sm:px-5">
             <span className="text-xs text-slate-500">{t("AddInvoice.ItemsShown", { count: itemSearchDropdownItems.length })}</span>
             <Button type="button" variant="outline" onClick={() => setIsCatalogOpen(false)} className="h-8 rounded-lg border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50">{t("AddInvoice.Close")}
-              Close
             </Button>
           </div>
         </DialogContent>

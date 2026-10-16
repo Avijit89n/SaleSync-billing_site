@@ -79,9 +79,30 @@ const getDisplayStatus = (status, dueDate) => {
   }
   return displayStatus;
 };
-// Helper function to extract repeated calculation logic
-const getRowAmount = (data) => (data.quantity * data.itemSellingPrice) - (data.itemDiscountAmount || 0);
-const getItemMrp = (data) => Number(data?.itemMRP ?? data?.mrp ?? data?.MRP ?? data?.itemMrp) || 0;
+// Calculate every line from the selling price shown on the invoice, never from MRP.
+const roundMoney = (value) => Math.round((Math.max(0, Number(value) || 0) + Number.EPSILON) * 100) / 100;
+const getItemMrp = (data) => Math.max(0, Number(data?.itemMRP ?? data?.mrp ?? data?.MRP ?? data?.itemMrp ?? 0) || 0);
+const getItemSellingPrice = (data) => Math.max(0, Number(data?.itemSellingPrice ?? data?.sellingPrice ?? data?.rate ?? 0) || 0);
+const getItemQuantity = (data) => Math.max(0, Number(data?.quantity ?? 0) || 0);
+const getItemDiscountValue = (data) => Math.max(0, Number(data?.itemDiscount ?? data?.discount ?? 0) || 0);
+const getItemDiscountType = (data) => String(data?.itemDiscountType ?? data?.discountType ?? '%').toLowerCase();
+const hasApplicableDiscount = (data) => getItemSellingPrice(data) > 0 && getItemDiscountValue(data) > 0 && getItemMrp(data) > 0;
+const getDiscountPerUnit = (data) => {
+  if (!hasApplicableDiscount(data)) return 0;
+  const mrp = getItemMrp(data);
+  const discount = getItemDiscountValue(data);
+  const type = getItemDiscountType(data);
+  const isPercentage = type === 'percentage' || type === '%' || type === 'percent';
+  const requestedDiscount = isPercentage ? roundMoney(mrp * (Math.min(discount, 100) / 100)) : roundMoney(discount);
+  return roundMoney(Math.min(mrp, requestedDiscount));
+};
+const getItemDiscountAmount = (data) => roundMoney(getDiscountPerUnit(data) * getItemQuantity(data));
+const getRowAmount = (data) => {
+  const quantity = getItemQuantity(data);
+  if (!quantity) return 0;
+  if (!hasApplicableDiscount(data)) return roundMoney(getItemSellingPrice(data) * quantity);
+  return roundMoney(Math.max(0, getItemMrp(data) - getDiscountPerUnit(data)) * quantity);
+};
 const StatusBadge = ({ status, dueDate }) => {
   const { t } = useTranslation(); // Fix: Added missing useTranslation
   const displayStatus = getDisplayStatus(status, dueDate);
@@ -189,7 +210,60 @@ export default function CheckInvoice() {
       setLoading(true);
       const res = await api.get(`/invoice/get-invoice/${id}`);
       if (res.data?.success) {
-        setInvoiceData(res.data.data);
+        const rawInvoice = res.data.data || {};
+        const rawPayments = Array.isArray(rawInvoice.payments) ? rawInvoice.payments : [];
+        const rawItems = Array.isArray(rawInvoice.invoiceItems)
+          ? rawInvoice.invoiceItems
+          : Array.isArray(rawInvoice.items)
+            ? rawInvoice.items
+            : [];
+        const grandTotal = Number(rawInvoice.grandTotal ?? rawInvoice.totalAmount ?? 0);
+        const paidAmount = Number(
+          rawInvoice.paidAmount ??
+          rawPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0)
+        );
+        const balanceAmount = Math.max(
+          0,
+          Number(rawInvoice.balanceAmount ?? (grandTotal - paidAmount)) || 0
+        );
+        setInvoiceData({
+          ...rawInvoice,
+          invoiceItems: rawItems.map((item) => {
+            const normalizedItem = {
+              ...item,
+              itemName: item.itemName ?? item.name ?? item.productName ?? 'Item',
+              itemMRP: item.itemMRP ?? item.MRP ?? item.mrp ?? item.itemMrp ?? 0,
+              itemSellingPrice: item.itemSellingPrice ?? item.sellingPrice ?? item.rate ?? 0,
+              itemDiscount: item.itemDiscount ?? item.discount ?? 0,
+              itemDiscountType: item.itemDiscountType ?? item.discountType ?? '%',
+              itemUnit: item.itemUnit ?? item.unit ?? 'pcs',
+            };
+            const calculatedAmount = getRowAmount(normalizedItem);
+            const sellingPriceSubtotal = roundMoney(
+              getItemSellingPrice(normalizedItem) * getItemQuantity(normalizedItem)
+            );
+            // Match the PDF's displayed discount without changing its calculation.
+            const displayedDiscount = roundMoney(
+              Math.max(0, sellingPriceSubtotal - calculatedAmount)
+            );
+            return {
+              ...normalizedItem,
+              itemDiscountAmount: displayedDiscount,
+              discountAmount: displayedDiscount,
+              itemAmount: calculatedAmount,
+              amount: calculatedAmount,
+            };
+          }),
+          payments: rawPayments,
+          grandTotal,
+          paidAmount,
+          balanceAmount,
+          status: rawInvoice.status || (balanceAmount <= 0.009
+            ? 'Paid'
+            : paidAmount > 0
+              ? 'Partially Paid'
+              : 'Unpaid'),
+        });
       } else {
         toast.error(t('CheckInvoice.failedLoadDetails'));
         navigate('/user/all-invoices');
@@ -296,7 +370,32 @@ export default function CheckInvoice() {
         email: invoiceData?.customerEmail,
         billingAddress: invoiceData?.customerBillingAddress
       },
-      itemData: invoiceData?.invoiceItems || [],
+      // Recalculate line discount using the same selling price shown in the invoice table.
+      // Ignore previously saved itemAmount/itemDiscountAmount values because they may have been calculated from MRP.
+      // Match Add Invoice's PDF preparation: keep its row amount and reconcile the PDF discount against the selling-price subtotal.
+      itemData: (invoiceData?.invoiceItems || []).map((item) => {
+        const lineAmount = getRowAmount(item);
+        const sellingPrice = getItemSellingPrice(item);
+        const mrp = getItemMrp(item);
+        const lineSubtotal = roundMoney(sellingPrice * getItemQuantity(item));
+        const reconciledDiscount = roundMoney(Math.max(0, lineSubtotal - lineAmount));
+        return {
+          ...item,
+          itemMRP: mrp,
+          MRP: mrp,
+          mrp,
+          itemSellingPrice: sellingPrice,
+          sellingPrice,
+          itemDiscountAmount: reconciledDiscount,
+          discountAmount: reconciledDiscount,
+          itemDiscount: reconciledDiscount,
+          discount: reconciledDiscount,
+          discountType: 'Rs.',
+          discountedPrice: getItemQuantity(item) > 0 ? roundMoney(lineAmount / getItemQuantity(item)) : 0,
+          itemAmount: lineAmount,
+          amount: lineAmount,
+        };
+      }),
       subtotal: invoiceData?.subtotal,
       totalDiscount: invoiceData?.discount,
       taxedAmount: invoiceData?.tax,
@@ -351,7 +450,7 @@ export default function CheckInvoice() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (err) {
       console.error(err);
       toast.error(t('CheckInvoice.failedDownload'));
@@ -394,7 +493,7 @@ export default function CheckInvoice() {
         link.click();
         document.body.removeChild(link);
         setTimeout(() => {
-          URL.revokeObjectURL(url);
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
         }, 5000);
         toast.info(t('CheckInvoice.pdfDownloadedPrint'));
         document.title = originalTitle;
@@ -503,7 +602,7 @@ export default function CheckInvoice() {
   }
   if (!invoiceData) return null;
   const isVoid = invoiceData.status?.toLowerCase() === 'cancel';
-  const canAddPayment = invoiceData.balanceAmount > 0 && !isVoid;
+  const canAddPayment = Number(invoiceData.balanceAmount || 0) > 0.009 && !isVoid;
   return (
     <div className="animate-fade-in-scale transition-all duration-500 bg-white min-h-screen text-slate-900 antialiased px-6 py-4 md:px-12 md:py-6 font-sans">
       <div className="space-y-12">
@@ -616,7 +715,7 @@ export default function CheckInvoice() {
                   <p className="text-[10px] font-bold uppercase tracking-widest text-orange-700/60">
                     {invoiceData.balanceAmount > 0 ? t('CheckInvoice.amountDue') : t('CheckInvoice.totalPaid')}
                   </p>
-                  {invoiceData.balanceAmount === 0 && <CheckCircle2 size={18} className="text-emerald-500" />}
+                  {Number(invoiceData.balanceAmount || 0) <= 0.009 && <CheckCircle2 size={18} className="text-emerald-500" />}
                 </div>
                 <div className="mt-3 truncate font-mono text-3xl font-bold tracking-tight md:text-4xl text-orange-600">
                   {formatCurrency(invoiceData.balanceAmount > 0 ? invoiceData.balanceAmount : invoiceData.grandTotal)}
@@ -791,7 +890,7 @@ export default function CheckInvoice() {
                           {formatCurrency(invoiceData.balanceAmount)}
                         </p>
                       </div>
-                      {invoiceData.balanceAmount === 0 && (
+                      {Number(invoiceData.balanceAmount || 0) <= 0.009 && (
                         <CheckCircle2 size={20} className="text-emerald-500" />
                       )}
                     </div>
