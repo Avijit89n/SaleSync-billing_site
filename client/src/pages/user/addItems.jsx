@@ -294,7 +294,7 @@ function AddItems() {
             <Field className="space-y-1">
               <FieldLabel htmlFor="item-price" className={labelCls}>
                 {addItemData.discountType === "%" ? `${t("AddEditItem.DiscountPercentage")}` : `${t("AddEditItem.FinalSellingAmount")}`}
-                <span className="text-orange-500"> *</span>
+                {/* <span className="text-orange-500"> *</span> */}
               </FieldLabel>
               {addItemData.discountType === "%" ? (
                 <Input
@@ -309,7 +309,6 @@ function AddItems() {
                   onWheel={(e) => e.target.blur()}
                   placeholder={`e.g. ${t("AddEditItem.DiscountPlaceholder")}`}
                   className={`${inputCls} font-mono font-semibold`}
-                  required
                   autoComplete="off"
                 />
               ) : (
@@ -325,7 +324,6 @@ function AddItems() {
                   onWheel={(e) => e.target.blur()}
                   placeholder={t("AddEditItem.SellingAmountPlaceholder")}
                   className={`${inputCls} font-mono font-semibold`}
-                  required
                   autoComplete="off"
                 />
               )}

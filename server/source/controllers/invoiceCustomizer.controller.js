@@ -1,174 +1,216 @@
+
 import { InvoiceCustomizer } from "../models/invoiceCustomizer.model.js";
 import ApiError from "../utils/apiError.js";
 import ApiResponse from "../utils/apiResponse.js";
-import fs from "fs";
-import { cloudinaryDelete, cloudinaryUpload } from "../utils/cloudinary.js";
+import {
+  cloudinaryDelete,
+  cloudinaryUpload,
+} from "../utils/cloudinary.js";
 
 const createOrUpdateInvoiceCustomizer = async (req, res) => {
-    const {
-        companyName,
-        gstin,
-        phone,
-        email,
-        address,
-        a4Layout,
-        thermalLayout,    
-        currentLogo,
-        currentSignature, 
-    } = req.body;
+  const {
+    companyName,
+    gstin,
+    phone,
+    email,
+    address,
+    a4Layout,
+    thermalLayout,
+    currentLogo,
+    currentSignature,
+  } = req.body;
 
-    const companyLogo = req.files?.companyLogo?.[0];
-    const companySignature = req.files?.companySignature?.[0];
+  const companyLogo = req.files?.companyLogo?.[0];
+  const companySignature = req.files?.companySignature?.[0];
 
-    if (!companyName || !gstin || !phone || !email || !address) {
-        if (companyLogo?.path && fs.existsSync(companyLogo.path)) {
-            fs.unlinkSync(companyLogo.path);
-        }
-        if (companySignature?.path && fs.existsSync(companySignature.path)) {
-            fs.unlinkSync(companySignature.path);
-        }
-        throw new ApiError("Required fields are missing", 400);
+  if (!companyName || !gstin || !phone || !email || !address) {
+    throw new ApiError("Required fields are missing", 400);
+  }
+
+  const existingCustomizer = await InvoiceCustomizer.findOne();
+
+  let logoUrl = null;
+  let logoPublicId = null;
+  let signatureUrl = null;
+  let signaturePublicId = null;
+
+  let newLogoUploaded = false;
+  let newSignatureUploaded = false;
+
+  const oldLogoPublicId = existingCustomizer?.companyLogoPublicId;
+  const oldSignaturePublicId =
+    existingCustomizer?.companySignaturePublicId;
+
+  try {
+    if (companyLogo) {
+      const uploadResult = await cloudinaryUpload(companyLogo.buffer);
+
+      logoUrl = uploadResult.optimizeUrl;
+      logoPublicId = uploadResult.imageInfo.public_id;
+      newLogoUploaded = true;
     }
 
-    const existingCustomizer = await InvoiceCustomizer.findOne();
+    if (companySignature) {
+      const uploadResult = await cloudinaryUpload(
+        companySignature.buffer
+      );
 
-    let logoUrl = null;
-    let logoPublicId = null;
-    let signatureUrl = null;
-    let signaturePublicId = null;
-
-    const oldLogoPublicId = existingCustomizer?.companyLogoPublicId;
-    const oldSignaturePublicId = existingCustomizer?.companySignaturePublicId;
-
-    try {
-        if (companyLogo) {
-            const uploadResult = await cloudinaryUpload(companyLogo.path);
-
-            if (!uploadResult?.optimizeUrl || !uploadResult?.imageInfo) {
-                if (companyLogo?.path && fs.existsSync(companyLogo.path)) fs.unlinkSync(companyLogo.path);
-                if (companySignature?.path && fs.existsSync(companySignature.path)) fs.unlinkSync(companySignature.path);
-                throw new ApiError("Logo upload failed", 500);
-            }
-
-            logoUrl = uploadResult.optimizeUrl;
-            logoPublicId = uploadResult.imageInfo.public_id;
-        }
-        
-        if (companySignature) {
-            const uploadResult = await cloudinaryUpload(companySignature.path);
-
-            if (!uploadResult?.optimizeUrl || !uploadResult?.imageInfo) {
-                if (companyLogo?.path && fs.existsSync(companyLogo.path)) fs.unlinkSync(companyLogo.path);
-                if (companySignature?.path && fs.existsSync(companySignature.path)) fs.unlinkSync(companySignature.path);
-                
-                // Rollback the newly uploaded logo if the signature fails mid-flight
-                if (logoPublicId) await cloudinaryDelete(logoPublicId);
-                
-                throw new ApiError("Signature upload failed", 500);
-            }
-
-            signatureUrl = uploadResult.optimizeUrl;
-            signaturePublicId = uploadResult.imageInfo.public_id;
-        }
-
-        const updateData = {
-            companyName,
-            companyGSTIN: gstin,
-            companyPhone: phone,
-            companyEmail: email,
-            companyAddress: address,
-            companyA4LayoutId: a4Layout,
-            companyThermalLayoutId: thermalLayout,
-        };
-
-        if (companyLogo) {
-            updateData.companyLogo = logoUrl;
-            updateData.companyLogoPublicId = logoPublicId;
-        } else if (currentLogo === "") {
-            updateData.companyLogo = null;
-            updateData.companyLogoPublicId = null;
-        }
-
-        // Handle Signature State
-        if (companySignature) {
-            updateData.companySignature = signatureUrl;
-            updateData.companySignaturePublicId = signaturePublicId;
-        } else if (currentSignature === "") {
-            updateData.companySignature = null;
-            updateData.companySignaturePublicId = null;
-        }
-
-        let customizer;
-
-        if (existingCustomizer) {
-            customizer = await InvoiceCustomizer.findByIdAndUpdate(
-                existingCustomizer._id,
-                updateData,
-                {
-                    new: true,
-                    runValidators: true,
-                }
-            );
-        } else {
-            customizer = await InvoiceCustomizer.create(updateData);
-        }
-        
-        // Logo Cleanup
-        if (companyLogo && oldLogoPublicId && oldLogoPublicId !== logoPublicId) {
-            await cloudinaryDelete(oldLogoPublicId);
-        }
-        if (!companyLogo && currentLogo === "" && oldLogoPublicId) {
-            await cloudinaryDelete(oldLogoPublicId);
-        }
-
-        // Signature Cleanup
-        if (companySignature && oldSignaturePublicId && oldSignaturePublicId !== signaturePublicId) {
-            await cloudinaryDelete(oldSignaturePublicId);
-        }
-        if (!companySignature && currentSignature === "" && oldSignaturePublicId) {
-            await cloudinaryDelete(oldSignaturePublicId);
-        }
-
-        const statusCode = existingCustomizer ? 200 : 201;
-
-        return res.status(statusCode).json(
-            new ApiResponse(
-                existingCustomizer
-                    ? "Customizer updated successfully"
-                    : "Customizer created successfully",
-                statusCode,
-                customizer
-            )
-        );
-    } catch (error) {
-        // Rollback newly uploaded images if db save fails
-        if (logoPublicId) {
-            await cloudinaryDelete(logoPublicId);
-        }
-        if (signaturePublicId) {
-            await cloudinaryDelete(signaturePublicId);
-        }
-
-        throw new ApiError(
-            error.message || "Failed to save invoice customizer",
-            error.statusCode || 500
-        );
+      signatureUrl = uploadResult.optimizeUrl;
+      signaturePublicId = uploadResult.imageInfo.public_id;
+      newSignatureUploaded = true;
     }
+
+    const updateData = {
+      companyName,
+      companyGSTIN: gstin,
+      companyPhone: phone,
+      companyEmail: email,
+      companyAddress: address,
+      companyA4LayoutId: a4Layout,
+      companyThermalLayoutId: thermalLayout,
+    };
+
+    if (companyLogo) {
+      updateData.companyLogo = logoUrl;
+      updateData.companyLogoPublicId = logoPublicId;
+    } else if (currentLogo === "") {
+      updateData.companyLogo = null;
+      updateData.companyLogoPublicId = null;
+    }
+
+    if (companySignature) {
+      updateData.companySignature = signatureUrl;
+      updateData.companySignaturePublicId = signaturePublicId;
+    } else if (currentSignature === "") {
+      updateData.companySignature = null;
+      updateData.companySignaturePublicId = null;
+    }
+
+    let customizer;
+
+    if (existingCustomizer) {
+      customizer = await InvoiceCustomizer.findByIdAndUpdate(
+        existingCustomizer._id,
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+    } else {
+      customizer = await InvoiceCustomizer.create(updateData);
+    }
+
+    // Delete previous images only after the database save succeeds.
+    if (
+      companyLogo &&
+      oldLogoPublicId &&
+      oldLogoPublicId !== logoPublicId
+    ) {
+      try {
+        await cloudinaryDelete(oldLogoPublicId);
+      } catch (error) {
+        console.error("Old logo cleanup failed:", error.message);
+      }
+    }
+
+    if (
+      !companyLogo &&
+      currentLogo === "" &&
+      oldLogoPublicId
+    ) {
+      try {
+        await cloudinaryDelete(oldLogoPublicId);
+      } catch (error) {
+        console.error("Logo deletion failed:", error.message);
+      }
+    }
+
+    if (
+      companySignature &&
+      oldSignaturePublicId &&
+      oldSignaturePublicId !== signaturePublicId
+    ) {
+      try {
+        await cloudinaryDelete(oldSignaturePublicId);
+      } catch (error) {
+        console.error("Old signature cleanup failed:", error.message);
+      }
+    }
+
+    if (
+      !companySignature &&
+      currentSignature === "" &&
+      oldSignaturePublicId
+    ) {
+      try {
+        await cloudinaryDelete(oldSignaturePublicId);
+      } catch (error) {
+        console.error("Signature deletion failed:", error.message);
+      }
+    }
+
+    const statusCode = existingCustomizer ? 200 : 201;
+
+    return res.status(statusCode).json(
+      new ApiResponse(
+        existingCustomizer
+          ? "Customizer updated successfully"
+          : "Customizer created successfully",
+        statusCode,
+        customizer
+      )
+    );
+  } catch (error) {
+    // Remove only newly uploaded images if saving fails.
+    if (newLogoUploaded && logoPublicId) {
+      try {
+        await cloudinaryDelete(logoPublicId);
+      } catch (cleanupError) {
+        console.error(
+          "New logo rollback failed:",
+          cleanupError.message
+        );
+      }
+    }
+
+    if (newSignatureUploaded && signaturePublicId) {
+      try {
+        await cloudinaryDelete(signaturePublicId);
+      } catch (cleanupError) {
+        console.error(
+          "New signature rollback failed:",
+          cleanupError.message
+        );
+      }
+    }
+
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    console.error("Invoice customizer error:", error);
+
+    throw new ApiError(
+      error.message || "Failed to save invoice customizer",
+      error.statusCode || 500
+    );
+  }
 };
 
 const getInvoiceCustomizer = async (req, res) => {
-    const customizer = await InvoiceCustomizer.findOne();
+  const customizer = await InvoiceCustomizer.findOne();
 
-    return res.status(200).json(
-        new ApiResponse(
-            "Customizer fetched successfully",
-            200,
-            customizer
-        )
-    );
+  return res.status(200).json(
+    new ApiResponse(
+      "Customizer fetched successfully",
+      200,
+      customizer
+    )
+  );
 };
 
 export {
-    createOrUpdateInvoiceCustomizer,
-    getInvoiceCustomizer,
+  createOrUpdateInvoiceCustomizer,
+  getInvoiceCustomizer,
 };

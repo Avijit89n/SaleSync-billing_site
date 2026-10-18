@@ -1,51 +1,93 @@
 import { Item } from "../models/item.models.js";
 import ApiError from "../utils/apiError.js";
-import fs from "fs";
 import { cloudinaryDelete, cloudinaryUpload } from "../utils/cloudinary.js";
 import apiResponse from "../utils/apiResponse.js";
 
+
 const additem = async (req, res) => {
-    const { name, description, MRP, sellingPrice, stock, status, unit } = req.body;
-    console.log("Received item data:", req.body);
-    if (!name || !MRP || !sellingPrice || !unit) {
-        if (req.file) fs.unlinkSync(req.file.path)
-        throw new ApiError("Required fields are missing", 400);
-    }
-    if (Number(sellingPrice) > Number(MRP)) {
-        if (req.file) fs.unlinkSync(req.file.path)
-        throw new ApiError("Selling price cannot exceed MRP", 400);
-    }
-    let imageUrl = null;
-    let imagePublicId = null;
+  const {
+    name,
+    description,
+    MRP,
+    sellingPrice,
+    stock,
+    status,
+    unit,
+  } = req.body;
+
+  if (
+    !name?.trim() ||
+    MRP === undefined ||
+    MRP === "" ||
+    sellingPrice === undefined ||
+    sellingPrice === "" ||
+    !unit
+  ) {
+    throw new ApiError("Required fields are missing", 400);
+  }
+
+  if (
+    !Number.isFinite(Number(MRP)) ||
+    !Number.isFinite(Number(sellingPrice)) ||
+    Number(MRP) < 0 ||
+    Number(sellingPrice) < 0
+  ) {
+    throw new ApiError("Invalid price values", 400);
+  }
+
+  if (Number(sellingPrice) > Number(MRP)) {
+    throw new ApiError("Selling price cannot exceed MRP", 400);
+  }
+
+  let imageUrl = null;
+  let imagePublicId = null;
+
+  try {
     if (req.file) {
-        const uploadResult = await cloudinaryUpload(req.file.path);
-        if (!uploadResult?.optimizeUrl || !uploadResult?.imageInfo) {
-            throw new ApiError("Image upload failed", 500);
-        }
-        imageUrl = uploadResult.optimizeUrl;
-        imagePublicId = uploadResult.imageInfo.public_id;
+      const uploadResult = await cloudinaryUpload(req.file.buffer);
+
+      imageUrl = uploadResult.optimizeUrl;
+      imagePublicId = uploadResult.imageInfo.public_id;
     }
 
-    try {
-        const item = await Item.create({
-            name,
-            description,
-            MRP,
-            sellingPrice,
-            stock,
-            status,
-            unit,
-            image: imageUrl,
-            imagePublicId
-        });
-        return res.status(201).json(
-            new apiResponse("Item added successfully", 201, item)
-        );
-    } catch (error) {
-        if (imagePublicId) await cloudinaryDelete(imagePublicId);
-        throw new ApiError("Item creation failed", 500, error);
+    const item = await Item.create({
+      name: name.trim(),
+      description,
+      MRP: Number(MRP),
+      sellingPrice: Number(sellingPrice),
+      stock,
+      status,
+      unit,
+      image: imageUrl,
+      imagePublicId,
+    });
+
+    return res.status(201).json(
+      new apiResponse("Item added successfully", 201, item)
+    );
+  } catch (error) {
+    if (imagePublicId) {
+      try {
+        await cloudinaryDelete(imagePublicId);
+      } catch (cleanupError) {
+        console.error("Image rollback failed:", cleanupError.message);
+      }
     }
+
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    console.error("Add item error:", error);
+
+    throw new ApiError(
+      "Item creation failed",
+      500,
+      error
+    );
+  }
 };
+
 
 const getAllItem = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
@@ -274,7 +316,7 @@ const updateItem = async (req, res) => {
 
         // Scenario A: User uploaded a NEW image
         if (itemImage) {
-            const uploadResult = await cloudinaryUpload(itemImage.path);
+            const uploadResult = await cloudinaryUpload(itemImage.buffer);
 
             if (!uploadResult?.optimizeUrl || !uploadResult?.imageInfo) {
                 if (itemImage?.path && fs.existsSync(itemImage.path)) fs.unlinkSync(itemImage.path);
