@@ -322,6 +322,7 @@ function AddItems() {
                   value={addItemData.sellingPrice}
                   onChange={(e) => setAddItemData(prev => ({ ...prev, sellingPrice: e.target.value }))}
                   onWheel={(e) => e.target.blur()}
+                  required
                   placeholder={t("AddEditItem.SellingAmountPlaceholder")}
                   className={`${inputCls} font-mono font-semibold`}
                   autoComplete="off"
