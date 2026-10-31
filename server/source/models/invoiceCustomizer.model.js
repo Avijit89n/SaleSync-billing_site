@@ -19,7 +19,6 @@ const invoiceCustomizerSchema = new mongoose.Schema({
     },
     companyGSTIN: {
         type: String,
-        required: true,
     },
     companyLogo: {
         type: String,

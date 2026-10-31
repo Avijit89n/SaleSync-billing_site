@@ -23,7 +23,13 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
   const companyLogo = req.files?.companyLogo?.[0];
   const companySignature = req.files?.companySignature?.[0];
 
-  if (!companyName || !gstin || !phone || !email || !address) {
+  // GSTIN is optional.
+  if (
+    !companyName?.trim() ||
+    !phone?.trim() ||
+    !email?.trim() ||
+    !address?.trim()
+  ) {
     throw new ApiError("Required fields are missing", 400);
   }
 
@@ -42,6 +48,7 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
     existingCustomizer?.companySignaturePublicId;
 
   try {
+    // Upload company logo.
     if (companyLogo) {
       const uploadResult = await cloudinaryUpload(companyLogo.buffer);
 
@@ -50,6 +57,7 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
       newLogoUploaded = true;
     }
 
+    // Upload company signature.
     if (companySignature) {
       const uploadResult = await cloudinaryUpload(
         companySignature.buffer
@@ -60,16 +68,18 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
       newSignatureUploaded = true;
     }
 
+    // Prepare database update data.
     const updateData = {
-      companyName,
-      companyGSTIN: gstin,
-      companyPhone: phone,
-      companyEmail: email,
-      companyAddress: address,
+      companyName: companyName.trim(),
+      companyGSTIN: gstin?.trim() || "",
+      companyPhone: phone.trim(),
+      companyEmail: email.trim(),
+      companyAddress: address.trim(),
       companyA4LayoutId: a4Layout,
       companyThermalLayoutId: thermalLayout,
     };
 
+    // Handle company logo.
     if (companyLogo) {
       updateData.companyLogo = logoUrl;
       updateData.companyLogoPublicId = logoPublicId;
@@ -78,6 +88,7 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
       updateData.companyLogoPublicId = null;
     }
 
+    // Handle company signature.
     if (companySignature) {
       updateData.companySignature = signatureUrl;
       updateData.companySignaturePublicId = signaturePublicId;
@@ -88,6 +99,7 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
 
     let customizer;
 
+    // Update existing customizer or create a new one.
     if (existingCustomizer) {
       customizer = await InvoiceCustomizer.findByIdAndUpdate(
         existingCustomizer._id,
@@ -101,7 +113,9 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
       customizer = await InvoiceCustomizer.create(updateData);
     }
 
-    // Delete previous images only after the database save succeeds.
+    // Delete previous images only after database save succeeds.
+
+    // Delete old logo.
     if (
       companyLogo &&
       oldLogoPublicId &&
@@ -114,6 +128,7 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
       }
     }
 
+    // Delete logo when user removes it.
     if (
       !companyLogo &&
       currentLogo === "" &&
@@ -126,6 +141,7 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
       }
     }
 
+    // Delete old signature.
     if (
       companySignature &&
       oldSignaturePublicId &&
@@ -138,6 +154,7 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
       }
     }
 
+    // Delete signature when user removes it.
     if (
       !companySignature &&
       currentSignature === "" &&
@@ -162,7 +179,8 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
       )
     );
   } catch (error) {
-    // Remove only newly uploaded images if saving fails.
+    // Remove newly uploaded images if database saving fails.
+
     if (newLogoUploaded && logoPublicId) {
       try {
         await cloudinaryDelete(logoPublicId);
@@ -198,6 +216,7 @@ const createOrUpdateInvoiceCustomizer = async (req, res) => {
   }
 };
 
+// Get invoice customizer.
 const getInvoiceCustomizer = async (req, res) => {
   const customizer = await InvoiceCustomizer.findOne();
 

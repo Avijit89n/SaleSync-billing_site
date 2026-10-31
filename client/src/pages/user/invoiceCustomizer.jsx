@@ -128,7 +128,6 @@ const getComparableValue = (value) => {
   }
   return value ?? null;
 };
-
 const getComparableCompanyInfo = (info) => ({
   companyName: info.companyName || "",
   gstin: info.gstin || "",
@@ -140,7 +139,6 @@ const getComparableCompanyInfo = (info) => ({
   a4Layout: info.a4Layout || "invoiceDesign1",
   thermalLayout: info.thermalLayout || "thermalDesign1",
 });
-
 function InvoiceCustomizer() {
   const { t } = useTranslation();
   const [activePreviewLayout, setActivePreviewLayout] = useState(null);
@@ -151,12 +149,10 @@ function InvoiceCustomizer() {
   const [fetchLoading, setFetchLoading] = useState(false);
   const savedDataRef = useRef(getComparableCompanyInfo(initialData));
   const initializedRef = useRef(false);
-
   const hasUnsavedChanges =
     initializedRef.current &&
     JSON.stringify(getComparableCompanyInfo(companyInfo)) !==
       JSON.stringify(savedDataRef.current);
-
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       initializedRef.current &&
@@ -168,27 +164,22 @@ function InvoiceCustomizer() {
         currentLocation.hash !== nextLocation.hash
       )
   );
-
   useEffect(() => {
     if (blocker.state !== "blocked") return;
-
     const shouldLeave = window.confirm(
       t("InvoiceCustomizer.unsavedChangesMessage", {
         defaultValue: "You have unsaved changes. Are you sure you want to leave this page? Your changes will be lost.",
       })
     );
-
     if (shouldLeave) blocker.proceed();
     else blocker.reset();
   }, [blocker, t]);
-
   useEffect(() => {
     const handleBeforeUnload = (event) => {
       if (!hasUnsavedChanges || saving) return;
       event.preventDefault();
       event.returnValue = "";
     };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges, saving]);
@@ -197,7 +188,7 @@ function InvoiceCustomizer() {
     setSaving(true);
     const formData = new FormData();
     formData.append("companyName", companyInfo.companyName);
-    formData.append("gstin", companyInfo.gstin);
+    formData.append("gstin", companyInfo.gstin?.trim() || "");
     formData.append("phone", companyInfo.phone);
     formData.append("email", companyInfo.email);
     formData.append("address", companyInfo.address);
@@ -434,8 +425,18 @@ function InvoiceCustomizer() {
                     <Input disabled={saving} id="comp-name" placeholder={t('InvoiceCustomizer.enterCompanyName')} value={companyInfo.companyName} onChange={(e) => setCompanyInfo({ ...companyInfo, companyName: e.target.value })} className={inputCls} required />
                   </Field>
                   <Field className="space-y-1">
-                    <FieldLabel htmlFor="comp-gstin" className={labelCls}>{t('InvoiceCustomizer.gstinLabel')} <span className='text-orange-500'>*</span></FieldLabel>
-                    <Input disabled={saving} id="comp-gstin" placeholder={t('InvoiceCustomizer.enterGstin')} value={companyInfo.gstin} onChange={(e) => setCompanyInfo({ ...companyInfo, gstin: e.target.value })} className={inputCls} required />
+                    <FieldLabel htmlFor="comp-gstin" className={labelCls}>
+                      {t('InvoiceCustomizer.gstinLabel')}
+                      <span className="ml-1 text-xs font-normal normal-case text-slate-400">(Optional)</span>
+                    </FieldLabel>
+                    <Input
+                      disabled={saving}
+                      id="comp-gstin"
+                      placeholder={t('InvoiceCustomizer.enterGstin')}
+                      value={companyInfo.gstin}
+                      onChange={(e) => setCompanyInfo({ ...companyInfo, gstin: e.target.value })}
+                      className={inputCls}
+                    />
                   </Field>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
