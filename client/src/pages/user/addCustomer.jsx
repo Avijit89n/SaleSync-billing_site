@@ -153,7 +153,7 @@ function AddCustomer() {
                     <FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Field className="space-y-1">
                             <FieldLabel htmlFor="display-name" className={labelCls}>
-                                {t("CustomerForm.Fields.CustomerName")} <span className='text-orange-500'>\*</span>
+                                {t("CustomerForm.Fields.CustomerName")} <span className='text-orange-500'>*</span>
                             </FieldLabel>
                             <Input
                                 disabled={customerLoading}
@@ -167,7 +167,7 @@ function AddCustomer() {
                         </Field>
                         <Field className="space-y-1">
                             <FieldLabel htmlFor="phone" className={labelCls}>
-                                {t("CustomerForm.Fields.WorkPhone")} <span className='text-orange-500'>\*</span>
+                                {t("CustomerForm.Fields.WorkPhone")} <span className='text-orange-500'>*</span>
                             </FieldLabel>
                             <Input
                                 disabled={customerLoading}
