@@ -200,7 +200,7 @@ export default function ThermalInvoice({ companyInfo, companyLogo, companySignat
               <View style={styles.rateCell}>
                 <Text style={[styles.itemText, { fontWeight: "bold" }]}>{money(rate)}</Text>
                 {mrp > 0 && (
-                  <Text style={styles.itemMrpText}>{money(mrp)} MRP</Text>
+                  <Text style={styles.itemMrpText}>MRP {money(mrp)}</Text>
                 )}
               </View>
               <Text style={[styles.amountColumn, styles.itemText, { fontWeight: "bold" }]}>{money(amount)}</Text>
