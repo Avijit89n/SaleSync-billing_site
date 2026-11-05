@@ -105,33 +105,47 @@ const getSellingPrice = (item) => money(nonNegativeNumber(item.sellingPrice));
 const getDiscountValue = (item) => nonNegativeNumber(item.discount);
 
 const hasApplicableDiscount = (item) =>
-  getSellingPrice(item) > 0 && getDiscountValue(item) > 0 && getMRP(item) > 0;
+  getDiscountValue(item) > 0 && getMRP(item) > 0;
 
-// Discount is calculated from MRP. A fixed-rupee discount applies per unit.
-// The per-unit discount is capped at MRP so an item's amount can never be negative.
+// Invoice discount is always calculated from MRP. A fixed-rupee discount
+// applies per unit and is capped at MRP to prevent a negative final amount.
 const getDiscountPerUnit = (item) => {
   if (!hasApplicableDiscount(item)) return 0;
+
   const mrp = getMRP(item);
   const discount = getDiscountValue(item);
   const requestedDiscount = item.discountType === "%"
     ? money(mrp * (Math.min(discount, 100) / 100))
     : money(discount);
+
   return money(Math.min(mrp, requestedDiscount));
 };
 
-const getItemDiscountAmount = (item) =>
-  money(getDiscountPerUnit(item) * getQuantity(item));
-
-// Subtotal is the sum of original selling price × quantity, whether discounted or not.
-const getItemBaseAmount = (item) =>
-  money(getSellingPrice(item) * getQuantity(item));
-
-// Amount per row: discounted MRP × quantity when a valid discount exists;
-// otherwise selling price × quantity. Selling price itself is never overwritten.
+// Final amount payable for one unit. Without an invoice discount, the listing
+// unit price is final. With a discount, the discounted MRP is the final amount.
 const getDiscountedUnitPrice = (item) => {
   if (!hasApplicableDiscount(item)) return getSellingPrice(item);
   return money(Math.max(0, getMRP(item) - getDiscountPerUnit(item)));
 };
+
+// The displayed invoice unit price is the higher of the listing unit price
+// and discounted MRP. This implements the two cases without losing the listing price.
+const getInvoiceUnitPrice = (item) => {
+  if (!hasApplicableDiscount(item)) return getSellingPrice(item);
+  return money(Math.max(getSellingPrice(item), getDiscountedUnitPrice(item)));
+};
+
+// Only the difference between displayed unit price and payable amount is
+// treated as an effective discount on the invoice.
+const getDiscountPerUnitAfterPriceFloor = (item) =>
+  money(Math.max(0, getInvoiceUnitPrice(item) - getDiscountedUnitPrice(item)));
+
+const getItemDiscountAmount = (item) =>
+  money(getDiscountPerUnitAfterPriceFloor(item) * getQuantity(item));
+
+// Subtotal is displayed invoice unit price × quantity.
+const getItemBaseAmount = (item) =>
+  money(getInvoiceUnitPrice(item) * getQuantity(item));
 
 const calcRowAmount = (item) =>
   money(getDiscountedUnitPrice(item) * getQuantity(item));
@@ -597,9 +611,8 @@ function AddInvoice() {
             name: item.name,
             quantity: Number(item.quantity) || 1,
             MRP: Number(item.MRP) || 0,
-            // Keep selling price unchanged. The discount is calculated from MRP
-            // and the final line amount is supplied separately for invoice displays.
-            sellingPrice: Number((Number(item.sellingPrice) || 0).toFixed(2)),
+            // Save the effective invoice unit price after applying the price-floor rule.
+            sellingPrice: getInvoiceUnitPrice(item),
             discount: hasApplicableDiscount(item) ? Number(item.discount) || 0 : 0,
             discountType: item.discountType || "%",
             discountAmount: Number(getItemDiscountAmount(item).toFixed(2)),
@@ -752,16 +765,15 @@ function AddInvoice() {
         note: paymentNote.trim()
       }] : [],
       selectedCustomer: selectedCustomer,
-      // Keep the PDF template unchanged. It calculates each line as
-      // quantity * rate - itemDiscountAmount, so pass the reconciled discount
-      // (selling-price subtotal minus the intended discounted line amount),
-      // not the configured discount input from the product form.
+      // Keep the PDF templates unchanged. Pass the effective invoice unit price
+      // and the effective discount so their existing line calculations match
+      // the invoice totals under the MRP-based discount rule.
       itemData: itemData.map((item) => {
         const discountApplied = hasApplicableDiscount(item);
         const rowSubtotal = getItemBaseAmount(item);
         const rowAmount = calcRowAmount(item);
         const reconciledItemDiscount = money(Math.max(0, rowSubtotal - rowAmount));
-        const sellingPrice = getSellingPrice(item);
+        const sellingPrice = getInvoiceUnitPrice(item);
         const mrp = getMRP(item);
         const discountedPrice = getDiscountedUnitPrice(item);
 
@@ -1424,9 +1436,6 @@ function AddInvoice() {
                             const value = e.target.value;
                             if (!isValidDecimalInput(value)) return;
                             updateItem(index, "sellingPrice", value);
-                            if (value !== "" && Number(value) <= 0 && Number(data.discount) > 0) {
-                              updateItem(index, "discount", "0.00");
-                            }
                           }}
                           onBlur={() => {
                             const value = normalizeMoney(data.sellingPrice);
@@ -1434,7 +1443,7 @@ function AddInvoice() {
                           }}
                           inputMode="decimal"
                           type="text"
-                          title="Selling price remains editable; discount is calculated from MRP"
+                          title="Editable unit price. Invoice discount is calculated on MRP."
                           className="w-full h-10 px-2 min-w-20 border border-slate-300 rounded-lg text-sm text-center font-mono font-medium bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/15 focus:border-orange-400"
                         />
                       </TableCell>
@@ -1444,16 +1453,16 @@ function AddInvoice() {
                           <input
                             onFocus={(e) => e.target.select()}
                             value={data.discount ?? ""}
-                            disabled={(Number(data.sellingPrice) || 0) <= 0}
+                            disabled={(Number(data.MRP) || 0) <= 0}
                             onChange={(e) => {
-                              if ((Number(data.sellingPrice) || 0) <= 0) return;
+                              if ((Number(data.MRP) || 0) <= 0) return;
                               const value = e.target.value;
                               if (!isValidDecimalInput(value)) return;
                               if (data.discountType === "%" && value !== "" && Number(value) > 100) return;
                               updateItem(index, "discount", value);
                             }}
                             onBlur={() => {
-                              if ((Number(data.sellingPrice) || 0) <= 0) {
+                              if ((Number(data.MRP) || 0) <= 0) {
                                 updateItem(index, "discount", "0.00");
                                 return;
                               }
@@ -1469,9 +1478,9 @@ function AddInvoice() {
                           />
                           <Select
                             value={data.discountType}
-                            disabled={(Number(data.sellingPrice) || 0) <= 0}
+                            disabled={(Number(data.MRP) || 0) <= 0}
                             onValueChange={(val) => {
-                              if ((Number(data.sellingPrice) || 0) > 0) updateItem(index, "discountType", val);
+                              if ((Number(data.MRP) || 0) > 0) updateItem(index, "discountType", val);
                             }}
                           >
                             <SelectTrigger className="w-14  rounded-l-none border border-slate-300 bg-slate-50 px-2 py-[19px] font-semibold">
@@ -1608,7 +1617,7 @@ function AddInvoice() {
                         }}
                         inputMode="decimal"
                         type="text"
-                        title="Selling price remains editable; discount is calculated from MRP"
+                        title="Editable unit price. Invoice discount is calculated on MRP."
                         className="w-full min-w-0 h-11 px-1.5 border border-slate-300 rounded-lg text-[13px] text-center font-semibold font-mono bg-white focus:border-orange-400 focus:outline-none"
                       />
                     </div>
@@ -1619,16 +1628,16 @@ function AddInvoice() {
                         <input
                           value={data.discount ?? ""}
                           onFocus={(e) => e.target.select()}
-                          disabled={(Number(data.sellingPrice) || 0) <= 0}
+                          disabled={(Number(data.MRP) || 0) <= 0}
                           onChange={(e) => {
-                            if ((Number(data.sellingPrice) || 0) <= 0) return;
+                            if ((Number(data.MRP) || 0) <= 0) return;
                             const value = e.target.value;
                             if (!isValidDecimalInput(value)) return;
                             if (data.discountType === "%" && value !== "" && Number(value) > 100) return;
                             updateItem(index, "discount", value);
                           }}
                           onBlur={() => {
-                            if ((Number(data.sellingPrice) || 0) <= 0) {
+                            if ((Number(data.MRP) || 0) <= 0) {
                               updateItem(index, "discount", "0.00");
                               return;
                             }
@@ -1640,14 +1649,14 @@ function AddInvoice() {
                           }}
                           inputMode="decimal"
                           type="text"
-                          className={`w-full min-w-0 h-11 px-1 border border-slate-300 border-r-0 rounded-l-lg text-[12px] text-center font-mono tabular-nums ${(Number(data.sellingPrice) || 0) <= 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-white"}`}
+                          className={`w-full min-w-0 h-11 px-1 border border-slate-300 border-r-0 rounded-l-lg text-[12px] text-center font-mono tabular-nums ${(Number(data.MRP) || 0) <= 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-white"}`}
                         />
 
                         <Select
                           value={data.discountType}
-                          disabled={(Number(data.sellingPrice) || 0) <= 0}
+                          disabled={(Number(data.MRP) || 0) <= 0}
                           onValueChange={(val) => {
-                            if ((Number(data.sellingPrice) || 0) > 0) updateItem(index, "discountType", val);
+                            if ((Number(data.MRP) || 0) > 0) updateItem(index, "discountType", val);
                           }}
                         >
                           <SelectTrigger className="w-11 min-w-11 py-[21.5px] rounded-l-none border border-slate-300 bg-slate-50 px-1 font-semibold text-xs">
@@ -2011,7 +2020,7 @@ function AddInvoice() {
                   type="button"
                   onClick={() => {
                     setItemData(prev => prev.map((it, i) => i === activeRowIndex ? {
-                      ...it, _id: "", name: catalogSearch, unit: "", MRP: 0, sellingPrice: 0, image: null,
+                      ...it, _id: "", name: catalogSearch, unit: "", MRP: 0, sellingPrice: 0, discount: "0.00", discountType: "%", image: null,
                     } : it));
                     setIsCatalogOpen(false);
                     setCatalogSearch("");
@@ -2043,6 +2052,8 @@ function AddInvoice() {
                           unit: product.unit || "",
                           MRP: product.MRP || 0,
                           sellingPrice: product.sellingPrice || 0,
+                          discount: "0.00",
+                          discountType: "%",
                           image: product.image || null,
                         } : it));
                         setIsCatalogOpen(false);
