@@ -19,11 +19,23 @@ const discountCalculate = (MRP, sellingPrice) => {
   return discount.toFixed(0);
 };
 const formatCurrency = (value) => {
+  const rawValue = String(value ?? 0).trim();
+  const decimalMatch = rawValue.match(/^(-?)(\d+)(?:\.(\d*))?$/);
+  let formattedValue;
+  if (decimalMatch) {
+    const [, sign, integerPart, decimalPart = ""] = decimalMatch;
+    const truncatedDecimal = decimalPart.slice(0, 2).padEnd(2, "0");
+    formattedValue = Number(`${sign}${integerPart}.${truncatedDecimal}`);
+  } else {
+    const number = Number(value) || 0;
+    formattedValue = Math.trunc((number + Math.sign(number) * Number.EPSILON) * 100) / 100;
+  }
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(formattedValue);
 };
 const ProductImage = ({ src, alt, size = "table" }) => {
   const { t } = useTranslation();
