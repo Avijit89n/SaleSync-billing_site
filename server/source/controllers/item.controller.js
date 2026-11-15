@@ -89,50 +89,19 @@ const additem = async (req, res) => {
 };
 
 
-
 const getAllItem = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
-    const cursorToken = req.query.lastCreatedAt;
+    const lastCreatedAt = req.query.lastCreatedAt;
 
     let query = {};
 
+    if (lastCreatedAt) {
+        query.createdAt = { $lt: new Date(lastCreatedAt) };
+    }
+
     try {
-        if (cursorToken) {
-            let cursor;
-
-            try {
-                cursor = JSON.parse(
-                    Buffer.from(cursorToken, "base64url").toString("utf8")
-                );
-            } catch {
-                throw new ApiError("Invalid pagination cursor", 400);
-            }
-
-            const cursorDate = new Date(cursor.updatedAt);
-
-            if (
-                !cursor.updatedAt ||
-                Number.isNaN(cursorDate.getTime()) ||
-                !cursor._id
-            ) {
-                throw new ApiError("Invalid pagination cursor", 400);
-            }
-
-            query = {
-                $or: [
-                    {
-                        updatedAt: { $lt: cursorDate }
-                    },
-                    {
-                        updatedAt: cursorDate,
-                        _id: { $lt: cursor._id }
-                    }
-                ]
-            };
-        }
-
         const items = await Item.find(query)
-            .sort({ updatedAt: -1, _id: -1 })
+            .sort({ createdAt: -1 })
             .limit(limit + 1);
 
         let isEnd = true;
@@ -141,15 +110,7 @@ const getAllItem = async (req, res) => {
         if (items.length > limit) {
             isEnd = false;
             items.pop();
-
-            const lastItem = items[items.length - 1];
-
-            nextCursor = Buffer.from(
-                JSON.stringify({
-                    updatedAt: lastItem.updatedAt,
-                    _id: lastItem._id
-                })
-            ).toString("base64url");
+            nextCursor = items[items.length - 1].createdAt;
         }
 
         return res.status(200).json(
@@ -159,16 +120,10 @@ const getAllItem = async (req, res) => {
                 nextCursor
             })
         );
-
     } catch (error) {
-        if (error instanceof ApiError) {
-            throw error;
-        }
-
         throw new ApiError("Failed to fetch items", 500, error);
     }
 };
-
 
 const itemSearch = async (req, res) => {
     const limit = Number(req.query.limit) || 10;

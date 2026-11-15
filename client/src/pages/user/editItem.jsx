@@ -176,7 +176,7 @@ function EditItem() {
           loading: t("AddEditItem.EditToast.Updating"),
           success: (res) => {
             savedRef.current = true;
-            navigate("/user/all-items");
+            navigate(-1);
             console.log("Item updated successfully:", res);
             return res?.message || t("AddEditItem.EditToast.UpdateSuccess");
           },

@@ -193,10 +193,10 @@ const itemSlice = createSlice({
 
             .addCase(deleteItemReq.fulfilled, (state, action) => {
                 state.deleteLoading = false
-                state.items = state.items.filter(item =>
+                state.items = state.items.filter(item => 
                     action.payload._id !== item._id
                 )
-                state.searchedItems = state.searchedItems.filter(item =>
+                state.searchedItems = state.searchedItems.filter(item => 
                     action.payload._id !== item._id
                 )
                 state.error = null
@@ -216,13 +216,11 @@ const itemSlice = createSlice({
             })
             .addCase(updateItemReq.fulfilled, (state, action) => {
                 state.itemLoading = false;
-                const updatedItem = action.payload?.data;
-                if (updatedItem?._id) {
-                    state.items = [
-                        updatedItem,
-                        ...state.items.filter((item) => item._id !== updatedItem._id)
-                    ];
-                }
+                state.items = state.items.map((item) =>
+                    item._id === action.payload?.data?._id
+                        ? action.payload?.data
+                        : item
+                )
                 state.error = null;
             })
             .addCase(updateItemReq.rejected, (state, action) => {
