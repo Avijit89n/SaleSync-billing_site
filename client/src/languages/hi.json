@@ -217,7 +217,7 @@
         "Close": "बंद करें",
         "DeleteItemTitle": "वस्तु हटाएँ?",
         "DeleteItemQuestion": "क्या आप",
-        "DeleteItemDescription": "क्या आप इसे इस चालान से स्थायी रूप से हटाना चाहते हैं? यह कार्रवाई वापस नहीं की जा सकती।",
+        "DeleteItemDescription": "को इस चालान से स्थायी रूप से हटाना चाहते हैं? यह कार्रवाई वापस नहीं की जा सकती।",
         "ThisItem": "इस वस्तु को",
         "Cancel": "रद्द करें",
         "ConfirmDelete": "हटाने की पुष्टि करें",
@@ -239,7 +239,9 @@
             "LoadCompanyDetailsFailed": "कंपनी की जानकारी लोड नहीं हो सकी। फिर कोशिश करें।",
             "UnableToLoadItems": "वस्तुओं की सूची लोड नहीं हो सकी।",
             "UnableToSearchItems": "वस्तु खोजी नहीं जा सकी।",
-            "UnableToLoadMoreItems": "और वस्तुएँ लोड नहीं हो सकीं।"
+            "UnableToLoadMoreItems": "और वस्तुएँ लोड नहीं हो सकीं।",
+            "ValidInvoiceDates": "कृपया चालान और भुगतान की अंतिम तारीख सही दर्ज करें।",
+            "TaxRateRange": "कर की दर 0 से 100% के बीच होनी चाहिए।"
         },
         "Toast": {
             "SavingInvoice": "चालान सहेजा जा रहा है...",
@@ -248,7 +250,23 @@
         },
         "AddNewCustomer": "“{{search}}” को नया {{type}} बनाकर जोड़ें",
         "CustomerNameNumber": "ग्राहक का नाम / फ़ोन",
-        "AddNewItem": "नई वस्तु जोड़ें"
+        "AddNewItem": "नई वस्तु जोड़ें",
+        "Clear": "साफ़ करें",
+        "ClearAddedItemSearch": "जोड़ी गई वस्तुओं की खोज साफ़ करें",
+        "DiscountedItemTotal": "छूट के बाद वस्तुओं का कुल",
+        "LineItemsDescription": "इस चालान में वस्तुएँ जोड़ें और उनकी मात्रा, कीमत तथा छूट की जाँच करें।",
+        "NoAddedItemsMatch": "‘{{search}}’ से मेल खाने वाली कोई जोड़ी गई वस्तु नहीं मिली।",
+        "SearchAddedItems": "इस चालान में जोड़ी गई वस्तुएँ खोजें...",
+        "SearchAddedItemsHint": "यह खोज केवल चालान में पहले से जोड़ी गई वस्तुओं को फ़िल्टर करती है। यह उत्पाद कैटलॉग में खोज नहीं करती।",
+        "SearchingProducts": "उत्पाद खोजे जा रहे हैं...",
+        "ShowingAddedItems": "कुल {{total}} जोड़ी गई वस्तुओं में से {{visible}} दिखाई जा रही हैं",
+        "EditableMRPTooltip": "चालान का एमआरपी संपादित किया जा सकता है। यह बदलाव कैटलॉग की वस्तु को अपडेट नहीं करेगा।",
+        "EditableUnitPriceTooltip": "प्रति इकाई मूल्य संपादित किया जा सकता है। चालान की छूट एमआरपी पर आधारित है।",
+        "PaymentStatus": "भुगतान की स्थिति",
+        "UnsavedChanges": {
+            "Message": "आपका चालान अभी सहेजा नहीं गया है। क्या आप वाकई यह पृष्ठ छोड़ना चाहते हैं? आपके बदलाव खो जाएँगे।"
+        },
+        "ItemCount": "वस्तुएँ: {{count}}"
     },
     "Invoices": {
         "Title": "सभी चालान",

@@ -239,17 +239,35 @@
       "LoadCompanyDetailsFailed": "Failed to load company details. Please try again.",
       "UnableToLoadItems": "Unable to load items",
       "UnableToSearchItems": "Unable to search items",
-      "UnableToLoadMoreItems": "Unable to load more items"
+      "UnableToLoadMoreItems": "Unable to load more items",
+      "ValidInvoiceDates": "Please enter valid invoice and due dates.",
+      "TaxRateRange": "Tax rate must be between 0 and 100%."
     },
     "Toast": {
       "SavingInvoice": "Saving invoice...",
       "InvoiceSaved": "Invoice saved successfully!",
       "PdfDownloadedPrint": "PDF downloaded. Open it and use your PDF viewer's Print option."
     },
-    "DeleteItemQuestion": "DeleteItemQuestion",
+    "DeleteItemQuestion": "Are you sure you want to delete",
     "AddNewCustomer": "Add “{{search}}” as a new {{type}}",
     "CustomerNameNumber": "Customer Name / Phone",
-    "AddNewItem": "Add New Item Line"
+    "AddNewItem": "Add New Item Line",
+    "Clear": "Clear",
+    "ClearAddedItemSearch": "Clear added item search",
+    "DiscountedItemTotal": "Discounted Item Total",
+    "LineItemsDescription": "Add products to this invoice and review their quantity, prices and discounts.",
+    "NoAddedItemsMatch": "No added items match “{{search}}”.",
+    "SearchAddedItems": "Search items already added to this invoice...",
+    "SearchAddedItemsHint": "Search only filters items already added to this invoice. It does not search the product catalog.",
+    "SearchingProducts": "Searching products...",
+    "ShowingAddedItems": "Showing {{visible}} of {{total}} added items",
+    "EditableMRPTooltip": "Editable invoice MRP. This change does not update the catalog item.",
+    "EditableUnitPriceTooltip": "Editable unit price. Invoice discount is calculated on MRP.",
+    "PaymentStatus": "Payment Status",
+    "UnsavedChanges": {
+      "Message": "You have an unsaved invoice. Are you sure you want to leave this page? Your changes will be lost."
+    },
+    "ItemCount": "Items: {{count}}"
   },
   "Invoices": {
     "Title": "All Invoices",
